@@ -17,16 +17,16 @@ class PortfolioExplainer:
         labels = {asset.code: asset.name for asset in ASSET_UNIVERSE}
         top_assets = weights.sort_values(ascending=False).head(2)
         top_text = ", ".join(f"{labels[code]} {weight:.0%}" for code, weight in top_assets.items())
-        fallback_text = " Fallback weights were used because optimization became unstable." if used_fallback else ""
+        fallback_text = " 최적화가 불안정해져 사전 정의한 대체 비중을 사용했습니다." if used_fallback else ""
         return (
-            f"This demo allocation targets about {target_volatility:.1%} annual volatility and lands at "
-            f"{volatility:.1%} expected volatility with {expected_return:.1%} expected return. "
-            f"The largest exposures are {top_text}.{fallback_text}"
+            f"이 시뮬레이션은 연 {target_volatility:.1%} 수준의 목표 변동성을 기준으로 포트폴리오를 선택했고, "
+            f"예상 변동성은 {volatility:.1%}, 예상 수익률은 {expected_return:.1%}로 계산되었습니다. "
+            f"가장 큰 비중은 {top_text}입니다.{fallback_text}"
         )
 
     def build_why_this_portfolio(self, volatility: float, expected_return: float) -> str:
         return (
-            "This allocation lies on the Efficient Frontier, meaning it aims to deliver the "
-            f"highest expected return available near {volatility:.1%} annual risk. "
-            f"For this demo, that corresponds to an estimated return of {expected_return:.1%}."
+            "이 포트폴리오는 효율적 투자선 위의 한 점으로, "
+            f"연 {volatility:.1%} 수준의 위험에서 기대할 수 있는 수익을 최대화하도록 선택된 예시입니다. "
+            f"이번 데모 기준 예상 수익률은 {expected_return:.1%}입니다."
         )

@@ -53,19 +53,19 @@ class AllocationEngine:
         risk_contributions = self._risk_contributions(result.weights, covariance)
         frontier_options = self._frontier_options(result.frontier)
         selected_point = FrontierPoint(
-            label="Current Portfolio",
+            label="현재 포트폴리오",
             volatility=round(result.volatility, 4),
             expected_return=round(result.expected_return, 4),
         )
 
         return PortfolioResponse(
             disclaimer=(
-                "Demo only. This API simulates asset allocation using sample data and "
-                "does not predict markets or provide investment advice."
+                "본 결과는 샘플 데이터 기반의 데모용 자산배분 시뮬레이션이며, "
+                "시장 예측이나 투자 자문을 제공하지 않습니다."
             ),
             summary=summary,
             explanation=ExplanationCard(
-                title="Why this portfolio?",
+                title="왜 이런 포트폴리오가 나왔을까?",
                 body=self.explainer.build_why_this_portfolio(result.volatility, result.expected_return),
             ),
             target_volatility=round(target_volatility, 4),
@@ -120,7 +120,7 @@ class AllocationEngine:
         return {code: value for code, value in zip(weights.index, contribution)}
 
     def _frontier_options(self, frontier: list[dict]) -> list[FrontierPoint]:
-        labels = ["Conservative", "Balanced", "Growth"]
+        labels = ["안정형", "균형형", "성장형"]
         if not frontier:
             return []
         indices = np.linspace(0, len(frontier) - 1, num=3).round().astype(int)

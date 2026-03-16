@@ -39,7 +39,7 @@ class PortfolioRequest(BaseModel):
     @model_validator(mode="after")
     def validate_profile_and_target(self) -> "PortfolioRequest":
         if self.risk_profile == "conservative" and self.target_volatility and self.target_volatility > 0.12:
-            raise ValueError("Conservative profile cannot target volatility above 12%.")
+            raise ValueError("안정형 성향은 목표 변동성을 12% 초과로 설정할 수 없습니다.")
         return self
 
 

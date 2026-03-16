@@ -3,11 +3,11 @@ from fastapi.responses import HTMLResponse
 
 def render_homepage() -> HTMLResponse:
     html = """<!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Efficient Frontier Portfolio Simulator</title>
+  <title>효율적 투자선 자산배분 시뮬레이터</title>
   <style>
     :root {
       --bg: #f6f1e8;
@@ -443,145 +443,147 @@ def render_homepage() -> HTMLResponse:
   <div class="shell">
     <section class="hero">
       <div class="panel hero-copy">
-        <div class="eyebrow">Modern Portfolio Theory Demo</div>
-        <h1>Efficient Frontier<br />Portfolio Simulator</h1>
+        <div class="eyebrow">위험-수익 구조 기반 데모</div>
+        <h1>효율적 투자선<br />자산배분 시뮬레이터</h1>
         <p class="lead">
-          This demo is designed to show one thing clearly: your selected allocation is a point on the Efficient Frontier.
-          Move the risk setting, watch the point shift, and see how weights and risk contribution change with it.
+          이 데모의 핵심은 선택된 포트폴리오가 효율적 투자선 위의 한 점이라는 사실을
+          직관적으로 보여주는 것입니다. 위험 수준을 바꾸면 점의 위치와 비중, 리스크 기여도가 함께 변합니다.
         </p>
         <div class="hero-note">
-          Demo only. This service uses deterministic sample data for stable presentations and does not predict markets or provide investment advice.
+          본 서비스는 발표와 시연을 위한 데모입니다. 결과는 고정된 샘플 데이터를 기반으로 계산되며,
+          시장 예측이나 투자 자문을 제공하지 않습니다.
         </div>
       </div>
       <div class="panel hero-side">
-        <h2>Demo Focus</h2>
-        <strong>Explain first.<br />Numbers later.</strong>
+        <h2>데모 핵심</h2>
+        <strong>먼저 구조를 보고,<br />그 다음 숫자를 봅니다.</strong>
         <p>
-          The interface repeats the same message through the chart, the selected point, and the explanation card:
-          this portfolio sits on the most efficient return-for-risk region available in the sample universe.
+          차트, 선택된 포인트, 설명 카드가 같은 메시지를 반복합니다.
+          이 포트폴리오는 샘플 자산군 안에서 위험 대비 가장 효율적인 구간 위에 놓여 있습니다.
         </p>
       </div>
     </section>
 
     <section class="app-grid">
       <aside class="panel controls">
-        <p class="kicker"><span class="step">1</span>Risk Selection</p>
-        <h2 class="section-title">Choose the risk position</h2>
+        <p class="kicker"><span class="step">1</span>위험 선택</p>
+        <h2 class="section-title">원하는 위험 수준을 정하세요</h2>
         <form id="portfolio-form">
           <div class="field slider-wrap">
             <div class="slider-value">
               <div>
-                <label for="risk_slider">Risk Slider</label>
-                <strong id="risk-label">Balanced</strong>
+                <label for="risk_slider">위험 슬라이더</label>
+                <strong id="risk-label">균형형</strong>
               </div>
-              <div id="slider-target">11.0% vol</div>
+              <div id="slider-target">11.0% 목표 변동성</div>
             </div>
             <input id="risk_slider" type="range" min="0" max="100" step="1" value="50" />
             <div class="slider-labels">
-              <span>Conservative</span>
-              <span>Aggressive</span>
+              <span>안정형</span>
+              <span>공격형</span>
             </div>
           </div>
 
           <div class="field">
             <label for="investment_horizon">Investment Horizon</label>
             <select id="investment_horizon" name="investment_horizon">
-              <option value="short">Short</option>
-              <option value="medium" selected>Medium</option>
-              <option value="long">Long</option>
+              <option value="short">단기</option>
+              <option value="medium" selected>중기</option>
+              <option value="long">장기</option>
             </select>
           </div>
 
           <div class="field">
-            <label for="target_volatility">Optional exact target volatility</label>
-            <input id="target_volatility" name="target_volatility" type="number" step="0.01" min="0.03" max="0.25" placeholder="Override slider, e.g. 0.11" />
+            <label for="target_volatility">목표 변동성 직접 입력</label>
+            <input id="target_volatility" name="target_volatility" type="number" step="0.01" min="0.03" max="0.25" placeholder="예: 0.11" />
           </div>
 
-          <button type="submit">Recalculate Portfolio</button>
+          <button type="submit">포트폴리오 다시 계산하기</button>
           <div id="status" class="status"></div>
         </form>
 
         <p class="hint">
-          The slider controls where the current portfolio sits on the frontier. You can still override it with an exact target volatility if you want.
+          슬라이더를 움직이면 효율적 투자선 위에서 현재 포트폴리오 위치가 바뀝니다.
+          필요하면 목표 변동성을 직접 숫자로 입력할 수도 있습니다.
         </p>
       </aside>
 
       <div class="results">
         <section class="panel chart-card">
-          <p class="kicker"><span class="step">2</span>Frontier View</p>
+          <p class="kicker"><span class="step">2</span>프론티어 보기</p>
           <div class="chart-head">
             <div>
-              <h2 class="section-title">Efficient Frontier Chart</h2>
+              <h2 class="section-title">효율적 투자선 차트</h2>
               <div class="chart-copy" id="chart-copy">
-                The selected portfolio should sit directly on the frontier line, above the cloud of feasible random portfolios.
+                선택된 포트폴리오는 가능한 포트폴리오 점 구름 위쪽의 효율적 투자선 위에 표시됩니다.
               </div>
             </div>
             <div class="legend">
-              <span><i class="swatch" style="background: rgba(31,95,139,0.28);"></i>Random Portfolios</span>
-              <span><i class="swatch" style="background: #173f35;"></i>Efficient Frontier</span>
-              <span><i class="swatch" style="background: #d58532;"></i>Current Portfolio</span>
+              <span><i class="swatch" style="background: rgba(31,95,139,0.28);"></i>가능한 포트폴리오</span>
+              <span><i class="swatch" style="background: #173f35;"></i>효율적 투자선</span>
+              <span><i class="swatch" style="background: #d58532;"></i>현재 포트폴리오</span>
             </div>
           </div>
           <div class="chart-wrap">
-            <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="Efficient Frontier chart"></svg>
+            <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="효율적 투자선 차트"></svg>
           </div>
         </section>
 
         <section class="metrics">
           <div class="panel metric">
-            <span>Expected Return</span>
+            <span>예상 수익률</span>
             <strong id="metric-return">-</strong>
-            <p>Annualized return estimate based on deterministic sample data.</p>
+            <p>샘플 데이터를 바탕으로 계산한 연율 기준 기대수익률입니다.</p>
           </div>
           <div class="panel metric">
-            <span>Volatility</span>
+            <span>변동성</span>
             <strong id="metric-vol">-</strong>
-            <p>Annualized portfolio risk used to position the point on the frontier.</p>
+            <p>효율적 투자선 위 포트폴리오 위치를 결정하는 연율 기준 위험 수준입니다.</p>
           </div>
           <div class="panel metric">
-            <span>Sharpe Ratio</span>
+            <span>샤프 지수</span>
             <strong id="metric-sharpe">-</strong>
-            <p>Risk-adjusted return metric for comparing frontier allocations.</p>
+            <p>위험을 감안한 상대적 효율을 비교하는 지표입니다.</p>
           </div>
         </section>
 
         <section class="explain-grid">
           <div class="panel card story">
-            <p class="kicker"><span class="step">3</span>Why It Appears Here</p>
-            <strong id="explanation-title">Why this portfolio?</strong>
+            <p class="kicker"><span class="step">3</span>설명 보기</p>
+            <strong id="explanation-title">왜 이런 포트폴리오가 나왔을까?</strong>
             <div id="explanation-body">
-              The explanation will appear here after the first calculation.
+              첫 계산이 완료되면 이 위치에 설명이 표시됩니다.
             </div>
             <div style="margin-top: 16px;" id="summary"></div>
           </div>
 
           <div class="panel card">
-            <p class="kicker"><span class="step">4</span>Frontier Options</p>
-            <h2 class="section-title">Efficient Frontier Options</h2>
+            <p class="kicker"><span class="step">4</span>옵션 비교</p>
+            <h2 class="section-title">효율적 투자선 옵션</h2>
             <div id="frontier-options" class="options-list"></div>
           </div>
         </section>
 
         <section class="explain-grid">
           <div class="panel card">
-            <p class="kicker"><span class="step">5</span>Allocation</p>
-            <h2 class="section-title">Weight and Risk Contribution</h2>
+            <p class="kicker"><span class="step">5</span>자산배분</p>
+            <h2 class="section-title">비중과 리스크 기여도</h2>
             <div class="alloc-table">
               <div class="alloc-row header">
-                <div>Asset</div>
-                <div>Weight</div>
-                <div>Risk Contribution</div>
+                <div>자산군</div>
+                <div>비중</div>
+                <div>리스크 기여도</div>
               </div>
               <div id="allocations"></div>
             </div>
           </div>
 
           <div class="panel card">
-            <p class="kicker">Interpretation</p>
-            <h2 class="section-title">What to look for</h2>
+            <p class="kicker">해석 포인트</p>
+            <h2 class="section-title">어떻게 보면 좋을까</h2>
             <div class="story">
-              Weight tells you where capital goes. Risk contribution tells you where the portfolio's volatility really comes from.
-              In an efficient allocation, those two views are often different, which is exactly the point of the demo.
+              비중은 자금이 어디에 배분되는지를 보여주고, 리스크 기여도는 실제 변동성이 어디에서 나오는지를 보여줍니다.
+              효율적 자산배분에서는 이 둘이 다르게 나타날 수 있고, 그 차이를 이해하는 것이 이 데모의 중요한 포인트입니다.
             </div>
           </div>
         </section>
@@ -589,7 +591,7 @@ def render_homepage() -> HTMLResponse:
     </section>
 
     <div class="footer">
-      Efficient Frontier Portfolio Simulator · <a href="/docs">Swagger Docs</a>
+      효율적 투자선 자산배분 시뮬레이터 · <a href="/docs">Swagger 문서</a>
     </div>
   </div>
 
@@ -612,9 +614,9 @@ def render_homepage() -> HTMLResponse:
     }
 
     function sliderProfile(value) {
-      if (value < 34) return { risk_profile: "conservative", label: "Conservative", base: 0.07 };
-      if (value < 67) return { risk_profile: "balanced", label: "Balanced", base: 0.11 };
-      return { risk_profile: "growth", label: "Growth", base: 0.16 };
+      if (value < 34) return { risk_profile: "conservative", label: "안정형", base: 0.07 };
+      if (value < 67) return { risk_profile: "balanced", label: "균형형", base: 0.11 };
+      return { risk_profile: "growth", label: "성장형", base: 0.16 };
     }
 
     function horizonAdjustment(horizon) {
@@ -628,7 +630,7 @@ def render_homepage() -> HTMLResponse:
       const exact = profile.base + horizonAdjustment(horizonEl.value);
       const clamped = Math.min(Math.max(exact, 0.04), 0.22);
       riskLabel.textContent = profile.label;
-      sliderTarget.textContent = `${percent(clamped)} vol`;
+      sliderTarget.textContent = `${percent(clamped)} 목표 변동성`;
       return { profile, target: clamped };
     }
 
@@ -658,9 +660,9 @@ def render_homepage() -> HTMLResponse:
         const active = Math.abs(item.volatility - selectedPoint.volatility) < 0.02 ? "active" : "";
         return `
           <div class="options-item ${active}">
-            <strong>${item.label || "Option"}</strong>
-            <span>Vol ${percent(item.volatility)}</span>
-            <span>Return ${percent(item.expected_return)}</span>
+            <strong>${item.label || "옵션"}</strong>
+            <span>변동성 ${percent(item.volatility)}</span>
+            <span>수익률 ${percent(item.expected_return)}</span>
           </div>
         `;
       }).join("");
@@ -726,14 +728,14 @@ def render_homepage() -> HTMLResponse:
         <path d="${frontierPath}" fill="none" stroke="#173f35" stroke-width="4" stroke-linecap="round" />
         ${randomDots}
         <circle cx="${currentX}" cy="${currentY}" r="8" fill="#d58532" stroke="#ffffff" stroke-width="4" />
-        <text x="${currentX + 14}" y="${currentY - 14}" font-size="13" fill="#173f35" font-weight="700">Your Portfolio</text>
-        <text x="${width / 2}" y="${height - 2}" text-anchor="middle" fill="#61706a" font-size="13">Risk (Volatility)</text>
-        <text x="18" y="${height / 2}" text-anchor="middle" fill="#61706a" font-size="13" transform="rotate(-90 18 ${height / 2})">Expected Return</text>
+        <text x="${currentX + 14}" y="${currentY - 14}" font-size="13" fill="#173f35" font-weight="700">현재 포트폴리오</text>
+        <text x="${width / 2}" y="${height - 2}" text-anchor="middle" fill="#61706a" font-size="13">위험(변동성)</text>
+        <text x="18" y="${height / 2}" text-anchor="middle" fill="#61706a" font-size="13" transform="rotate(-90 18 ${height / 2})">예상 수익률</text>
       `;
     }
 
     async function loadPortfolio() {
-      statusEl.textContent = "Calculating frontier position...";
+      statusEl.textContent = "효율적 투자선 위치를 계산하고 있습니다...";
       try {
         const payload = payloadFromInputs();
         const response = await fetch("/v1/portfolio/recommend", {
@@ -743,7 +745,7 @@ def render_homepage() -> HTMLResponse:
         });
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.detail || "Request failed.");
+          throw new Error(data.detail || "요청 처리에 실패했습니다.");
         }
 
         document.getElementById("metric-return").textContent = percent(data.metrics.expected_return);
@@ -755,7 +757,7 @@ def render_homepage() -> HTMLResponse:
         renderAllocations(data.allocations);
         renderOptions(data.frontier_options, data.selected_point);
         renderChart(data);
-        statusEl.textContent = "Portfolio updated.";
+        statusEl.textContent = "포트폴리오 계산이 완료되었습니다.";
       } catch (error) {
         statusEl.textContent = error.message;
       }

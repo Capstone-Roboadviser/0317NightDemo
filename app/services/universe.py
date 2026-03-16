@@ -4,33 +4,33 @@ from app.schemas import AssetInfo
 ASSET_UNIVERSE = [
     AssetInfo(
         code="us_equity",
-        name="US Equity",
+        name="미국 주식",
         color="#0F4C81",
-        description="Growth engine with the highest long-run return and largest drawdown risk.",
+        description="장기 기대수익률이 높지만 변동성도 큰 성장 자산군입니다.",
     ),
     AssetInfo(
         code="global_bond",
-        name="Global Bond",
+        name="글로벌 채권",
         color="#5B8E7D",
-        description="Stability-focused bond sleeve for risk control.",
+        description="포트폴리오 변동성을 낮추는 안정형 자산군입니다.",
     ),
     AssetInfo(
         code="reit",
-        name="REITs",
+        name="리츠",
         color="#C97C5D",
-        description="Income-oriented real asset exposure with equity-like cyclicality.",
+        description="부동산 기반의 인컴 자산으로 분산 효과를 기대할 수 있습니다.",
     ),
     AssetInfo(
         code="gold",
-        name="Gold",
+        name="금",
         color="#C6A700",
-        description="Diversifier that can cushion equity stress periods.",
+        description="시장 불안 시 방어 역할을 기대할 수 있는 대체 자산군입니다.",
     ),
     AssetInfo(
         code="cash",
-        name="Cash",
+        name="현금성 자산",
         color="#7A7A7A",
-        description="Low-volatility reserve for short-horizon and defensive allocations.",
+        description="단기 운용과 유동성 확보를 위한 낮은 변동성 자산군입니다.",
     ),
 ]
 

@@ -1,6 +1,6 @@
-# RoboAdviser Demo API
+# 자산배분 시뮬레이터 데모 API
 
-이 프로젝트는 노트북 기반 Efficient Frontier 실험 코드를, 데모용 FastAPI 서비스 구조로 재정리한 예시입니다.
+이 프로젝트는 노트북 기반 Efficient Frontier 실험 코드를 한국 사용자 대상의 데모용 FastAPI 서비스 구조로 재정리한 예시입니다.
 
 중요한 점:
 
@@ -8,6 +8,7 @@
 - 이 서비스는 자산배분 시뮬레이션 데모입니다.
 - 실시간 시세 대신 재현 가능한 샘플 데이터를 사용합니다.
 - 결과는 교육용/연구용/데모용 예시이며 투자 자문이 아닙니다.
+- 화면과 설명 문구는 한국 사용자 기준으로 이해하기 쉽게 구성했습니다.
 
 ## 1. 프로젝트 목적
 
@@ -15,7 +16,7 @@
 
 - 고정된 5개 자산군을 기준으로
 - 기대수익률과 공분산을 계산하고
-- Efficient Frontier 위에서
+- 효율적 투자선 위에서
 - 데모용 포트폴리오 비중을 반환합니다.
 
 자산군은 서버에서 고정합니다.
@@ -135,8 +136,8 @@ https://something.up.railway.app
 
 ```json
 {
-  "disclaimer": "Demo only. This API simulates asset allocation using sample data and does not predict markets or provide investment advice.",
-  "summary": "This demo allocation targets about 11.0% annual volatility and lands at 10.8% expected volatility with 5.7% expected return.",
+  "disclaimer": "본 결과는 샘플 데이터 기반의 데모용 자산배분 시뮬레이션이며, 시장 예측이나 투자 자문을 제공하지 않습니다.",
+  "summary": "이 시뮬레이션은 연 11.0% 수준의 목표 변동성을 기준으로 포트폴리오를 선택했고, 예상 변동성은 10.8%, 예상 수익률은 5.7%로 계산되었습니다.",
   "target_volatility": 0.11,
   "metrics": {
     "expected_return": 0.057,
@@ -146,12 +147,14 @@ https://something.up.railway.app
   "allocations": [
     {
       "asset_code": "us_equity",
-      "asset_name": "US Equity",
-      "weight": 0.34
+      "asset_name": "미국 주식",
+      "weight": 0.34,
+      "risk_contribution": 0.52
     }
   ],
   "frontier": [
     {
+      "label": null,
       "volatility": 0.07,
       "expected_return": 0.04
     }
@@ -170,7 +173,7 @@ https://something.up.railway.app
 ## 10. 데모에서 보여주기 좋은 포인트
 
 - `risk_profile`만 바꿔도 비중이 달라집니다.
-- `target_volatility`를 주면 프론티어 위 다른 점을 선택할 수 있습니다.
+- `target_volatility`를 주면 효율적 투자선 위 다른 점을 선택할 수 있습니다.
 - 응답이 단순해서 프론트엔드 카드/차트 연결이 쉽습니다.
 
 ## 11. 다음 확장 아이디어

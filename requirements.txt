@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+numpy
+pandas
+scipy
+notebook
+yfinance
+plotly
+tqdm
+matplotlib

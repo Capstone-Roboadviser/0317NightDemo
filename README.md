@@ -65,7 +65,49 @@ uvicorn app.main:app --reload
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
 
-## 5. 주요 API
+## 5. Railway 배포 준비
+
+이 프로젝트에는 Railway용 설정 파일이 이미 포함되어 있습니다.
+
+- [railway.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/railway.json)
+
+Railway는 이 설정을 보고 아래 명령으로 서버를 시작합니다.
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+## 6. Railway 배포 방법
+
+가장 쉬운 방법은 GitHub 저장소를 연결하는 방식입니다.
+
+1. `fastapi-demo` 프로젝트를 GitHub에 올립니다.
+2. Railway에서 `New Project`를 누릅니다.
+3. `Deploy from GitHub repo`를 선택합니다.
+4. 방금 올린 저장소를 연결합니다.
+5. Railway가 자동으로 Python 프로젝트로 인식하고 배포를 시작합니다.
+6. 배포가 끝나면 서비스 페이지에서 `Settings`로 들어갑니다.
+7. `Networking`에서 `Public Networking` 또는 `Generate Domain`을 눌러 공개 주소를 만듭니다.
+
+생성된 주소는 보통 이런 형태입니다.
+
+```text
+https://something.up.railway.app
+```
+
+접속 주소 예시:
+
+- 웹사이트: `https://something.up.railway.app/`
+- Swagger 문서: `https://something.up.railway.app/docs`
+
+## 7. Railway 배포 전 체크리스트
+
+- `requirements.txt`가 최신인지 확인
+- `railway.json`이 저장소 루트에 있는지 확인
+- 로컬에서 `uvicorn app.main:app --reload`가 정상 동작하는지 확인
+- 배포 후 `Generate Domain`을 눌러 공개 URL 생성
+
+## 8. 주요 API
 
 ### `GET /health`
 
@@ -117,7 +159,7 @@ uvicorn app.main:app --reload
 }
 ```
 
-## 6. 설계 원칙
+## 9. 설계 원칙
 
 - 노트북 셀 순서 의존성을 제거했습니다.
 - 전역변수 대신 명시적 입력과 반환값을 사용합니다.
@@ -125,13 +167,13 @@ uvicorn app.main:app --reload
 - 같은 입력에는 같은 결과가 나오도록 결정론적으로 구성했습니다.
 - 최적화 실패 시 설명 가능한 fallback 결과를 반환합니다.
 
-## 7. 데모에서 보여주기 좋은 포인트
+## 10. 데모에서 보여주기 좋은 포인트
 
 - `risk_profile`만 바꿔도 비중이 달라집니다.
 - `target_volatility`를 주면 프론티어 위 다른 점을 선택할 수 있습니다.
 - 응답이 단순해서 프론트엔드 카드/차트 연결이 쉽습니다.
 
-## 8. 다음 확장 아이디어
+## 11. 다음 확장 아이디어
 
 - 샘플 데이터 대신 캐시된 ETF 가격 데이터 사용
 - 프론트엔드 대시보드 연결

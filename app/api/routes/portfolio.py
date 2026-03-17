@@ -63,7 +63,7 @@ def list_stocks() -> StocksBySectorResponse:
 def get_frontier(
     risk_profile: RiskProfile = Query(default=RiskProfile.BALANCED),
     investment_horizon: InvestmentHorizon = Query(default=InvestmentHorizon.MEDIUM),
-    data_source: SimulationDataSource = Query(default=SimulationDataSource.ASSET_ASSUMPTIONS),
+    data_source: SimulationDataSource = Query(default=SimulationDataSource.STOCK_COMBINATION_DEMO),
     target_volatility: float | None = Query(default=None, ge=0.03, le=0.25),
 ) -> FrontierPreviewResponse:
     result = _simulate(

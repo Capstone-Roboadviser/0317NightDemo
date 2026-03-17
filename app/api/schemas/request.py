@@ -8,8 +8,8 @@ class PortfolioSimulationRequest(BaseModel):
     risk_profile: RiskProfile = Field(..., description="위험 성향")
     investment_horizon: InvestmentHorizon = Field(..., description="투자 기간")
     data_source: SimulationDataSource = Field(
-        default=SimulationDataSource.ASSET_ASSUMPTIONS,
-        description="계산에 사용할 데이터 소스. 기본값은 자산군 가정값이며, 데모에서는 개별주식 조합 모드도 선택할 수 있습니다.",
+        default=SimulationDataSource.STOCK_COMBINATION_DEMO,
+        description="계산에 사용할 데이터 소스. 현재 기본값은 개별주식 조합 데모 모드입니다.",
     )
     target_volatility: float | None = Field(
         default=None,

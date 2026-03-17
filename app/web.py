@@ -248,44 +248,6 @@ def render_homepage() -> HTMLResponse:
       color: var(--muted-foreground);
     }
 
-    .source-toggle {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .source-toggle-button {
-      border: 1px solid var(--input);
-      border-radius: var(--radius);
-      background: var(--background);
-      color: var(--foreground);
-      padding: 10px 12px;
-      text-align: left;
-      font-size: 13px;
-      line-height: 1.45;
-      cursor: pointer;
-      transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
-    }
-
-    .source-toggle-button strong {
-      display: block;
-      margin-bottom: 2px;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .source-toggle-button:hover {
-      border-color: var(--ring);
-      transform: translateY(-1px);
-    }
-
-    .source-toggle-button.active {
-      border-color: var(--ring);
-      background: var(--accent);
-      color: var(--accent-foreground);
-      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
-    }
-
     input[type="number"] {
       width: 100%;
       height: 40px;
@@ -1180,19 +1142,9 @@ def render_homepage() -> HTMLResponse:
           <div class="card-content">
             <form id="portfolio-form">
               <div class="field-group">
-                <label class="field-label">계산 데이터</label>
-                <input type="hidden" id="data_source" name="data_source" value="asset_assumptions" />
-                <div class="source-toggle" id="data-source-toggle">
-                  <button type="button" class="source-toggle-button active" data-source="asset_assumptions">
-                    <strong>자산군 가정값</strong>
-                    고정된 8개 자산군 가정으로 frontier를 계산합니다.
-                  </button>
-                  <button type="button" class="source-toggle-button" data-source="stock_combination_demo">
-                    <strong>개별주식 조합 데모</strong>
-                    섹터별 최고 Sharpe 조합을 찾은 뒤 자산군 frontier에 연결합니다.
-                  </button>
-                </div>
-                <span class="field-hint">개별주식 조합 데모는 내장된 더미 종목 데이터셋으로 섹터별 조합을 먼저 탐색합니다.</span>
+                <label class="field-label">계산 기준</label>
+                <input type="hidden" id="data_source" name="data_source" value="stock_combination_demo" />
+                <span class="field-hint">현재 데모는 개별주식 조합을 먼저 찾고, 그 결과를 자산군 Efficient Frontier 계산에 연결합니다.</span>
               </div>
 
               <div class="field-group">
@@ -1370,7 +1322,6 @@ def render_homepage() -> HTMLResponse:
     const sliderTarget = document.getElementById("slider-target");
     const horizonEl = document.getElementById("investment_horizon");
     const dataSourceEl = document.getElementById("data_source");
-    const dataSourceToggleEl = document.getElementById("data-source-toggle");
     const targetVolInput = document.getElementById("target_volatility");
     const statusEl = document.getElementById("status");
     const summaryEl = document.getElementById("summary");
@@ -1471,6 +1422,15 @@ def render_homepage() -> HTMLResponse:
       combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
         .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
         .join("");
+    }
+
+    function selectedStocksForSector(code) {
+      const selection = lastData?.selected_combination?.members_by_sector || {};
+      const selectedTickers = selection[code] || [];
+      if (!selectedTickers.length) return [];
+
+      const stockLookup = new Map((stocksBySector[code] || []).map((item) => [item.ticker, item]));
+      return selectedTickers.map((ticker) => stockLookup.get(ticker) || { ticker, name: ticker });
     }
 
     function buildDonutSVG(items, valueKey, centerText) {
@@ -1751,16 +1711,6 @@ def render_homepage() -> HTMLResponse:
       }
     });
 
-    dataSourceToggleEl.querySelectorAll(".source-toggle-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        dataSourceEl.value = button.dataset.source;
-        dataSourceToggleEl.querySelectorAll(".source-toggle-button").forEach((item) => {
-          item.classList.toggle("active", item === button);
-        });
-        loadPortfolio();
-      });
-    });
-
     // ── Custom Select Component ──
     (function() {
       const selectRoot = document.getElementById("horizon-select");
@@ -1902,7 +1852,7 @@ def render_homepage() -> HTMLResponse:
         html += '<span class="donut-tooltip-value">' + value + '</span>';
         html += '</div>';
 
-        const stocks = stocksBySector[code];
+        const stocks = selectedStocksForSector(code);
         if (stocks && stocks.length > 0) {
           html += '<div class="donut-tooltip-stocks">';
           stocks.forEach(function(s) {

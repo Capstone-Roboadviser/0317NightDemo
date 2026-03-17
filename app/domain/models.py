@@ -23,7 +23,7 @@ class UserProfile:
     risk_profile: RiskProfile
     investment_horizon: InvestmentHorizon
     target_volatility: float | None = None
-    data_source: SimulationDataSource = SimulationDataSource.ASSET_ASSUMPTIONS
+    data_source: SimulationDataSource = SimulationDataSource.STOCK_COMBINATION_DEMO
 
 
 @dataclass(frozen=True)

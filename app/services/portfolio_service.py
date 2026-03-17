@@ -149,7 +149,7 @@ class PortfolioSimulationService:
 
     def _prepare_context(self, user_profile: UserProfile) -> EngineContext:
         if user_profile.data_source == SimulationDataSource.MANAGED_UNIVERSE:
-            managed_context = self._prepare_managed_universe_context()
+            managed_context = self._prepare_managed_universe_context(allow_fallback=True)
             if managed_context is not None:
                 return managed_context
             return self._prepare_stock_combination_context(
@@ -208,18 +208,20 @@ class PortfolioSimulationService:
             data_source_label="자산군 가정값",
         )
 
-    def _prepare_managed_universe_context(self) -> EngineContext | None:
+    def _prepare_managed_universe_context(self, allow_fallback: bool = False) -> EngineContext | None:
+        active_version = self.managed_universe_service.get_active_version()
+        if active_version is None:
+            return None if allow_fallback else None
+
         instruments = self.managed_universe_service.get_active_instruments()
         if not instruments:
-            return None
+            raise RuntimeError("활성 관리자 유니버스에 등록된 종목이 없습니다. /admin 에서 종목을 추가한 뒤 다시 시도해주세요.")
 
         prices = self.managed_universe_service.load_prices_for_instruments(instruments)
         if prices.empty:
-            return None
-
-        active_version = self.managed_universe_service.get_active_version()
-        if active_version is None:
-            return None
+            raise RuntimeError(
+                "활성 관리자 유니버스의 가격 데이터가 없습니다. /admin 에서 가격 갱신을 먼저 실행해주세요."
+            )
 
         try:
             engine_data = self.combination_service.build_engine_data_from_market_data(

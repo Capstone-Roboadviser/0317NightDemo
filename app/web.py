@@ -248,7 +248,6 @@ def render_homepage() -> HTMLResponse:
       color: var(--muted-foreground);
     }
 
-    select,
     input[type="number"] {
       width: 100%;
       height: 40px;
@@ -263,10 +262,127 @@ def render_homepage() -> HTMLResponse:
       transition: border-color 0.15s, box-shadow 0.15s;
     }
 
-    select:focus,
     input[type="number"]:focus {
       border-color: var(--ring);
       box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+    }
+
+    /* Custom Select (shadcn/ui Radix style) */
+    .custom-select {
+      position: relative;
+      width: 100%;
+    }
+
+    .custom-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--input);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--foreground);
+      background: var(--background);
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      user-select: none;
+    }
+
+    .custom-select-trigger:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+    }
+
+    .custom-select-trigger[data-state="open"] {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+    }
+
+    .custom-select-trigger-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .custom-select-chevron {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      color: var(--muted-foreground);
+      transition: transform 0.2s ease;
+    }
+
+    .custom-select-trigger[data-state="open"] .custom-select-chevron {
+      transform: rotate(180deg);
+    }
+
+    .custom-select-content {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 100%;
+      z-index: 50;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      padding: 4px;
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .dark .custom-select-content {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    }
+
+    .custom-select-content[data-state="open"] {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .custom-select-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 32px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--foreground);
+      border-radius: calc(var(--radius) - 2px);
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: background-color 0.1s ease;
+    }
+
+    .custom-select-item:hover,
+    .custom-select-item[data-highlighted] {
+      background: var(--accent);
+      color: var(--accent-foreground);
+    }
+
+    .custom-select-item[data-selected]::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+      background-size: 16px;
+      background-repeat: no-repeat;
+    }
+
+    .dark .custom-select-item[data-selected]::before {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23F8FAFC' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
     }
 
     .slider-card {
@@ -820,7 +936,8 @@ def render_homepage() -> HTMLResponse:
     .option-item,
     .hero-note,
     .badge,
-    select,
+    .custom-select-trigger,
+    .custom-select-content,
     input,
     .btn-primary,
     .slider-target,
@@ -961,12 +1078,19 @@ def render_homepage() -> HTMLResponse:
               </div>
 
               <div class="field-group">
-                <label class="field-label" for="investment_horizon">투자 기간</label>
-                <select id="investment_horizon" name="investment_horizon">
-                  <option value="short">단기 (1~2년)</option>
-                  <option value="medium" selected>중기 (3~5년)</option>
-                  <option value="long">장기 (5년 이상)</option>
-                </select>
+                <label class="field-label">투자 기간</label>
+                <input type="hidden" id="investment_horizon" name="investment_horizon" value="medium" />
+                <div class="custom-select" id="horizon-select">
+                  <button type="button" class="custom-select-trigger" role="combobox" aria-expanded="false" aria-haspopup="listbox" tabindex="0" data-state="closed">
+                    <span class="custom-select-trigger-text">중기 (3~5년)</span>
+                    <svg class="custom-select-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <div class="custom-select-content" role="listbox" data-state="closed">
+                    <div class="custom-select-item" role="option" data-value="short">단기 (1~2년)</div>
+                    <div class="custom-select-item" role="option" data-value="medium" data-selected>중기 (3~5년)</div>
+                    <div class="custom-select-item" role="option" data-value="long">장기 (5년 이상)</div>
+                  </div>
+                </div>
               </div>
 
               <div class="field-group">
@@ -1455,7 +1579,103 @@ def render_homepage() -> HTMLResponse:
       }
     });
 
-    horizonEl.addEventListener("change", loadPortfolio);
+    // ── Custom Select Component ──
+    (function() {
+      const selectRoot = document.getElementById("horizon-select");
+      const trigger = selectRoot.querySelector(".custom-select-trigger");
+      const content = selectRoot.querySelector(".custom-select-content");
+      const triggerText = selectRoot.querySelector(".custom-select-trigger-text");
+      const items = selectRoot.querySelectorAll(".custom-select-item");
+      let highlightedIndex = -1;
+
+      function open() {
+        trigger.setAttribute("data-state", "open");
+        trigger.setAttribute("aria-expanded", "true");
+        content.setAttribute("data-state", "open");
+        // Highlight current selected item
+        const selectedItem = content.querySelector("[data-selected]");
+        items.forEach((item, i) => {
+          item.removeAttribute("data-highlighted");
+          if (item === selectedItem) highlightedIndex = i;
+        });
+        if (selectedItem) selectedItem.setAttribute("data-highlighted", "");
+      }
+
+      function close() {
+        trigger.setAttribute("data-state", "closed");
+        trigger.setAttribute("aria-expanded", "false");
+        content.setAttribute("data-state", "closed");
+        items.forEach(item => item.removeAttribute("data-highlighted"));
+        highlightedIndex = -1;
+      }
+
+      function isOpen() {
+        return trigger.getAttribute("data-state") === "open";
+      }
+
+      function selectItem(item) {
+        items.forEach(i => i.removeAttribute("data-selected"));
+        item.setAttribute("data-selected", "");
+        triggerText.textContent = item.textContent;
+        horizonEl.value = item.dataset.value;
+        close();
+        trigger.focus();
+        loadPortfolio();
+      }
+
+      function highlightItem(index) {
+        items.forEach(i => i.removeAttribute("data-highlighted"));
+        if (index >= 0 && index < items.length) {
+          highlightedIndex = index;
+          items[index].setAttribute("data-highlighted", "");
+        }
+      }
+
+      trigger.addEventListener("click", function(e) {
+        e.preventDefault();
+        if (isOpen()) close(); else open();
+      });
+
+      trigger.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (isOpen()) {
+            if (highlightedIndex >= 0) selectItem(items[highlightedIndex]);
+            else close();
+          } else {
+            open();
+          }
+        } else if (e.key === "Escape") {
+          close();
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (!isOpen()) { open(); return; }
+          highlightItem(Math.min(highlightedIndex + 1, items.length - 1));
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!isOpen()) { open(); return; }
+          highlightItem(Math.max(highlightedIndex - 1, 0));
+        }
+      });
+
+      items.forEach(function(item) {
+        item.addEventListener("click", function(e) {
+          e.preventDefault();
+          selectItem(item);
+        });
+        item.addEventListener("mouseenter", function() {
+          items.forEach(i => i.removeAttribute("data-highlighted"));
+          item.setAttribute("data-highlighted", "");
+          highlightedIndex = Array.from(items).indexOf(item);
+        });
+      });
+
+      document.addEventListener("click", function(e) {
+        if (!selectRoot.contains(e.target) && isOpen()) {
+          close();
+        }
+      });
+    })();
 
     document.getElementById("portfolio-form").addEventListener("submit", (event) => {
       event.preventDefault();

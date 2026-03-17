@@ -24,7 +24,7 @@ class EngineContext:
     expected_returns: pd.Series
     covariance: pd.DataFrame
     frontier_points: list[FrontierPoint]
-    random_portfolios: list[tuple[float, float]]
+    random_portfolios: list[tuple[float, float, dict[str, float]]]
     used_fallback: bool
 
 

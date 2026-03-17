@@ -52,7 +52,7 @@ def get_frontier(
         selected_point_index=result.selected_point_index,
         selected_point=_frontier_point_response(result.frontier_points[result.selected_point_index], label="현재 포트폴리오"),
         random_portfolios=[
-            RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4))
+            RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4), weights={k: round(v, 4) for k, v in point[2].items()})
             for point in result.random_portfolios
         ],
     )
@@ -87,7 +87,7 @@ def simulate_portfolio(payload: PortfolioSimulationRequest) -> PortfolioSimulati
         selected_point_index=result.selected_point_index,
         selected_point=_frontier_point_response(selected_point, label="현재 포트폴리오"),
         random_portfolios=[
-            RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4))
+            RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4), weights={k: round(v, 4) for k, v in point[2].items()})
             for point in result.random_portfolios
         ],
         used_fallback=result.used_fallback,

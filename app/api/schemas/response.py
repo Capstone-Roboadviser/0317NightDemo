@@ -28,6 +28,7 @@ class FrontierPointResponse(BaseModel):
 class RandomPortfolioResponse(BaseModel):
     volatility: float
     expected_return: float
+    weights: dict[str, float] = {}
 
 
 class AllocationResponse(BaseModel):

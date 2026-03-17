@@ -606,6 +606,69 @@ def render_homepage() -> HTMLResponse:
       font-weight: 700;
     }
 
+    /* ── Chart (Frontier) Tooltip ── */
+    .chart-tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 50;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: var(--foreground);
+      color: var(--primary-foreground);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      min-width: 180px;
+      max-width: 260px;
+    }
+    .chart-tooltip.visible { opacity: 0.9; }
+    .chart-tooltip-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--muted-foreground);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .chart-tooltip-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0;
+    }
+    .chart-tooltip-row-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .chart-tooltip-row-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chart-tooltip-row-value {
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .scatter-point {
+      cursor: pointer;
+      transition: r 0.12s ease;
+    }
+    .frontier-hit {
+      cursor: pointer;
+    }
+
     .options-list {
       display: flex;
       flex-direction: column;
@@ -674,6 +737,18 @@ def render_homepage() -> HTMLResponse:
       font-size: 14px;
       line-height: 1.7;
       color: var(--muted-foreground);
+    }
+
+    /* ── Value transition animations ── */
+    .metric-value {
+      transition: transform 0.25s ease;
+    }
+    .fade-content {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .fade-content.fade-out {
+      opacity: 0;
+      transform: translateY(4px);
     }
 
     .footer {
@@ -963,8 +1038,8 @@ def render_homepage() -> HTMLResponse:
             </div>
             <div class="card-content">
               <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
-              <div class="explanation-body" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
-              <div class="summary-text" id="summary"></div>
+              <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
+              <div class="summary-text fade-content" id="summary"></div>
             </div>
           </div>
           <div class="card">
@@ -974,7 +1049,7 @@ def render_homepage() -> HTMLResponse:
               <div class="card-description">각 위험 수준별 대표 포트폴리오를 비교합니다.</div>
             </div>
             <div class="card-content">
-              <div id="frontier-options" class="options-list"></div>
+              <div id="frontier-options" class="options-list fade-content"></div>
             </div>
           </div>
         </div>
@@ -986,7 +1061,7 @@ def render_homepage() -> HTMLResponse:
             <div class="card-description">비중은 자금 배분을, 리스크 기여도는 실제 변동성의 출처를 보여줍니다. 효율적 자산배분에서는 이 둘이 다르게 나타날 수 있습니다.</div>
           </div>
           <div class="card-content">
-            <div id="allocations" class="donut-grid">
+            <div id="allocations" class="donut-grid fade-content">
               <!-- JS renders two donut charts here -->
             </div>
           </div>
@@ -1005,6 +1080,8 @@ def render_homepage() -> HTMLResponse:
     <span id="donut-tooltip-name"></span>
     <span class="donut-tooltip-value" id="donut-tooltip-value"></span>
   </div>
+
+  <div class="chart-tooltip" id="chart-tooltip"></div>
 
   <script>
     const ASSET_COLORS = {
@@ -1029,7 +1106,42 @@ def render_homepage() -> HTMLResponse:
     const chartEl = document.getElementById("frontier-chart");
 
     let lastData = null;
+    let lastAllocations = [];
     let debounceTimer = null;
+    const activeAnimations = {};
+
+    // ── Smooth number animation ──
+    function animateNumber(el, newValue, format, duration) {
+      duration = duration || 400;
+      const key = el.id || el;
+      if (activeAnimations[key]) cancelAnimationFrame(activeAnimations[key]);
+
+      const oldText = el.textContent.replace(/[^0-9.\-]/g, "");
+      const oldVal = parseFloat(oldText) || 0;
+      const newVal = parseFloat(String(newValue).replace(/[^0-9.\-]/g, "")) || 0;
+      if (Math.abs(oldVal - newVal) < 0.001) { el.textContent = format(newVal); return; }
+
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const current = oldVal + (newVal - oldVal) * ease;
+        el.textContent = format(current);
+        if (t < 1) activeAnimations[key] = requestAnimationFrame(tick);
+        else delete activeAnimations[key];
+      }
+      activeAnimations[key] = requestAnimationFrame(tick);
+    }
+
+    // ── Crossfade content helper ──
+    function crossfade(el, updateFn, delay) {
+      delay = delay || 200;
+      el.classList.add("fade-out");
+      setTimeout(function() {
+        updateFn();
+        el.classList.remove("fade-out");
+      }, delay);
+    }
 
     function percent(value) {
       return `${(value * 100).toFixed(1)}%`;
@@ -1236,18 +1348,45 @@ def render_homepage() -> HTMLResponse:
         svg += `<text x="18" y="${y + 4}" fill="${c.label}" font-size="11" font-family="Inter, Noto Sans KR, sans-serif">${(val * 100).toFixed(1)}%</text>`;
       }
 
+      // Build asset name map from allocations
+      const allocations = data.allocations || [];
+      const assetNameMap = {};
+      allocations.forEach(a => { assetNameMap[a.asset_code] = a.asset_name; });
+
+      function weightsToAllocJSON(weights) {
+        if (!weights) return "";
+        const arr = Object.entries(weights)
+          .filter(([, w]) => w > 0.001)
+          .sort(([, a], [, b]) => b - a)
+          .map(([code, w]) => ({ name: assetNameMap[code] || code, code: code, weight: w }));
+        return JSON.stringify(arr).replace(/"/g, '&quot;');
+      }
+
+      // Build allocation JSON for the selected portfolio
+      const selectedAllocJSON = weightsToAllocJSON(
+        Object.fromEntries(allocations.map(a => [a.asset_code, a.weight]))
+      );
+
+      // Random portfolio scatter points with hover hit areas
       randomPortfolios.forEach((point) => {
-        svg += `<circle cx="${xScale(point.volatility)}" cy="${yScale(point.expected_return)}" r="3" fill="${c.scatter}" />`;
+        const px = xScale(point.volatility);
+        const py = yScale(point.expected_return);
+        const allocAttr = point.weights ? ' data-alloc="' + weightsToAllocJSON(point.weights) + '"' : '';
+        svg += `<circle cx="${px}" cy="${py}" r="3" fill="${c.scatter}" />`;
+        svg += `<circle class="scatter-point" cx="${px}" cy="${py}" r="8" fill="transparent" data-vol="${(point.volatility * 100).toFixed(1)}" data-ret="${(point.expected_return * 100).toFixed(1)}"${allocAttr} />`;
       });
 
       const frontierPath = frontier.map((point, index) => `${index === 0 ? "M" : "L"} ${xScale(point.volatility)} ${yScale(point.expected_return)}`).join(" ");
       svg += `<path d="${frontierPath}" fill="none" stroke="${c.line}" stroke-width="2.5" stroke-linecap="round" />`;
+      // Invisible wider path for hover hit area on frontier line
+      svg += `<path class="frontier-hit" d="${frontierPath}" fill="none" stroke="transparent" stroke-width="16" stroke-linecap="round" />`;
 
       const cx = xScale(selectedPoint.volatility);
       const cy = yScale(selectedPoint.expected_return);
       svg += `<circle cx="${cx}" cy="${cy}" r="12" fill="rgba(249, 115, 22, 0.15)" />`;
-      svg += `<circle cx="${cx}" cy="${cy}" r="6" fill="${c.selected}" stroke="${c.bg}" stroke-width="2.5" />`;
-      svg += `<text x="${cx + 16}" y="${cy - 12}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif" fill="${c.text}" font-weight="600">현재 포트폴리오</text>`;
+      svg += `<circle class="scatter-point" cx="${cx}" cy="${cy}" r="10" fill="transparent" data-vol="${(selectedPoint.volatility * 100).toFixed(1)}" data-ret="${(selectedPoint.expected_return * 100).toFixed(1)}" data-alloc="${selectedAllocJSON}" data-label="현재 포트폴리오" />`;
+      svg += `<circle cx="${cx}" cy="${cy}" r="6" fill="${c.selected}" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
+      svg += `<text x="${cx + 16}" y="${cy - 12}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif" fill="${c.text}" font-weight="600" pointer-events="none">현재 포트폴리오</text>`;
       svg += `<text x="${width / 2}" y="${height - 2}" text-anchor="middle" fill="${c.label}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif">위험 (변동성)</text>`;
       svg += `<text x="14" y="${height / 2}" text-anchor="middle" fill="${c.label}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif" transform="rotate(-90 14 ${height / 2})">예상 수익률</text>`;
 
@@ -1276,14 +1415,31 @@ def render_homepage() -> HTMLResponse:
         const explanationBody = data.explanation ?? data.explanation?.body ?? "";
 
         lastData = data;
-        document.getElementById("metric-return").textContent = percent(expectedReturn);
-        document.getElementById("metric-vol").textContent = percent(volatility);
-        document.getElementById("metric-sharpe").textContent = Number(sharpeRatio).toFixed(2);
-        explanationTitleEl.textContent = explanationTitle;
-        explanationBodyEl.textContent = explanationBody;
-        summaryEl.textContent = [data.summary, data.disclaimer].filter(Boolean).join(" ");
-        renderAllocations(data.allocations || []);
-        renderOptions(data.frontier_options || [], data.selected_point);
+        lastAllocations = data.allocations || [];
+
+        // Animate metric numbers
+        const metricReturnEl = document.getElementById("metric-return");
+        const metricVolEl = document.getElementById("metric-vol");
+        const metricSharpeEl = document.getElementById("metric-sharpe");
+        animateNumber(metricReturnEl, expectedReturn * 100, function(v) { return v.toFixed(1) + "%"; });
+        animateNumber(metricVolEl, volatility * 100, function(v) { return v.toFixed(1) + "%"; });
+        animateNumber(metricSharpeEl, sharpeRatio, function(v) { return v.toFixed(2); });
+
+        // Crossfade text content
+        crossfade(explanationBodyEl, function() {
+          explanationTitleEl.textContent = explanationTitle;
+          explanationBodyEl.textContent = explanationBody;
+        });
+        crossfade(summaryEl, function() {
+          summaryEl.textContent = [data.summary, data.disclaimer].filter(Boolean).join(" ");
+        });
+        crossfade(optionsEl, function() {
+          renderOptions(data.frontier_options || [], data.selected_point);
+        });
+        crossfade(allocationsEl, function() {
+          renderAllocations(data.allocations || []);
+        });
+
         renderChart(data);
         statusEl.textContent = "";
       } catch (error) {
@@ -1360,6 +1516,74 @@ def render_homepage() -> HTMLResponse:
       document.addEventListener("mouseout", function(e) {
         const slice = e.target.closest(".donut-slice");
         if (!slice) return;
+        tip.classList.remove("visible");
+      });
+    })();
+
+    // ── Chart (Frontier) Tooltip ──
+    (function() {
+      const tip = document.getElementById("chart-tooltip");
+
+      function buildChartTooltipHTML(vol, ret, allocData, label) {
+        let html = '<div class="chart-tooltip-header">';
+        html += '<span>' + (label || '포트폴리오') + '</span>';
+        html += '</div>';
+        html += '<div class="chart-tooltip-row"><span class="chart-tooltip-row-name">수익률</span><span class="chart-tooltip-row-value">' + ret + '%</span></div>';
+        html += '<div class="chart-tooltip-row"><span class="chart-tooltip-row-name">변동성</span><span class="chart-tooltip-row-value">' + vol + '%</span></div>';
+        if (allocData && allocData.length > 0) {
+          html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--muted-foreground)">';
+          allocData.forEach(function(a) {
+            var color = ASSET_COLORS[a.code] || "#64748B";
+            var pct = (a.weight * 100).toFixed(1);
+            html += '<div class="chart-tooltip-row">';
+            html += '<span class="chart-tooltip-row-dot" style="background:' + color + '"></span>';
+            html += '<span class="chart-tooltip-row-name">' + a.name + '</span>';
+            html += '<span class="chart-tooltip-row-value">' + pct + '%</span>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+        return html;
+      }
+
+      function positionTip(e) {
+        var ox = 16, oy = 16;
+        var x = e.clientX + ox;
+        var y = e.clientY + oy;
+        var rect = tip.getBoundingClientRect();
+        if (x + rect.width > window.innerWidth - 8) x = e.clientX - rect.width - ox;
+        if (y + rect.height > window.innerHeight - 8) y = e.clientY - rect.height - oy;
+        tip.style.left = x + "px";
+        tip.style.top = y + "px";
+      }
+
+      document.addEventListener("mouseover", function(e) {
+        var pt = e.target.closest(".scatter-point");
+        if (!pt) return;
+        var vol = pt.dataset.vol;
+        var ret = pt.dataset.ret;
+        var label = pt.dataset.label || null;
+        var allocData = null;
+        try { allocData = JSON.parse(pt.dataset.alloc || "null"); } catch(ex) {}
+        // For points without allocation data, use the global allocations if it's the selected point
+        if (!allocData && label) {
+          allocData = lastAllocations.filter(function(a) { return a.weight > 0; }).map(function(a) {
+            return { name: a.asset_name, code: a.asset_code, weight: a.weight };
+          });
+        }
+        tip.innerHTML = buildChartTooltipHTML(vol, ret, allocData, label);
+        tip.classList.add("visible");
+        positionTip(e);
+      });
+
+      document.addEventListener("mousemove", function(e) {
+        if (!tip.classList.contains("visible")) return;
+        positionTip(e);
+      });
+
+      document.addEventListener("mouseout", function(e) {
+        var pt = e.target.closest(".scatter-point");
+        if (!pt) return;
         tip.classList.remove("visible");
       });
     })();

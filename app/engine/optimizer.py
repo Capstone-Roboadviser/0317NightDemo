@@ -87,7 +87,7 @@ class EfficientFrontierOptimizer:
         covariance: pd.DataFrame,
         constraints: ConstraintSet,
         sample_count: int,
-    ) -> list[tuple[float, float]]:
+    ) -> list[tuple[float, float, dict[str, float]]]:
         ordered_returns = expected_returns.reindex(constraints.asset_codes)
         ordered_covariance = covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes)
         lower_bounds = np.array([bound[0] for bound in constraints.bounds], dtype=float)
@@ -95,7 +95,7 @@ class EfficientFrontierOptimizer:
         remaining = 1 - lower_bounds.sum()
 
         rng = np.random.default_rng(self.random_seed)
-        points: list[tuple[float, float]] = []
+        points: list[tuple[float, float, dict[str, float]]] = []
         attempts = 0
 
         while len(points) < sample_count and attempts < sample_count * 20:
@@ -105,7 +105,8 @@ class EfficientFrontierOptimizer:
                 continue
             weights = weights / weights.sum()
             expected_return, volatility = portfolio_performance(weights, ordered_returns, ordered_covariance)
-            points.append((float(volatility), float(expected_return)))
+            weight_dict = {code: float(w) for code, w in zip(constraints.asset_codes, weights)}
+            points.append((float(volatility), float(expected_return), weight_dict))
 
         return points
 

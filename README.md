@@ -1,186 +1,163 @@
-# 자산배분 시뮬레이터 데모 API
+# 자산배분 시뮬레이터 데모
 
-이 프로젝트는 노트북 기반 Efficient Frontier 실험 코드를 한국 사용자 대상의 데모용 FastAPI 서비스 구조로 재정리한 예시입니다.
+이 프로젝트의 목표는 아래 한 문장으로 정리됩니다.
 
-중요한 점:
+> 고정된 5개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 Efficient Frontier 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스
 
-- 이 서비스는 시장을 예측하는 AI가 아닙니다.
-- 이 서비스는 자산배분 시뮬레이션 데모입니다.
-- 실시간 시세 대신 재현 가능한 샘플 데이터를 사용합니다.
-- 결과는 교육용/연구용/데모용 예시이며 투자 자문이 아닙니다.
-- 화면과 설명 문구는 한국 사용자 기준으로 이해하기 쉽게 구성했습니다.
+즉 이 서비스는:
 
-## 1. 프로젝트 목적
+- 실거래 시스템이 아닙니다.
+- 투자 예측 AI가 아닙니다.
+- 종목 추천 시스템이 아닙니다.
+- 자산배분 엔진 데모입니다.
 
-사용자가 `위험성향`, `투자기간`, `목표 변동성`을 입력하면:
+결과는 샘플 데이터 기반의 교육용/연구용/데모용 예시이며, 투자 자문이 아닙니다.
 
-- 고정된 5개 자산군을 기준으로
-- 기대수익률과 공분산을 계산하고
-- 효율적 투자선 위에서
-- 데모용 포트폴리오 비중을 반환합니다.
-
-자산군은 서버에서 고정합니다.
-
-- `us_equity`
-- `global_bond`
-- `reit`
-- `gold`
-- `cash`
-
-## 2. 폴더 구조
-
-```text
-app/
-  api/
-    routes.py
-  services/
-    data_service.py
-    risk_model.py
-    optimizer.py
-    explainer.py
-    engine.py
-    universe.py
-  main.py
-  schemas.py
-README.md
-requirements.txt
-```
-
-## 3. 설치
+## 빠른 실행
 
 ```bash
 cd "/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo"
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-## 4. 실행
-
-```bash
 uvicorn app.main:app --reload
 ```
 
-브라우저에서 아래 주소를 열면 됩니다.
+실행 후 접속 주소:
 
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
+- 웹 화면: `http://127.0.0.1:8000/`
+- Swagger 문서: `http://127.0.0.1:8000/docs`
+- 헬스체크: `http://127.0.0.1:8000/health`
 
-## 5. Railway 배포 준비
+## 핵심 기능
 
-이 프로젝트에는 Railway용 설정 파일이 이미 포함되어 있습니다.
+- 고정된 5개 자산군 기반 시뮬레이션
+- 위험 성향 3단계: `안정형`, `균형형`, `성장형`
+- 투자기간 반영: `단기`, `중기`, `장기`
+- 목표 변동성 선택 입력 지원
+- Efficient Frontier 계산
+- 현재 포트폴리오 포인트 선택
+- 자산군별 비중과 리스크 기여도 설명
+- 데모용 설명 문장 자동 생성
 
-- [railway.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/railway.json)
+## 현재 자산군
 
-Railway는 이 설정을 보고 아래 명령으로 서버를 시작합니다.
+- `us_equity`: 미국 주식
+- `global_bond`: 글로벌 채권
+- `reits`: 리츠
+- `gold`: 금
+- `cash`: 현금성 자산
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
+## API 개요
 
-## 6. Railway 배포 방법
+### `POST /portfolio/simulate`
 
-가장 쉬운 방법은 GitHub 저장소를 연결하는 방식입니다.
+사용자의 위험 성향과 투자기간을 받아 포트폴리오 예시를 계산합니다.
 
-1. `fastapi-demo` 프로젝트를 GitHub에 올립니다.
-2. Railway에서 `New Project`를 누릅니다.
-3. `Deploy from GitHub repo`를 선택합니다.
-4. 방금 올린 저장소를 연결합니다.
-5. Railway가 자동으로 Python 프로젝트로 인식하고 배포를 시작합니다.
-6. 배포가 끝나면 서비스 페이지에서 `Settings`로 들어갑니다.
-7. `Networking`에서 `Public Networking` 또는 `Generate Domain`을 눌러 공개 주소를 만듭니다.
+### `GET /portfolio/frontier`
 
-생성된 주소는 보통 이런 형태입니다.
+현재 데모 기준 Efficient Frontier 포인트와 선택 지점을 반환합니다.
 
-```text
-https://something.up.railway.app
-```
+### `GET /portfolio/assets`
 
-접속 주소 예시:
-
-- 웹사이트: `https://something.up.railway.app/`
-- Swagger 문서: `https://something.up.railway.app/docs`
-
-## 7. Railway 배포 전 체크리스트
-
-- `requirements.txt`가 최신인지 확인
-- `railway.json`이 저장소 루트에 있는지 확인
-- 로컬에서 `uvicorn app.main:app --reload`가 정상 동작하는지 확인
-- 배포 후 `Generate Domain`을 눌러 공개 URL 생성
-
-## 8. 주요 API
+고정 자산군 목록을 반환합니다.
 
 ### `GET /health`
 
 서버 상태 확인용입니다.
 
-### `GET /v1/assets`
+자세한 예시는 [API_REFERENCE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/API_REFERENCE.md)를 참고하세요.
 
-고정 자산군 목록을 반환합니다.
+## 구조 요약
 
-### `POST /v1/portfolio/recommend`
+이번 버전은 아래 6계층으로 나눠져 있습니다.
 
-포트폴리오 계산 요청입니다.
+1. Presentation Layer
+2. API Layer
+3. Application Layer
+4. Portfolio Engine Layer
+5. Data Layer
+6. Config / Ops Layer
 
-예시 요청:
+실제 폴더 구조는 아래와 같습니다.
 
-```json
-{
-  "risk_profile": "balanced",
-  "investment_horizon": "medium",
-  "target_volatility": 0.11
-}
+```text
+app/
+  api/
+    router.py
+    routes/
+      health.py
+      portfolio.py
+      web.py
+    schemas/
+      request.py
+      response.py
+  core/
+    config.py
+  data/
+    asset_universe.json
+    sample_market_assumptions.json
+    repository.py
+  domain/
+    enums.py
+    models.py
+  engine/
+    constraints.py
+    covariance.py
+    frontier.py
+    math.py
+    optimizer.py
+    returns.py
+  services/
+    explanation_service.py
+    mapping_service.py
+    portfolio_service.py
+  main.py
+  web.py
+docs/
+  API_REFERENCE.md
+  ARCHITECTURE.md
+  DEMO_GUIDE.md
 ```
 
-예시 응답:
+아키텍처 설명은 [ARCHITECTURE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/ARCHITECTURE.md)에 정리했습니다.
 
-```json
-{
-  "disclaimer": "본 결과는 샘플 데이터 기반의 데모용 자산배분 시뮬레이션이며, 시장 예측이나 투자 자문을 제공하지 않습니다.",
-  "summary": "이 시뮬레이션은 연 11.0% 수준의 목표 변동성을 기준으로 포트폴리오를 선택했고, 예상 변동성은 10.8%, 예상 수익률은 5.7%로 계산되었습니다.",
-  "target_volatility": 0.11,
-  "metrics": {
-    "expected_return": 0.057,
-    "volatility": 0.108,
-    "sharpe_ratio": 0.343
-  },
-  "allocations": [
-    {
-      "asset_code": "us_equity",
-      "asset_name": "미국 주식",
-      "weight": 0.34,
-      "risk_contribution": 0.52
-    }
-  ],
-  "frontier": [
-    {
-      "label": null,
-      "volatility": 0.07,
-      "expected_return": 0.04
-    }
-  ]
-}
+## 데이터 설계
+
+이 프로젝트는 실시간 시세를 직접 호출하지 않습니다.
+
+대신 아래 정적 데이터 파일을 사용합니다.
+
+- [asset_universe.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/asset_universe.json)
+- [sample_market_assumptions.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/sample_market_assumptions.json)
+
+이 방식의 장점:
+
+- 결과 재현성이 높음
+- 발표/시연 중 흔들리지 않음
+- 응답 속도가 안정적임
+- 문서화와 설명이 쉬움
+
+## Railway 배포
+
+이 프로젝트는 Railway 배포를 위한 설정 파일을 포함합니다.
+
+- [railway.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/railway.json)
+
+기본 시작 명령:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
-## 9. 설계 원칙
+배포 시 권장 확인 항목:
 
-- 노트북 셀 순서 의존성을 제거했습니다.
-- 전역변수 대신 명시적 입력과 반환값을 사용합니다.
-- 외부 시세 API를 호출하지 않습니다.
-- 같은 입력에는 같은 결과가 나오도록 결정론적으로 구성했습니다.
-- 최적화 실패 시 설명 가능한 fallback 결과를 반환합니다.
+- Public Domain 포트가 실제 앱 포트와 일치하는지 확인
+- Healthcheck Path를 `/health`로 설정
+- GitHub push 후 Railway redeploy 확인
 
-## 10. 데모에서 보여주기 좋은 포인트
+## 문서 목록
 
-- `risk_profile`만 바꿔도 비중이 달라집니다.
-- `target_volatility`를 주면 효율적 투자선 위 다른 점을 선택할 수 있습니다.
-- 응답이 단순해서 프론트엔드 카드/차트 연결이 쉽습니다.
-
-## 11. 다음 확장 아이디어
-
-- 샘플 데이터 대신 캐시된 ETF 가격 데이터 사용
-- 프론트엔드 대시보드 연결
-- 사용자별 세션 저장
-- 간단한 백테스트 API 추가
-
-추가 설명은 [docs/DEMO_GUIDE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/DEMO_GUIDE.md)에 정리했습니다.
+- 아키텍처: [ARCHITECTURE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/ARCHITECTURE.md)
+- API 명세: [API_REFERENCE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/API_REFERENCE.md)
+- 데모 설명: [DEMO_GUIDE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/DEMO_GUIDE.md)

@@ -1,15 +1,13 @@
 from fastapi import FastAPI
 
-from app.api.routes import router
+from app.api.router import api_router
+from app.core.config import APP_DESCRIPTION, APP_NAME, APP_VERSION
 
 
 app = FastAPI(
-    title="RoboAdviser Demo API",
-    description=(
-        "Efficient Frontier based asset allocation simulation API for demo and research use. "
-        "This service is not investment advice."
-    ),
-    version="0.1.0",
+    title=APP_NAME,
+    description=APP_DESCRIPTION,
+    version=APP_VERSION,
 )
 
-app.include_router(router)
+app.include_router(api_router)

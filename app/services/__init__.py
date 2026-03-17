@@ -1,1 +1,1 @@
-"""Service layer for the RoboAdviser demo."""
+"""Application service layer."""

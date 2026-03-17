@@ -1044,7 +1044,7 @@ def render_homepage() -> HTMLResponse:
       <span class="badge">Efficient Frontier Demo</span>
       <h1>효율적 투자선 기반<br />자산배분 시뮬레이터</h1>
       <p>
-        고정된 5개 자산군을 기준으로, 사용자의 위험 성향과 투자 기간에 따라
+        고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자 기간에 따라
         효율적 투자선 위의 포트폴리오 예시를 계산하고 설명합니다.
       </p>
       <div class="hero-note">
@@ -1209,11 +1209,14 @@ def render_homepage() -> HTMLResponse:
 
   <script>
     const ASSET_COLORS = {
-      us_equity: "#0F4C81",
-      global_bond: "#5B8E7D",
-      reits: "#C97C5D",
-      gold: "#C6A700",
-      cash: "#7A7A7A",
+      bond: "#5B7C99",
+      real_assets: "#A67C52",
+      etf: "#2D6A8E",
+      tech_healthcare: "#7B6ED6",
+      ai_semiconductor_social: "#E76F51",
+      financials: "#2A9D8F",
+      energy: "#E9C46A",
+      consumer_other: "#6C757D",
     };
 
     const slider = document.getElementById("risk_slider");
@@ -1240,9 +1243,9 @@ def render_homepage() -> HTMLResponse:
       const key = el.id || el;
       if (activeAnimations[key]) cancelAnimationFrame(activeAnimations[key]);
 
-      const oldText = el.textContent.replace(/[^0-9.\-]/g, "");
+      const oldText = el.textContent.replace(/[^0-9.\\-]/g, "");
       const oldVal = parseFloat(oldText) || 0;
-      const newVal = parseFloat(String(newValue).replace(/[^0-9.\-]/g, "")) || 0;
+      const newVal = parseFloat(String(newValue).replace(/[^0-9.\\-]/g, "")) || 0;
       if (Math.abs(oldVal - newVal) < 0.001) { el.textContent = format(newVal); return; }
 
       const start = performance.now();

@@ -26,13 +26,13 @@
 {
   "assets": [
     {
-      "code": "us_equity",
-      "name": "미국 주식",
-      "category": "equity",
-      "description": "장기 기대수익률이 높지만 변동성도 큰 성장 자산군입니다.",
-      "color": "#0F4C81",
+      "code": "bond",
+      "name": "채권",
+      "category": "bond",
+      "description": "변동성을 낮추고 포트폴리오의 방어 역할을 담당하는 금리 민감 자산군입니다.",
+      "color": "#5B7C99",
       "min_weight": 0.05,
-      "max_weight": 0.65
+      "max_weight": 0.50
     }
   ]
 }
@@ -60,50 +60,53 @@
 {
   "portfolio_id": "growth-long-150",
   "disclaimer": "본 결과는 샘플 데이터 기반의 데모용 자산배분 시뮬레이션이며, 시장 예측이나 투자 자문을 제공하지 않습니다.",
-  "summary": "이 시뮬레이션은 연 15.0% 수준의 목표 변동성을 기준으로 포트폴리오를 선택했고, 예상 변동성은 14.7%, 예상 수익률은 17.4%입니다.",
+  "summary": "이 시뮬레이션은 연 15.0% 수준의 목표 변동성을 기준으로 포트폴리오를 선택했고, 예상 변동성은 15.1%, 예상 수익률은 11.2%입니다.",
   "explanation_title": "왜 이런 포트폴리오가 나왔을까?",
   "explanation": "이 포트폴리오는 효율적 투자선 위의 한 점으로...",
   "target_volatility": 0.15,
-  "expected_return": 0.174,
-  "volatility": 0.147,
-  "sharpe_ratio": 1.05,
+  "expected_return": 0.112,
+  "volatility": 0.151,
+  "sharpe_ratio": 0.61,
   "weights": {
-    "us_equity": 0.65,
-    "global_bond": 0.10,
-    "reits": 0.25,
-    "gold": 0.00,
-    "cash": 0.00
+    "bond": 0.10,
+    "real_assets": 0.10,
+    "etf": 0.18,
+    "tech_healthcare": 0.17,
+    "ai_semiconductor_social": 0.18,
+    "financials": 0.10,
+    "energy": 0.08,
+    "consumer_other": 0.09
   },
   "allocations": [
     {
-      "asset_code": "us_equity",
-      "asset_name": "미국 주식",
-      "weight": 0.65,
-      "risk_contribution": 0.72
+      "asset_code": "ai_semiconductor_social",
+      "asset_name": "AI반도체 및 소셜미디어",
+      "weight": 0.18,
+      "risk_contribution": 0.24
     }
   ],
   "frontier_points": [
     {
       "label": null,
-      "volatility": 0.062,
-      "expected_return": 0.031
+      "volatility": 0.071,
+      "expected_return": 0.044
     },
     {
       "label": null,
-      "volatility": 0.078,
-      "expected_return": 0.041
+      "volatility": 0.086,
+      "expected_return": 0.058
     }
   ],
   "selected_point_index": 8,
   "selected_point": {
     "label": "현재 포트폴리오",
-    "volatility": 0.147,
-    "expected_return": 0.174
+    "volatility": 0.151,
+    "expected_return": 0.112
   },
   "random_portfolios": [
     {
-      "volatility": 0.091,
-      "expected_return": 0.057
+      "volatility": 0.104,
+      "expected_return": 0.073
     }
   ],
   "used_fallback": false

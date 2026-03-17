@@ -7,13 +7,13 @@ import pandas as pd
 from app.core.config import FALLBACK_WEIGHTS, FRONTIER_POINT_COUNT, MINIMUM_HISTORY_ROWS, RANDOM_PORTFOLIO_COUNT, RISK_FREE_RATE
 from app.data.repository import StaticDataRepository
 from app.domain.enums import RiskProfile
-from app.domain.models import AllocationView, AssetClass, FrontierPoint, PortfolioSimulationResult, UserProfile
+from app.domain.models import AllocationView, AssetClass, ExpectedReturnModelInput, FrontierPoint, PortfolioSimulationResult, UserProfile
 from app.engine.constraints import ConstraintEngine
 from app.engine.covariance import ShrinkageCovarianceModel
 from app.engine.frontier import build_frontier_options, select_frontier_point_index
 from app.engine.math import portfolio_metrics_from_weights, risk_contributions
 from app.engine.optimizer import EfficientFrontierOptimizer
-from app.engine.returns import HistoricalMeanReturnModel
+from app.engine.returns import AssumptionReturnModel, ExpectedReturnModel
 from app.services.explanation_service import ExplanationService
 from app.services.mapping_service import ProfileMappingService
 
@@ -29,18 +29,16 @@ class EngineContext:
 
 
 class PortfolioSimulationService:
-    def __init__(self) -> None:
-        self.repository = StaticDataRepository()
+    def __init__(self, return_model: ExpectedReturnModel | None = None) -> None:
         self.mapping_service = ProfileMappingService()
         self.explanation_service = ExplanationService()
-        self.return_model = HistoricalMeanReturnModel()
+        self.return_model = return_model or AssumptionReturnModel()
         self.covariance_model = ShrinkageCovarianceModel()
         self.constraint_engine = ConstraintEngine()
         self.optimizer = EfficientFrontierOptimizer()
-        self._context: EngineContext | None = None
 
     def list_assets(self) -> list[AssetClass]:
-        return self.repository.load_asset_universe()
+        return StaticDataRepository().load_asset_universe()
 
     def simulate(self, user_profile: UserProfile) -> PortfolioSimulationResult:
         target_volatility = self.mapping_service.resolve_target_volatility(user_profile)
@@ -97,14 +95,20 @@ class PortfolioSimulationService:
         )
 
     def _prepare_context(self) -> EngineContext:
-        if self._context is not None:
-            return self._context
-
-        assets = self.repository.load_asset_universe()
-        returns = self.repository.load_sample_returns()
+        repository = StaticDataRepository()
+        assets = repository.load_asset_universe()
+        market_assumptions = repository.load_market_assumptions()
+        returns = repository.load_sample_returns()
         self._validate_returns(returns)
 
-        expected_returns = self.return_model.calculate(returns)
+        asset_codes = [asset.code for asset in assets]
+        expected_returns = self.return_model.calculate(
+            ExpectedReturnModelInput(
+                asset_codes=asset_codes,
+                annual_returns=market_assumptions.annual_returns,
+                returns=returns,
+            )
+        )
         covariance = self.covariance_model.calculate(returns)
         constraints = self.constraint_engine.build(assets)
 
@@ -127,7 +131,7 @@ class PortfolioSimulationService:
             random_portfolios = []
             used_fallback = True
 
-        self._context = EngineContext(
+        return EngineContext(
             assets=assets,
             expected_returns=expected_returns.reindex([asset.code for asset in assets]),
             covariance=covariance.reindex(index=[asset.code for asset in assets], columns=[asset.code for asset in assets]),
@@ -135,7 +139,6 @@ class PortfolioSimulationService:
             random_portfolios=random_portfolios,
             used_fallback=used_fallback,
         )
-        return self._context
 
     def _fallback_frontier(self, expected_returns: pd.Series, covariance: pd.DataFrame) -> list[FrontierPoint]:
         fallback_points: list[FrontierPoint] = []

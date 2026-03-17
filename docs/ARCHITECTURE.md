@@ -4,7 +4,7 @@
 
 이 데모의 목표는 아래 문장으로 고정합니다.
 
-> 고정된 5개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 Efficient Frontier 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스
+> 고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 Efficient Frontier 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스
 
 즉 이 시스템은:
 
@@ -59,6 +59,7 @@ FastAPI 엔드포인트와 요청/응답 검증을 담당합니다.
 - [portfolio_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/portfolio_service.py)
 - [mapping_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/mapping_service.py)
 - [explanation_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/explanation_service.py)
+- [combination_search_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/combination_search_service.py)
 
 ### 4. Portfolio Engine Layer
 
@@ -93,6 +94,7 @@ FastAPI 엔드포인트와 요청/응답 검증을 담당합니다.
 - [asset_universe.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/asset_universe.json)
 - [sample_market_assumptions.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/sample_market_assumptions.json)
 - [repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/repository.py)
+- [stock_repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/stock_repository.py)
 
 ### 6. Config / Ops Layer
 

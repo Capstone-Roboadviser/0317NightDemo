@@ -485,77 +485,92 @@ def render_homepage() -> HTMLResponse:
       gap: 24px;
     }
 
-    .alloc-table {
-      width: 100%;
-      border-collapse: collapse;
+    /* ── Donut Charts ── */
+    .donut-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
     }
-
-    .alloc-table thead th {
-      text-align: left;
-      padding: 10px 16px;
-      font-size: 12px;
+    .donut-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .donut-label {
+      font-size: 13px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       color: var(--muted-foreground);
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
     }
-
-    .alloc-table tbody td {
-      padding: 12px 16px;
-      font-size: 14px;
-      border-bottom: 1px solid var(--border);
+    .donut-container {
+      position: relative;
+      width: 220px;
+      height: 220px;
     }
-
-    .alloc-table tbody tr:last-child td {
-      border-bottom: none;
+    .donut-container svg {
+      width: 220px;
+      height: 220px;
     }
-
-    .alloc-table tbody tr:hover {
-      background: var(--muted);
+    .donut-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
     }
-
-    .asset-name {
-      font-weight: 600;
+    .donut-center-value {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--foreground);
+      line-height: 1;
+    }
+    .donut-center-label {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-top: 4px;
+    }
+    .donut-legend {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px 20px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      width: 100%;
     }
-
-    .asset-dot {
+    .donut-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+    .donut-legend-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       display: inline-block;
       flex-shrink: 0;
     }
-
-    .weight-bar-cell {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .donut-legend-name {
+      font-weight: 500;
+      color: var(--foreground);
     }
-
-    .weight-bar-bg {
-      flex: 1;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      overflow: hidden;
-    }
-
-    .weight-bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: var(--foreground);
-      transition: width 0.4s ease;
-    }
-
-    .weight-value {
-      font-size: 14px;
+    .donut-legend-value {
       font-weight: 600;
-      min-width: 48px;
-      text-align: right;
+    }
+    /* Donut slice hover */
+    .donut-slice {
+      transition: opacity 0.15s;
+      cursor: default;
+    }
+    .donut-slice:hover {
+      opacity: 0.8;
     }
 
     .options-list {
@@ -754,13 +769,9 @@ def render_homepage() -> HTMLResponse:
         display: inline-flex;
       }
 
-      .alloc-table thead th:nth-child(2),
-      .alloc-table tbody td:nth-child(2) {
-        min-width: 80px;
-      }
-
-      .weight-bar-bg {
-        display: none;
+      .donut-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
       }
     }
 
@@ -935,40 +946,15 @@ def render_homepage() -> HTMLResponse:
           </div>
         </div>
 
-        <div class="two-col">
-          <div class="card">
-            <div class="card-header">
-              <div class="step-badge"><span class="step-num">5</span> 자산배분</div>
-              <div class="card-title">비중과 리스크 기여도</div>
-            </div>
-            <div class="card-content" style="padding-top: 0;">
-              <table class="alloc-table">
-                <thead>
-                  <tr>
-                    <th>자산군</th>
-                    <th>비중</th>
-                    <th>리스크 기여도</th>
-                  </tr>
-                </thead>
-                <tbody id="allocations"></tbody>
-              </table>
-            </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">5</span> 자산배분</div>
+            <div class="card-title">비중과 리스크 기여도</div>
+            <div class="card-description">비중은 자금 배분을, 리스크 기여도는 실제 변동성의 출처를 보여줍니다. 효율적 자산배분에서는 이 둘이 다르게 나타날 수 있습니다.</div>
           </div>
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">해석 포인트</div>
-              <div class="card-description">결과를 어떻게 읽어야 할까</div>
-            </div>
-            <div class="card-content">
-              <div class="interpretation">
-                <p style="margin-bottom: 12px;">
-                  <strong style="color: var(--foreground);">비중</strong>은 자금이 어디에 배분되는지를 보여주고,
-                  <strong style="color: var(--foreground);">리스크 기여도</strong>는 실제 변동성이 어디에서 나오는지를 보여줍니다.
-                </p>
-                <p>
-                  효율적 자산배분에서는 이 둘이 다르게 나타날 수 있고, 그 차이를 이해하는 것이 이 시뮬레이터의 중요한 포인트입니다.
-                </p>
-              </div>
+          <div class="card-content">
+            <div id="allocations" class="donut-grid">
+              <!-- JS renders two donut charts here -->
             </div>
           </div>
         </div>
@@ -1042,22 +1028,93 @@ def render_homepage() -> HTMLResponse:
       return payload;
     }
 
-    function renderAllocations(items) {
-      allocationsEl.innerHTML = items.map((item) => {
-        const pct = (item.weight * 100).toFixed(1);
-        const riskPct = (item.risk_contribution * 100).toFixed(1);
+    function buildDonutSVG(items, valueKey, centerText) {
+      const size = 220;
+      const cx = size / 2;
+      const cy = size / 2;
+      const outerR = 95;
+      const innerR = 58;
+      const total = items.reduce((s, it) => s + (it[valueKey] || 0), 0) || 1;
+
+      let cumulativeAngle = -Math.PI / 2;
+      let paths = "";
+
+      items.forEach((item) => {
+        const fraction = (item[valueKey] || 0) / total;
+        if (fraction <= 0) return;
+        const angle = fraction * 2 * Math.PI;
+        const startAngle = cumulativeAngle;
+        const endAngle = cumulativeAngle + angle;
+
+        const x1 = cx + outerR * Math.cos(startAngle);
+        const y1 = cy + outerR * Math.sin(startAngle);
+        const x2 = cx + outerR * Math.cos(endAngle);
+        const y2 = cy + outerR * Math.sin(endAngle);
+        const x3 = cx + innerR * Math.cos(endAngle);
+        const y3 = cy + innerR * Math.sin(endAngle);
+        const x4 = cx + innerR * Math.cos(startAngle);
+        const y4 = cy + innerR * Math.sin(startAngle);
+
+        const largeArc = angle > Math.PI ? 1 : 0;
         const color = ASSET_COLORS[item.asset_code] || "#64748B";
-        return `<tr>
-          <td><span class="asset-name"><span class="asset-dot" style="background:${color}"></span>${item.asset_name}</span></td>
-          <td>
-            <div class="weight-bar-cell">
-              <div class="weight-bar-bg"><div class="weight-bar-fill" style="width:${pct}%; background:${color}"></div></div>
-              <span class="weight-value">${pct}%</span>
-            </div>
-          </td>
-          <td>${riskPct}%</td>
-        </tr>`;
+
+        paths += '<path class="donut-slice" d="';
+        paths += "M " + x1.toFixed(2) + " " + y1.toFixed(2) + " ";
+        paths += "A " + outerR + " " + outerR + " 0 " + largeArc + " 1 " + x2.toFixed(2) + " " + y2.toFixed(2) + " ";
+        paths += "L " + x3.toFixed(2) + " " + y3.toFixed(2) + " ";
+        paths += "A " + innerR + " " + innerR + " 0 " + largeArc + " 0 " + x4.toFixed(2) + " " + y4.toFixed(2) + " ";
+        paths += 'Z" fill="' + color + '" />';
+
+        cumulativeAngle = endAngle;
+      });
+
+      return '<svg viewBox="0 0 ' + size + " " + size + '" xmlns="http://www.w3.org/2000/svg">' + paths + "</svg>";
+    }
+
+    function buildLegendHTML(items, valueKey) {
+      return items.map((item) => {
+        const val = ((item[valueKey] || 0) * 100).toFixed(1);
+        const color = ASSET_COLORS[item.asset_code] || "#64748B";
+        return '<span class="donut-legend-item">' +
+          '<span class="donut-legend-dot" style="background:' + color + '"></span>' +
+          '<span class="donut-legend-name">' + item.asset_name + '</span>' +
+          '<span class="donut-legend-value">' + val + '%</span>' +
+        '</span>';
       }).join("");
+    }
+
+    function renderAllocations(items) {
+      const filtered = items.filter((it) => it.weight > 0 || it.risk_contribution > 0);
+
+      const weightSVG = buildDonutSVG(filtered, "weight", "비중");
+      const riskSVG = buildDonutSVG(filtered, "risk_contribution", "리스크");
+
+      const topWeight = filtered.reduce((max, it) => it.weight > max.weight ? it : max, filtered[0] || { asset_name: "-", weight: 0 });
+      const topRisk = filtered.reduce((max, it) => it.risk_contribution > max.risk_contribution ? it : max, filtered[0] || { asset_name: "-", risk_contribution: 0 });
+
+      allocationsEl.innerHTML =
+        '<div class="donut-section">' +
+          '<div class="donut-label">자산 비중</div>' +
+          '<div class="donut-container">' +
+            weightSVG +
+            '<div class="donut-center">' +
+              '<div class="donut-center-value">' + ((topWeight.weight || 0) * 100).toFixed(0) + '%</div>' +
+              '<div class="donut-center-label">' + (topWeight.asset_name || "") + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="donut-legend">' + buildLegendHTML(filtered, "weight") + '</div>' +
+        '</div>' +
+        '<div class="donut-section">' +
+          '<div class="donut-label">리스크 기여도</div>' +
+          '<div class="donut-container">' +
+            riskSVG +
+            '<div class="donut-center">' +
+              '<div class="donut-center-value">' + ((topRisk.risk_contribution || 0) * 100).toFixed(0) + '%</div>' +
+              '<div class="donut-center-label">' + (topRisk.asset_name || "") + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="donut-legend">' + buildLegendHTML(filtered, "risk_contribution") + '</div>' +
+        '</div>';
     }
 
     function renderOptions(items, selectedPoint) {

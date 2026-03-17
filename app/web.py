@@ -1322,8 +1322,8 @@ def render_homepage() -> HTMLResponse:
 
               <div class="field-group">
                 <label class="field-label" for="target_volatility">목표 변동성 직접 입력</label>
-                <input id="target_volatility" name="target_volatility" type="number" step="0.01" min="0.03" max="0.25" placeholder="예: 0.11" />
-                <span class="field-hint">0.03 ~ 0.25 범위. 비워두면 슬라이더 기준 목표 변동성을 사용합니다.</span>
+                <input id="target_volatility" name="target_volatility" type="number" step="0.001" min="0.01" max="0.50" placeholder="예: 0.04" />
+                <span class="field-hint">비워두면 슬라이더 기준 목표 변동성을 사용합니다.</span>
               </div>
 
               <button type="submit" class="btn btn-primary">포트폴리오 계산하기</button>
@@ -1531,25 +1531,23 @@ def render_homepage() -> HTMLResponse:
       return `${(value * 100).toFixed(1)}%`;
     }
 
-    function sliderProfile(value) {
-      if (value < 34) return { risk_profile: "conservative", label: "안정형", base: 0.07 };
-      if (value < 67) return { risk_profile: "balanced", label: "균형형", base: 0.11 };
-      return { risk_profile: "growth", label: "성장형", base: 0.16 };
-    }
+    // Frontier volatility bounds (updated after first API call)
+    let frontierVolMin = 0.04;
+    let frontierVolMax = 0.22;
 
-    function horizonAdjustment(horizon) {
-      if (horizon === "short") return -0.01;
-      if (horizon === "long") return 0.01;
-      return 0;
+    function sliderProfile(value) {
+      if (value < 34) return { risk_profile: "conservative", label: "안정형" };
+      if (value < 67) return { risk_profile: "balanced", label: "균형형" };
+      return { risk_profile: "growth", label: "성장형" };
     }
 
     function suggestedVolatility() {
       const profile = sliderProfile(Number(slider.value));
-      const exact = profile.base + horizonAdjustment(horizonEl.value);
-      const clamped = Math.min(Math.max(exact, 0.04), 0.22);
+      const t = Number(slider.value) / 100; // 0..1
+      const target = frontierVolMin + t * (frontierVolMax - frontierVolMin);
       riskLabel.textContent = profile.label;
-      sliderTarget.textContent = `${percent(clamped)} 목표`;
-      return { profile, target: clamped };
+      sliderTarget.textContent = `${percent(target)} 목표`;
+      return { profile, target };
     }
 
     function payloadFromInputs() {
@@ -1878,6 +1876,67 @@ def render_homepage() -> HTMLResponse:
       chartEl.innerHTML = svg;
     }
 
+    // Find the frontier point index closest to a target volatility
+    function findClosestFrontierIndex(frontierPoints, targetVol) {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      frontierPoints.forEach(function(p, i) {
+        const dist = Math.abs(p.volatility - targetVol);
+        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+      });
+      return bestIdx;
+    }
+
+    // Update UI from cached data when slider changes (no API call)
+    function updateFromCache() {
+      if (!lastData || !lastData.frontier_points || !lastData.frontier_points.length) return;
+
+      const { target } = suggestedVolatility();
+      const manualTarget = targetVolInput.value.trim();
+      const effectiveTarget = manualTarget ? Number(manualTarget) : target;
+      const idx = findClosestFrontierIndex(lastData.frontier_points, effectiveTarget);
+      const point = lastData.frontier_points[idx];
+
+      const expectedReturn = point.expected_return;
+      const volatility = point.volatility;
+      const sharpeRatio = volatility > 0 ? expectedReturn / volatility : 0;
+
+      // Update selected point in cached data for chart re-render
+      lastData.selected_point_index = idx;
+      lastData.selected_point = Object.assign({}, point, { label: "현재 포트폴리오" });
+      lastData.expected_return = expectedReturn;
+      lastData.volatility = volatility;
+      lastData.sharpe_ratio = sharpeRatio;
+
+      // Animate metrics
+      const metricReturnEl = document.getElementById("metric-return");
+      const metricVolEl = document.getElementById("metric-vol");
+      const metricSharpeEl = document.getElementById("metric-sharpe");
+      animateNumber(metricReturnEl, expectedReturn * 100, function(v) { return v.toFixed(1) + "%"; });
+      animateNumber(metricVolEl, volatility * 100, function(v) { return v.toFixed(1) + "%"; });
+      animateNumber(metricSharpeEl, sharpeRatio, function(v) { return v.toFixed(2); });
+
+      // Update allocations from frontier point weights
+      if (point.weights) {
+        const assets = lastData.allocations || [];
+        const updatedAllocs = assets.map(function(a) {
+          return Object.assign({}, a, { weight: point.weights[a.asset_code] || 0 });
+        });
+        lastData.allocations = updatedAllocs;
+        lastAllocations = updatedAllocs;
+        const activeAllocEl = allocView === "pie" ? allocPieEl : allocListEl;
+        crossfade(activeAllocEl, function() {
+          renderAllocations(updatedAllocs);
+        });
+      }
+
+      // Update options highlight
+      renderOptions(lastData.frontier_options || [], point);
+
+      // Re-render chart with new selected point
+      renderChart(lastData);
+    }
+
     async function loadPortfolio() {
       statusEl.textContent = "계산 중...";
 
@@ -1901,6 +1960,13 @@ def render_homepage() -> HTMLResponse:
 
         lastData = data;
         lastAllocations = data.allocations || [];
+
+        // Update frontier volatility bounds for slider mapping
+        if (data.frontier_vol_min && data.frontier_vol_max) {
+          frontierVolMin = data.frontier_vol_min;
+          frontierVolMax = data.frontier_vol_max;
+          suggestedVolatility(); // refresh label with new bounds
+        }
 
         // Animate metric numbers
         const metricReturnEl = document.getElementById("metric-return");
@@ -1938,7 +2004,12 @@ def render_homepage() -> HTMLResponse:
       suggestedVolatility();
       clearTimeout(debounceTimer);
       if (!targetVolInput.value.trim()) {
-        debounceTimer = setTimeout(loadPortfolio, 150);
+        // Use cached data if available, otherwise call API
+        if (lastData && lastData.frontier_points) {
+          debounceTimer = setTimeout(updateFromCache, 30);
+        } else {
+          debounceTimer = setTimeout(loadPortfolio, 150);
+        }
       }
     });
 

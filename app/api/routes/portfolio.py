@@ -126,6 +126,8 @@ def simulate_portfolio(payload: PortfolioSimulationRequest) -> PortfolioSimulati
             for point in result.random_portfolios
         ],
         used_fallback=result.used_fallback,
+        frontier_vol_min=round(min(p.volatility for p in result.frontier_points), 4) if result.frontier_points else 0.0,
+        frontier_vol_max=round(max(p.volatility for p in result.frontier_points), 4) if result.frontier_points else 0.0,
         selected_combination=_combination_response(result.selected_combination),
     )
 

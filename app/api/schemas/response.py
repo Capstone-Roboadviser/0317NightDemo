@@ -91,4 +91,6 @@ class PortfolioSimulationResponse(BaseModel):
     selected_point: FrontierPointResponse
     random_portfolios: list[RandomPortfolioResponse]
     used_fallback: bool
+    frontier_vol_min: float = 0.0
+    frontier_vol_max: float = 0.0
     selected_combination: CombinationSelectionResponse | None = None

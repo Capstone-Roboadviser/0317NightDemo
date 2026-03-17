@@ -27,6 +27,9 @@ class StockDataRepository:
     def load_stock_universe(self, path: str | Path) -> list[StockInstrument]:
         csv_path = Path(path)
         frame = pd.read_csv(csv_path)
+        return self.parse_stock_universe_frame(frame)
+
+    def parse_stock_universe_frame(self, frame: pd.DataFrame) -> list[StockInstrument]:
         missing = self.REQUIRED_UNIVERSE_COLUMNS.difference(frame.columns)
         if missing:
             missing_text = ", ".join(sorted(missing))
@@ -67,6 +70,9 @@ class StockDataRepository:
     def load_stock_prices(self, path: str | Path) -> pd.DataFrame:
         csv_path = Path(path)
         frame = pd.read_csv(csv_path)
+        return self.parse_stock_prices_frame(frame)
+
+    def parse_stock_prices_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
         missing = self.REQUIRED_PRICE_COLUMNS.difference(frame.columns)
         if missing:
             missing_text = ", ".join(sorted(missing))

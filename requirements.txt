@@ -9,3 +9,4 @@ yfinance
 plotly
 tqdm
 matplotlib
+psycopg[binary]

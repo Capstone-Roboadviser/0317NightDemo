@@ -56,7 +56,7 @@ class CombinationSearchService:
         stock_prices_path: str,
         config: CombinationSearchConfig,
     ) -> CombinationSearchResult:
-        _, _, _, search_result = self._run_search(
+        _, _, _, search_result = self._run_search_from_paths(
             stock_universe_path=stock_universe_path,
             stock_prices_path=stock_prices_path,
             config=config,
@@ -69,9 +69,39 @@ class CombinationSearchService:
         stock_prices_path: str,
         config: CombinationSearchConfig,
     ) -> CombinationEngineData:
-        assets, instruments, stock_returns, search_result = self._run_search(
-            stock_universe_path=stock_universe_path,
-            stock_prices_path=stock_prices_path,
+        stock_repository = StockDataRepository()
+        instruments = stock_repository.load_stock_universe(stock_universe_path)
+        prices = stock_repository.load_stock_prices(stock_prices_path)
+        return self.build_engine_data_from_market_data(
+            instruments=instruments,
+            prices=prices,
+            config=config,
+        )
+
+    def search_best_combination_from_market_data(
+        self,
+        *,
+        instruments: list[StockInstrument],
+        prices: pd.DataFrame,
+        config: CombinationSearchConfig,
+    ) -> CombinationSearchResult:
+        _, _, _, search_result = self._run_search_from_market_data(
+            instruments=instruments,
+            prices=prices,
+            config=config,
+        )
+        return search_result
+
+    def build_engine_data_from_market_data(
+        self,
+        *,
+        instruments: list[StockInstrument],
+        prices: pd.DataFrame,
+        config: CombinationSearchConfig,
+    ) -> CombinationEngineData:
+        assets, instruments, stock_returns, search_result = self._run_search_from_market_data(
+            instruments=instruments,
+            prices=prices,
             config=config,
         )
 
@@ -117,18 +147,32 @@ class CombinationSearchService:
             random_portfolios=random_portfolios,
         )
 
-    def _run_search(
+    def _run_search_from_paths(
         self,
         stock_universe_path: str,
         stock_prices_path: str,
+        config: CombinationSearchConfig,
+    ) -> tuple[list[AssetClass], list[StockInstrument], pd.DataFrame, CombinationSearchResult]:
+        stock_repository = StockDataRepository()
+        instruments = stock_repository.load_stock_universe(stock_universe_path)
+        prices = stock_repository.load_stock_prices(stock_prices_path)
+        return self._run_search_from_market_data(
+            instruments=instruments,
+            prices=prices,
+            config=config,
+        )
+
+    def _run_search_from_market_data(
+        self,
+        *,
+        instruments: list[StockInstrument],
+        prices: pd.DataFrame,
         config: CombinationSearchConfig,
     ) -> tuple[list[AssetClass], list[StockInstrument], pd.DataFrame, CombinationSearchResult]:
         asset_repository = StaticDataRepository()
         stock_repository = StockDataRepository()
         assets = asset_repository.load_asset_universe()
         self._validate_selection_config(assets, config)
-        instruments = stock_repository.load_stock_universe(stock_universe_path)
-        prices = stock_repository.load_stock_prices(stock_prices_path)
         stock_returns = stock_repository.build_stock_returns(prices)
 
         combinations = self._sample_combinations(instruments, config)

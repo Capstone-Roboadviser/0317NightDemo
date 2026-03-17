@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
+from app.domain.enums import InvestmentHorizon, PriceRefreshMode, RiskProfile, SimulationDataSource
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ class UserProfile:
     risk_profile: RiskProfile
     investment_horizon: InvestmentHorizon
     target_volatility: float | None = None
-    data_source: SimulationDataSource = SimulationDataSource.STOCK_COMBINATION_DEMO
+    data_source: SimulationDataSource = SimulationDataSource.MANAGED_UNIVERSE
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,47 @@ class StockInstrument:
     market: str
     currency: str
     base_weight: float | None = None
+
+
+@dataclass(frozen=True)
+class ManagedUniverseVersion:
+    version_id: int
+    version_name: str
+    source_type: str
+    notes: str | None
+    is_active: bool
+    created_at: str
+    instrument_count: int
+
+
+@dataclass(frozen=True)
+class ManagedPriceStats:
+    total_rows: int
+    ticker_count: int
+    min_date: str | None
+    max_date: str | None
+
+
+@dataclass(frozen=True)
+class ManagedPriceRefreshJob:
+    job_id: int
+    version_id: int
+    version_name: str
+    refresh_mode: PriceRefreshMode
+    status: str
+    ticker_count: int
+    success_count: int
+    failure_count: int
+    message: str | None
+    created_at: str
+    started_at: str | None
+    finished_at: str | None
+
+
+@dataclass(frozen=True)
+class ManagedPriceRefreshResult:
+    job: ManagedPriceRefreshJob
+    price_stats: ManagedPriceStats
 
 
 @dataclass(frozen=True)

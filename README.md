@@ -31,8 +31,9 @@ uvicorn app.main:app --reload
 
 ## 핵심 기능
 
-- 고정된 8개 자산군 기반 시뮬레이션
-- 계산 데이터 2종 지원: `자산군 가정값` / `개별주식 조합 데모`
+- 8개 자산군 기반 시뮬레이션
+- 기본 계산 경로: `관리자 종목 유니버스`
+- 대체 계산 경로: `개별주식 조합 데모`
 - 위험 성향 3단계: `안정형`, `균형형`, `성장형`
 - 투자기간 반영: `단기`, `중기`, `장기`
 - 목표 변동성 선택 입력 지원
@@ -128,38 +129,53 @@ docs/
 
 ## 데이터 설계
 
-이 프로젝트는 실시간 시세를 직접 호출하지 않습니다.
+이 프로젝트는 기본적으로 `관리자 유니버스 + 누적 가격 이력` 구조를 사용합니다.
 
-대신 아래 정적 데이터 파일을 사용합니다.
+- 종목 유니버스 버전과 가격 이력은 Postgres에 저장
+- `DATABASE_URL`이 있으면 관리자 입력 기반으로 계산
+- 아직 활성화된 관리자 버전이 없으면, 내장 데모 CSV로 자동 대체
+
+정적 자산군 정의 파일은 계속 사용합니다.
 
 - [asset_universe.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/asset_universe.json)
 - [sample_market_assumptions.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/sample_market_assumptions.json)
 
-이 방식의 장점:
+## 관리자 유니버스와 개별 주식 조합
 
-- 결과 재현성이 높음
-- 발표/시연 중 흔들리지 않음
-- 응답 속도가 안정적임
-- 문서화와 설명이 쉬움
+현재 API는 두 가지 계산 경로를 지원합니다.
 
-## 개별 주식 기반 확장 준비
-
-현재 데모 API는 두 가지 계산 경로를 지원합니다.
-
-- 기본 경로: 8개 자산군 가정값 기반 시뮬레이션
-- 확장 경로: 개별 주식 조합을 샘플링해 섹터 수익률을 만든 뒤, 그 결과를 자산군 Efficient Frontier 엔진에 연결하는 데모 모드
+- 기본 경로: Postgres에 저장된 `관리자 종목 유니버스`
+- 대체 경로: 내장 `개별주식 조합 데모`
 
 관련 파일:
 
 - [stock_repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/stock_repository.py)
+- [managed_universe_repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/managed_universe_repository.py)
 - [combination_search_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/combination_search_service.py)
+- [managed_universe_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/managed_universe_service.py)
 - [generate_demo_stock_data.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/scripts/generate_demo_stock_data.py)
 - [stock_universe_template.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/templates/stock_universe_template.csv)
 - [stock_prices_template.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/templates/stock_prices_template.csv)
 - [demo_stock_universe.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/demo/demo_stock_universe.csv)
 - [demo_stock_prices.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/demo/demo_stock_prices.csv)
 
-웹 화면과 `POST /portfolio/simulate`에서 `data_source=stock_combination_demo`를 선택하면, 내장된 더미 종목 데이터셋으로 섹터별 최고 Sharpe 조합을 먼저 찾은 뒤 그 결과를 자산군 엔진에 연결합니다.
+운영 흐름은 이렇습니다.
+
+- `/admin/universe/versions`로 관리자 수기 입력 버전 생성
+- active 버전이 생기면 `/portfolio/*`가 해당 유니버스를 기준으로 계산
+- `/admin/prices/refresh`로 active 유니버스 가격 데이터를 yfinance에서 수집
+- active 버전이 없으면 내장 데모 CSV를 대신 사용
+
+필수 환경변수:
+
+```bash
+export DATABASE_URL="postgresql://user:password@host:5432/dbname"
+```
+
+가격 갱신은 기본적으로 `incremental` 모드로 돌리는 것을 권장합니다.
+
+- `incremental`: 기존 마지막 저장일 이후만 증분 수집
+- `full`: 지정 연수만큼 전체 백필
 
 ## Railway 배포
 

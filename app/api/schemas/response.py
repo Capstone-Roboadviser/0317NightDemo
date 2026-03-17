@@ -58,6 +58,50 @@ class CombinationSelectionResponse(BaseModel):
     discard_reasons: dict[str, int]
 
 
+class ManagedUniverseVersionResponse(BaseModel):
+    version_id: int
+    version_name: str
+    source_type: str
+    notes: str | None
+    is_active: bool
+    created_at: str
+    instrument_count: int
+
+
+class ManagedPriceStatsResponse(BaseModel):
+    total_rows: int
+    ticker_count: int
+    min_date: str | None
+    max_date: str | None
+
+
+class ManagedPriceRefreshJobResponse(BaseModel):
+    job_id: int
+    version_id: int
+    version_name: str
+    refresh_mode: str
+    status: str
+    ticker_count: int
+    success_count: int
+    failure_count: int
+    message: str | None
+    created_at: str
+    started_at: str | None
+    finished_at: str | None
+
+
+class ManagedUniverseStatusResponse(BaseModel):
+    database_configured: bool
+    active_version: ManagedUniverseVersionResponse | None = None
+    price_stats: ManagedPriceStatsResponse | None = None
+    latest_refresh_job: ManagedPriceRefreshJobResponse | None = None
+
+
+class ManagedPriceRefreshResponse(BaseModel):
+    job: ManagedPriceRefreshJobResponse
+    price_stats: ManagedPriceStatsResponse
+
+
 class FrontierPreviewResponse(BaseModel):
     portfolio_id: str
     data_source: str

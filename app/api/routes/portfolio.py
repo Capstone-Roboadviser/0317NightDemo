@@ -8,7 +8,11 @@ from app.api.schemas.response import (
     FrontierPointResponse,
     PortfolioSimulationResponse,
     RandomPortfolioResponse,
+    StockInstrumentResponse,
+    StocksBySectorResponse,
 )
+from app.core.config import DATA_DIR
+from app.data.stock_repository import StockDataRepository
 from app.domain.enums import InvestmentHorizon, RiskProfile
 from app.domain.models import PortfolioSimulationResult, UserProfile
 from app.services.portfolio_service import PortfolioSimulationService
@@ -35,6 +39,23 @@ def list_assets() -> AssetUniverseResponse:
             for asset in assets
         ]
     )
+
+
+@router.get("/stocks", response_model=StocksBySectorResponse)
+def list_stocks() -> StocksBySectorResponse:
+    stock_repo = StockDataRepository()
+    universe_path = DATA_DIR / "demo" / "demo_stock_universe.csv"
+    instruments = stock_repo.load_stock_universe(universe_path)
+    sectors: dict[str, list[StockInstrumentResponse]] = {}
+    for inst in instruments:
+        item = StockInstrumentResponse(
+            ticker=inst.ticker,
+            name=inst.name,
+            sector_code=inst.sector_code,
+            sector_name=inst.sector_name,
+        )
+        sectors.setdefault(inst.sector_code, []).append(item)
+    return StocksBySectorResponse(sectors=sectors)
 
 
 @router.get("/frontier", response_model=FrontierPreviewResponse)

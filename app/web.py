@@ -694,23 +694,29 @@ def render_homepage() -> HTMLResponse:
       position: fixed;
       pointer-events: none;
       z-index: 50;
-      padding: 8px 12px;
+      padding: 10px 14px;
       border-radius: var(--radius);
       background: var(--foreground);
       color: var(--primary-foreground);
       font-size: 13px;
       font-weight: 500;
       line-height: 1.4;
-      white-space: nowrap;
       opacity: 0;
       transition: opacity 0.12s ease;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      min-width: 180px;
+      max-width: 280px;
+    }
+    .donut-tooltip.visible {
+      opacity: 0.95;
+    }
+    .donut-tooltip-header {
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    .donut-tooltip.visible {
-      opacity: 1;
+      margin-bottom: 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--muted-foreground);
     }
     .donut-tooltip-dot {
       width: 8px;
@@ -718,8 +724,31 @@ def render_homepage() -> HTMLResponse:
       border-radius: 50%;
       flex-shrink: 0;
     }
+    .donut-tooltip-name {
+      font-weight: 600;
+    }
     .donut-tooltip-value {
       font-weight: 700;
+      margin-left: auto;
+    }
+    .donut-tooltip-stocks {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .donut-tooltip-stock {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.85;
+    }
+    .donut-tooltip-stock-ticker {
+      font-family: 'Inter', monospace;
+      font-weight: 500;
+      opacity: 0.7;
+      min-width: 36px;
     }
 
     /* ── Chart (Frontier) Tooltip ── */
@@ -1199,15 +1228,24 @@ def render_homepage() -> HTMLResponse:
     </footer>
   </div>
 
-  <div class="donut-tooltip" id="donut-tooltip">
-    <span class="donut-tooltip-dot" id="donut-tooltip-dot"></span>
-    <span id="donut-tooltip-name"></span>
-    <span class="donut-tooltip-value" id="donut-tooltip-value"></span>
-  </div>
+  <div class="donut-tooltip" id="donut-tooltip"></div>
 
   <div class="chart-tooltip" id="chart-tooltip"></div>
 
   <script>
+    // Stock-level data by sector (loaded async)
+    let stocksBySector = {};
+
+    (async function loadStocks() {
+      try {
+        const res = await fetch("/portfolio/stocks");
+        if (res.ok) {
+          const data = await res.json();
+          stocksBySector = data.sectors || {};
+        }
+      } catch (_) { /* ignore – tooltip just won't show stocks */ }
+    })();
+
     const ASSET_COLORS = {
       bond: "#5B7C99",
       real_assets: "#A67C52",
@@ -1338,6 +1376,7 @@ def render_homepage() -> HTMLResponse:
 
         const pctLabel = (fraction * 100).toFixed(1) + "%";
         paths += '<path class="donut-slice"';
+        paths += ' data-code="' + item.asset_code + '"';
         paths += ' data-name="' + (item.asset_name || item.asset_code) + '"';
         paths += ' data-value="' + pctLabel + '"';
         paths += ' data-color="' + color + '"';
@@ -1710,16 +1749,38 @@ def render_homepage() -> HTMLResponse:
     // ── Donut Tooltip ──
     (function() {
       const tip = document.getElementById("donut-tooltip");
-      const tipDot = document.getElementById("donut-tooltip-dot");
-      const tipName = document.getElementById("donut-tooltip-name");
-      const tipValue = document.getElementById("donut-tooltip-value");
+
+      function buildDonutTooltipHTML(slice) {
+        const color = slice.dataset.color;
+        const name = slice.dataset.name;
+        const value = slice.dataset.value;
+        const code = slice.dataset.code;
+
+        let html = '<div class="donut-tooltip-header">';
+        html += '<span class="donut-tooltip-dot" style="background:' + color + '"></span>';
+        html += '<span class="donut-tooltip-name">' + name + '</span>';
+        html += '<span class="donut-tooltip-value">' + value + '</span>';
+        html += '</div>';
+
+        const stocks = stocksBySector[code];
+        if (stocks && stocks.length > 0) {
+          html += '<div class="donut-tooltip-stocks">';
+          stocks.forEach(function(s) {
+            html += '<div class="donut-tooltip-stock">';
+            html += '<span class="donut-tooltip-stock-ticker">' + s.ticker + '</span>';
+            html += '<span>' + s.name + '</span>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+
+        return html;
+      }
 
       document.addEventListener("mouseover", function(e) {
         const slice = e.target.closest(".donut-slice");
         if (!slice) return;
-        tipDot.style.background = slice.dataset.color;
-        tipName.textContent = slice.dataset.name;
-        tipValue.textContent = slice.dataset.value;
+        tip.innerHTML = buildDonutTooltipHTML(slice);
         tip.classList.add("visible");
       });
 

@@ -38,6 +38,17 @@ class AllocationResponse(BaseModel):
     risk_contribution: float
 
 
+class StockInstrumentResponse(BaseModel):
+    ticker: str
+    name: str
+    sector_code: str
+    sector_name: str
+
+
+class StocksBySectorResponse(BaseModel):
+    sectors: dict[str, list[StockInstrumentResponse]]
+
+
 class FrontierPreviewResponse(BaseModel):
     portfolio_id: str
     target_volatility: float

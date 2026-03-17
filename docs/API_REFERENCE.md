@@ -214,6 +214,26 @@ GET /portfolio/frontier?risk_profile=balanced&investment_horizon=medium&data_sou
 
 저장된 버전 중 하나를 활성 유니버스로 전환합니다.
 
+### `GET /admin/tickers/search`
+
+Yahoo Finance 기준 티커 또는 종목명 검색 결과를 반환합니다. `/admin` 화면의 섹터 검색창에서 사용합니다.
+
+예시:
+
+```text
+GET /admin/tickers/search?query=nvda&max_results=8
+```
+
+### `GET /admin/tickers/lookup`
+
+티커 1개를 검증하고 `name`, `market`, `currency`를 자동채움용으로 반환합니다.
+
+예시:
+
+```text
+GET /admin/tickers/lookup?ticker=NVDA
+```
+
 ### `POST /admin/prices/refresh`
 
 활성 유니버스 또는 특정 버전의 티커 목록을 기준으로 yfinance에서 가격 데이터를 수집해 Postgres에 저장합니다.

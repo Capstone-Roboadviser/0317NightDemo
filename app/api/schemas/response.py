@@ -102,6 +102,29 @@ class ManagedPriceRefreshResponse(BaseModel):
     price_stats: ManagedPriceStatsResponse
 
 
+class TickerLookupResponse(BaseModel):
+    ticker: str
+    name: str
+    market: str
+    currency: str
+    exchange: str | None = None
+    quote_type: str | None = None
+
+
+class TickerSearchResultResponse(BaseModel):
+    ticker: str
+    name: str
+    exchange: str | None = None
+    quote_type: str | None = None
+    market: str | None = None
+    currency: str | None = None
+
+
+class TickerSearchResponse(BaseModel):
+    query: str
+    results: list[TickerSearchResultResponse]
+
+
 class FrontierPreviewResponse(BaseModel):
     portfolio_id: str
     data_source: str

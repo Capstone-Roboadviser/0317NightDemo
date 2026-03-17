@@ -1243,9 +1243,9 @@ def render_homepage() -> HTMLResponse:
       const key = el.id || el;
       if (activeAnimations[key]) cancelAnimationFrame(activeAnimations[key]);
 
-      const oldText = el.textContent.replace(/[^0-9.\-]/g, "");
+      const oldText = el.textContent.replace(/[^0-9.\\-]/g, "");
       const oldVal = parseFloat(oldText) || 0;
-      const newVal = parseFloat(String(newValue).replace(/[^0-9.\-]/g, "")) || 0;
+      const newVal = parseFloat(String(newValue).replace(/[^0-9.\\-]/g, "")) || 0;
       if (Math.abs(oldVal - newVal) < 0.001) { el.textContent = format(newVal); return; }
 
       const start = performance.now();

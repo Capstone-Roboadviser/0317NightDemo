@@ -621,6 +621,51 @@ def render_homepage() -> HTMLResponse:
       border: 1px solid var(--border);
       background: var(--muted);
       padding: 12px;
+      position: relative;
+    }
+
+    .chart-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 80px 40px;
+    }
+
+    .chart-loading-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+    }
+
+    .progress-track {
+      width: 220px;
+      height: 8px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.2);
+      overflow: hidden;
+    }
+
+    .dark .progress-track {
+      background: rgba(248, 250, 252, 0.2);
+    }
+
+    .progress-indicator {
+      height: 100%;
+      border-radius: 9999px;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease-out;
+    }
+
+    .chart-reveal {
+      animation: chart-fade-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes chart-fade-in {
+      from { opacity: 0; filter: blur(6px); }
+      to { opacity: 1; filter: blur(0px); }
     }
 
     svg {
@@ -1381,7 +1426,13 @@ def render_homepage() -> HTMLResponse:
           </div>
           <div class="card-content">
             <div class="chart-wrap">
-              <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="효율적 투자선 차트"></svg>
+              <div id="chart-loading" class="chart-loading">
+                <div class="chart-loading-text">포트폴리오를 계산하고 있습니다</div>
+                <div class="progress-track">
+                  <div class="progress-indicator"></div>
+                </div>
+              </div>
+              <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="효율적 투자선 차트" style="display:none"></svg>
             </div>
           </div>
         </div>
@@ -1514,6 +1565,7 @@ def render_homepage() -> HTMLResponse:
     const allocPieEl = document.getElementById("allocations-pie");
     const allocListEl = document.getElementById("allocations-list");
     const chartEl = document.getElementById("frontier-chart");
+    const chartLoadingEl = document.getElementById("chart-loading");
 
     let lastData = null;
     let lastAllocations = [];
@@ -2000,8 +2052,37 @@ def render_homepage() -> HTMLResponse:
       animateSelectedDot(point, allocJSON);
     }
 
+    let progressTimer = null;
+
+    function startProgress() {
+      const bar = chartLoadingEl.querySelector(".progress-indicator");
+      bar.style.transition = "none";
+      bar.style.width = "0%";
+      void bar.offsetWidth; // force reflow
+      let pct = 0;
+      clearInterval(progressTimer);
+      progressTimer = setInterval(function() {
+        // Ease toward 90% — slows down as it approaches
+        pct += (90 - pct) * 0.08;
+        bar.style.transition = "width 0.3s ease-out";
+        bar.style.width = pct + "%";
+        if (pct >= 89) clearInterval(progressTimer);
+      }, 100);
+    }
+
+    function finishProgress() {
+      clearInterval(progressTimer);
+      const bar = chartLoadingEl.querySelector(".progress-indicator");
+      bar.style.transition = "width 0.25s ease-out";
+      bar.style.width = "100%";
+    }
+
     async function loadPortfolio() {
       statusEl.textContent = "계산 중...";
+      chartLoadingEl.style.display = "";
+      chartEl.style.display = "none";
+      chartEl.classList.remove("chart-reveal");
+      startProgress();
 
       try {
         const response = await fetch("/portfolio/simulate", {
@@ -2014,6 +2095,7 @@ def render_homepage() -> HTMLResponse:
         if (!response.ok) {
           throw new Error(data.detail || "요청 처리에 실패했습니다.");
         }
+        finishProgress();
 
         const expectedReturn = data.expected_return ?? data.metrics?.expected_return ?? 0;
         const volatility = data.volatility ?? data.metrics?.volatility ?? 0;
@@ -2057,9 +2139,20 @@ def render_homepage() -> HTMLResponse:
         });
 
         renderChart(data);
-        statusEl.textContent = "";
+        // Brief pause to show 100%, then reveal chart with blur fade
+        setTimeout(function() {
+          chartLoadingEl.style.display = "none";
+          chartEl.style.display = "block";
+          chartEl.classList.add("chart-reveal");
+          statusEl.textContent = "";
+        }, 300);
       } catch (error) {
-        statusEl.textContent = error.message;
+        finishProgress();
+        setTimeout(function() {
+          chartLoadingEl.style.display = "none";
+          chartEl.style.display = "block";
+          statusEl.textContent = error.message;
+        }, 300);
       }
     }
 

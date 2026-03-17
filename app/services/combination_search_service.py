@@ -173,7 +173,10 @@ class CombinationSearchService:
         stock_repository = StockDataRepository()
         assets = asset_repository.load_asset_universe()
         self._validate_selection_config(assets, config)
+        self._validate_instrument_pool(assets, instruments, config)
         stock_returns = stock_repository.build_stock_returns(prices)
+        if stock_returns.empty:
+            raise RuntimeError("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
 
         combinations = self._sample_combinations(instruments, config)
         evaluations: list[CombinationEvaluation] = []
@@ -372,3 +375,26 @@ class CombinationSearchService:
             if extra_codes:
                 problems.append(f"알 수 없는 섹터={', '.join(extra_codes)}")
             raise RuntimeError(f"selection_sizes 구성이 자산군 정의와 일치하지 않습니다. {' / '.join(problems)}")
+
+    def _validate_instrument_pool(
+        self,
+        assets: list[AssetClass],
+        instruments: list[StockInstrument],
+        config: CombinationSearchConfig,
+    ) -> None:
+        counts_by_sector: dict[str, int] = defaultdict(int)
+        for instrument in instruments:
+            counts_by_sector[instrument.sector_code] += 1
+
+        shortages: list[str] = []
+        for asset in assets:
+            required = int(config.selection_sizes.get(asset.code, 0))
+            actual = int(counts_by_sector.get(asset.code, 0))
+            if actual < required:
+                shortages.append(f"{asset.name}({asset.code}) 필요 {required}개 / 현재 {actual}개")
+
+        if shortages:
+            raise RuntimeError(
+                "관리자 유니버스의 섹터별 종목 수가 부족합니다. "
+                + " | ".join(shortages)
+            )

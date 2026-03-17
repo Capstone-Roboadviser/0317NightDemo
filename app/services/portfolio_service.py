@@ -221,15 +221,20 @@ class PortfolioSimulationService:
         if active_version is None:
             return None
 
-        engine_data = self.combination_service.build_engine_data_from_market_data(
-            instruments=instruments,
-            prices=prices,
-            config=CombinationSearchConfig(
-                selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
-                sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
-                per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
-            ),
-        )
+        try:
+            engine_data = self.combination_service.build_engine_data_from_market_data(
+                instruments=instruments,
+                prices=prices,
+                config=CombinationSearchConfig(
+                    selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
+                    sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
+                    per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
+                ),
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                f"관리자 유니버스 기반 시뮬레이션 계산 중 데이터 형식 오류가 발생했습니다: {exc}"
+            ) from exc
         search_result = engine_data.search_result
         selected_combination = CombinationSelectionView(
             combination_id=search_result.best_evaluation.combination_id,

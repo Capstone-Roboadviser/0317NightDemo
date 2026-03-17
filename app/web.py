@@ -729,6 +729,143 @@ def render_homepage() -> HTMLResponse:
     .donut-legend-value {
       font-weight: 600;
     }
+    /* ── Allocation Tabs ── */
+    .alloc-tabs {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+      background: var(--muted);
+      border-radius: 6px;
+      padding: 3px;
+    }
+    .alloc-tab {
+      padding: 4px 12px;
+      border: none;
+      background: none;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.4;
+    }
+    .alloc-tab:hover {
+      color: var(--foreground);
+    }
+    .alloc-tab.active {
+      background: var(--background);
+      color: var(--foreground);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    /* ── Allocation List View ── */
+    .alloc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      table-layout: fixed;
+    }
+    .alloc-table col.col-asset { width: 50%; }
+    .alloc-table col.col-weight { width: 14%; }
+    .alloc-table col.col-bar { width: 18%; }
+    .alloc-table col.col-risk { width: 18%; }
+    .alloc-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted-foreground);
+      padding: 8px 12px;
+      border-bottom: 2px solid var(--border);
+    }
+    .alloc-table th:not(:first-child) {
+      text-align: right;
+    }
+    .alloc-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--foreground);
+    }
+    .alloc-table td:not(:first-child) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    .alloc-table tr:last-child td {
+      border-bottom: none;
+    }
+    .alloc-table-asset {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .alloc-table-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .alloc-table-name {
+      font-weight: 500;
+    }
+    .alloc-table-bar-cell {
+      width: 100px;
+    }
+    .alloc-table-bar {
+      height: 6px;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    /* Expandable row toggle */
+    .alloc-table-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .alloc-table-chevron {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+      color: var(--muted-foreground);
+    }
+    .alloc-table-toggle.expanded .alloc-table-chevron {
+      transform: rotate(90deg);
+    }
+    /* Child stock rows */
+    .alloc-child-row td {
+      padding: 6px 12px 6px 40px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      border-bottom: 1px solid var(--border);
+    }
+    .alloc-child-row td:not(:first-child) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+    .alloc-child-row:last-of-type td {
+      border-bottom: 1px solid var(--border);
+    }
+    .alloc-child-ticker {
+      font-family: 'Inter', monospace;
+      font-weight: 600;
+      color: var(--foreground);
+      margin-right: 6px;
+      font-size: 11px;
+      opacity: 0.7;
+    }
+    .alloc-child-name {
+      font-weight: 400;
+    }
+    .alloc-children-hidden {
+      display: none;
+    }
     /* Donut slice hover */
     .donut-slice {
       transition: opacity 0.15s, filter 0.15s;
@@ -798,6 +935,12 @@ def render_homepage() -> HTMLResponse:
       font-weight: 500;
       opacity: 0.7;
       min-width: 36px;
+    }
+    .donut-tooltip-stock-pct {
+      margin-left: auto;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.9;
     }
 
     /* ── Chart (Frontier) Tooltip ── */
@@ -1269,13 +1412,22 @@ def render_homepage() -> HTMLResponse:
 
         <div class="card">
           <div class="card-header">
-            <div class="step-badge"><span class="step-num">5</span> 자산배분</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div class="step-badge"><span class="step-num">5</span> 자산배분</div>
+              <div class="alloc-tabs">
+                <button class="alloc-tab active" data-view="pie">차트</button>
+                <button class="alloc-tab" data-view="list">목록</button>
+              </div>
+            </div>
             <div class="card-title">비중과 리스크 기여도</div>
             <div class="card-description">비중은 자금 배분을, 리스크 기여도는 실제 변동성의 출처를 보여줍니다. 효율적 자산배분에서는 이 둘이 다르게 나타날 수 있습니다.</div>
           </div>
           <div class="card-content">
-            <div id="allocations" class="donut-grid fade-content">
+            <div id="allocations-pie" class="donut-grid fade-content">
               <!-- JS renders two donut charts here -->
+            </div>
+            <div id="allocations-list" class="fade-content" style="display:none">
+              <!-- JS renders table here -->
             </div>
           </div>
         </div>
@@ -1331,11 +1483,14 @@ def render_homepage() -> HTMLResponse:
     const combinationMetaEl = document.getElementById("combination-meta");
     const combinationMembersEl = document.getElementById("combination-members");
     const optionsEl = document.getElementById("frontier-options");
-    const allocationsEl = document.getElementById("allocations");
+    const allocPieEl = document.getElementById("allocations-pie");
+    const allocListEl = document.getElementById("allocations-list");
     const chartEl = document.getElementById("frontier-chart");
 
     let lastData = null;
     let lastAllocations = [];
+    let lastAllocFiltered = [];
+    let allocView = "pie"; // "pie" or "list"
     let debounceTimer = null;
     const activeAnimations = {};
 
@@ -1496,14 +1651,16 @@ def render_homepage() -> HTMLResponse:
 
     function renderAllocations(items) {
       const filtered = items.filter((it) => it.weight > 0 || it.risk_contribution > 0);
+      lastAllocFiltered = filtered;
 
+      // ── Pie view ──
       const weightSVG = buildDonutSVG(filtered, "weight", "비중");
       const riskSVG = buildDonutSVG(filtered, "risk_contribution", "리스크");
 
       const topWeight = filtered.reduce((max, it) => it.weight > max.weight ? it : max, filtered[0] || { asset_name: "-", weight: 0 });
       const topRisk = filtered.reduce((max, it) => it.risk_contribution > max.risk_contribution ? it : max, filtered[0] || { asset_name: "-", risk_contribution: 0 });
 
-      allocationsEl.innerHTML =
+      allocPieEl.innerHTML =
         '<div class="donut-section">' +
           '<div class="donut-label">자산 비중</div>' +
           '<div class="donut-container">' +
@@ -1526,6 +1683,79 @@ def render_homepage() -> HTMLResponse:
           '</div>' +
           '<div class="donut-legend">' + buildLegendHTML(filtered, "risk_contribution") + '</div>' +
         '</div>';
+
+      // ── List view ──
+      renderAllocList(filtered);
+    }
+
+    function renderAllocList(filtered) {
+      const maxW = Math.max(...filtered.map(it => it.weight || 0)) || 1;
+
+      let rows = filtered.map(function(item) {
+        const color = ASSET_COLORS[item.asset_code] || "#64748B";
+        const w = ((item.weight || 0) * 100).toFixed(1);
+        const r = ((item.risk_contribution || 0) * 100).toFixed(1);
+        const barPct = ((item.weight || 0) / maxW * 100).toFixed(0);
+        const code = item.asset_code;
+
+        // Get child stocks for this sector
+        const stocks = selectedStocksForSector(code);
+        const hasChildren = stocks.length > 0;
+        const chevronSVG = '<svg class="alloc-table-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+
+        // Parent row
+        let html = '<tr class="alloc-parent-row" data-sector="' + code + '">' +
+          '<td><div class="alloc-table-asset">' +
+            (hasChildren
+              ? '<span class="alloc-table-toggle" data-sector="' + code + '">' + chevronSVG + '</span>'
+              : '<span style="width:14px;display:inline-block"></span>') +
+            '<span class="alloc-table-dot" style="background:' + color + '"></span>' +
+            '<span class="alloc-table-name">' + (item.asset_name || code) + '</span>' +
+          '</div></td>' +
+          '<td>' + w + '%</td>' +
+          '<td class="alloc-table-bar-cell"><div class="alloc-table-bar" style="width:' + barPct + '%;background:' + color + '"></div></td>' +
+          '<td>' + r + '%</td>' +
+        '</tr>';
+
+        // Child rows (hidden by default)
+        if (hasChildren) {
+          const perStock = (item.weight || 0) / stocks.length;
+          stocks.forEach(function(s) {
+            const sw = (perStock * 100).toFixed(1);
+            html += '<tr class="alloc-child-row alloc-children-hidden" data-parent="' + code + '">' +
+              '<td><span class="alloc-child-ticker">' + s.ticker + '</span><span class="alloc-child-name">' + s.name + '</span></td>' +
+              '<td>' + sw + '%</td>' +
+              '<td></td>' +
+              '<td></td>' +
+            '</tr>';
+          });
+        }
+
+        return html;
+      }).join("");
+
+      allocListEl.innerHTML =
+        '<table class="alloc-table">' +
+          '<colgroup><col class="col-asset"><col class="col-weight"><col class="col-bar"><col class="col-risk"></colgroup>' +
+          '<thead><tr>' +
+            '<th>자산군</th>' +
+            '<th>비중</th>' +
+            '<th></th>' +
+            '<th>리스크 기여도</th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>';
+
+      // Wire up toggle clicks
+      allocListEl.querySelectorAll(".alloc-table-toggle").forEach(function(toggle) {
+        toggle.addEventListener("click", function() {
+          const sector = toggle.dataset.sector;
+          const isExpanded = toggle.classList.toggle("expanded");
+          allocListEl.querySelectorAll('.alloc-child-row[data-parent="' + sector + '"]').forEach(function(row) {
+            row.classList.toggle("alloc-children-hidden", !isExpanded);
+          });
+        });
+      });
     }
 
     function renderOptions(items, selectedPoint) {
@@ -1692,7 +1922,8 @@ def render_homepage() -> HTMLResponse:
         crossfade(optionsEl, function() {
           renderOptions(data.frontier_options || [], data.selected_point);
         });
-        crossfade(allocationsEl, function() {
+        const activeAllocEl = allocView === "pie" ? allocPieEl : allocListEl;
+        crossfade(activeAllocEl, function() {
           renderAllocations(data.allocations || []);
         });
 
@@ -1710,6 +1941,26 @@ def render_homepage() -> HTMLResponse:
         debounceTimer = setTimeout(loadPortfolio, 150);
       }
     });
+
+    // ── Allocation Tab Switcher ──
+    (function() {
+      const tabs = document.querySelectorAll(".alloc-tab");
+      tabs.forEach(function(tab) {
+        tab.addEventListener("click", function() {
+          const view = tab.dataset.view;
+          if (view === allocView) return;
+          allocView = view;
+          tabs.forEach(function(t) { t.classList.toggle("active", t.dataset.view === view); });
+          if (view === "pie") {
+            allocListEl.style.display = "none";
+            allocPieEl.style.display = "";
+          } else {
+            allocPieEl.style.display = "none";
+            allocListEl.style.display = "";
+          }
+        });
+      });
+    })();
 
     // ── Custom Select Component ──
     (function() {
@@ -1854,11 +2105,14 @@ def render_homepage() -> HTMLResponse:
 
         const stocks = selectedStocksForSector(code);
         if (stocks && stocks.length > 0) {
+          const totalPct = parseFloat(value) || 0;
+          const perStockPct = (totalPct / stocks.length).toFixed(1);
           html += '<div class="donut-tooltip-stocks">';
           stocks.forEach(function(s) {
             html += '<div class="donut-tooltip-stock">';
             html += '<span class="donut-tooltip-stock-ticker">' + s.ticker + '</span>';
             html += '<span>' + s.name + '</span>';
+            html += '<span class="donut-tooltip-stock-pct">' + perStockPct + '%</span>';
             html += '</div>';
           });
           html += '</div>';

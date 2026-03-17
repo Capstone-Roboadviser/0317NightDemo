@@ -43,7 +43,7 @@
 ### `POST /portfolio/simulate`
 
 위험 성향, 투자기간, 목표 변동성을 입력받아 포트폴리오 예시를 계산합니다.
-추가로 `data_source`를 통해 자산군 가정값 모드와 개별주식 조합 데모 모드 중 하나를 선택할 수 있습니다.
+추가로 `data_source`를 통해 `관리자 유니버스`, `자산군 가정값`, `개별주식 조합 데모` 중 하나를 선택할 수 있습니다.
 
 요청 예시:
 
@@ -51,7 +51,7 @@
 {
   "risk_profile": "growth",
   "investment_horizon": "long",
-  "data_source": "stock_combination_demo",
+  "data_source": "managed_universe",
   "target_volatility": 0.15
 }
 ```
@@ -65,8 +65,8 @@
   "summary": "이 시뮬레이션은 연 15.0% 수준의 목표 변동성을 기준으로 포트폴리오를 선택했고, 예상 변동성은 15.1%, 예상 수익률은 11.2%입니다.",
   "explanation_title": "왜 이런 포트폴리오가 나왔을까?",
   "explanation": "이 포트폴리오는 효율적 투자선 위의 한 점으로...",
-  "data_source": "stock_combination_demo",
-  "data_source_label": "개별주식 조합 데모",
+  "data_source": "managed_universe",
+  "data_source_label": "관리자 종목 유니버스 (research-package-20260318-010101)",
   "target_volatility": 0.15,
   "expected_return": 0.112,
   "volatility": 0.151,
@@ -149,13 +149,13 @@
 
 - `risk_profile`: `conservative` | `balanced` | `growth`
 - `investment_horizon`: `short` | `medium` | `long`
-- `data_source`: `asset_assumptions` | `stock_combination_demo`
+- `data_source`: `managed_universe` | `asset_assumptions` | `stock_combination_demo`
 - `target_volatility`: 선택 입력
 
 예시:
 
 ```text
-GET /portfolio/frontier?risk_profile=balanced&investment_horizon=medium&data_source=stock_combination_demo&target_volatility=0.11
+GET /portfolio/frontier?risk_profile=balanced&investment_horizon=medium&data_source=managed_universe&target_volatility=0.11
 ```
 
 응답에는 아래 정보가 포함됩니다.
@@ -169,7 +169,94 @@ GET /portfolio/frontier?risk_profile=balanced&investment_horizon=medium&data_sou
 - `selected_point_index`
 - `selected_point`
 - `random_portfolios`
-- `selected_combination` (개별주식 조합 데모 모드일 때)
+- `selected_combination` (관리자 유니버스 / 개별주식 조합 데모 모드일 때)
+
+## 5. 관리자 유니버스 관리
+
+### `GET /admin/universe/status`
+
+현재 Postgres 연결 여부, 활성 버전, 가격 이력 범위를 반환합니다.
+
+### `GET /admin/universe/versions`
+
+저장된 유니버스 버전 목록을 반환합니다.
+
+### `GET /admin/universe/versions/active`
+
+현재 활성화된 유니버스 버전을 반환합니다.
+
+### `POST /admin/universe/versions`
+
+로그인 없이 관리자 입력용 유니버스 버전을 직접 생성합니다.
+
+요청 예시:
+
+```json
+{
+  "version_name": "manual-20260318-v1",
+  "notes": "관리자 수기 입력 버전",
+  "activate": true,
+  "instruments": [
+    {
+      "ticker": "SPY",
+      "name": "SPDR S&P 500 ETF Trust",
+      "sector_code": "etf",
+      "sector_name": "ETF",
+      "market": "USA",
+      "currency": "USD",
+      "base_weight": 0.4
+    }
+  ]
+}
+```
+
+### `POST /admin/universe/versions/{version_id}/activate`
+
+저장된 버전 중 하나를 활성 유니버스로 전환합니다.
+
+### `POST /admin/prices/refresh`
+
+활성 유니버스 또는 특정 버전의 티커 목록을 기준으로 yfinance에서 가격 데이터를 수집해 Postgres에 저장합니다.
+
+요청 예시:
+
+```json
+{
+  "refresh_mode": "incremental",
+  "full_lookback_years": 5
+}
+```
+
+응답 예시:
+
+```json
+{
+  "job": {
+    "job_id": 12,
+    "version_id": 3,
+    "version_name": "manual-20260318-v1",
+    "refresh_mode": "incremental",
+    "status": "partial_success",
+    "ticker_count": 24,
+    "success_count": 22,
+    "failure_count": 2,
+    "message": "22개 종목 갱신 성공, 2개 실패",
+    "created_at": "2026-03-18T03:00:00Z",
+    "started_at": "2026-03-18T03:00:00Z",
+    "finished_at": "2026-03-18T03:01:15Z"
+  },
+  "price_stats": {
+    "total_rows": 12096,
+    "ticker_count": 24,
+    "min_date": "2021-03-18",
+    "max_date": "2026-03-17"
+  }
+}
+```
+
+### `GET /admin/prices/status`
+
+현재 활성 유니버스의 가격 데이터 범위와 최근 갱신 잡 상태를 반환합니다.
 
 ## 오류 응답
 

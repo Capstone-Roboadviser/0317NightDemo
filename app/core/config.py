@@ -1,22 +1,25 @@
+import os
 from pathlib import Path
 
 from app.domain.enums import InvestmentHorizon, RiskProfile
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = BASE_DIR.parent
 DATA_DIR = BASE_DIR / "data"
 ASSET_UNIVERSE_PATH = DATA_DIR / "asset_universe.json"
 SAMPLE_MARKET_ASSUMPTIONS_PATH = DATA_DIR / "sample_market_assumptions.json"
 DEMO_STOCK_DATA_DIR = DATA_DIR / "demo"
 DEMO_STOCK_UNIVERSE_PATH = DEMO_STOCK_DATA_DIR / "demo_stock_universe.csv"
 DEMO_STOCK_PRICES_PATH = DEMO_STOCK_DATA_DIR / "demo_stock_prices.csv"
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 APP_NAME = "자산배분 시뮬레이터 데모 API"
 APP_DESCRIPTION = (
-    "고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 "
+    "관리자 입력 기반의 종목 유니버스를 기준으로, 사용자의 위험 성향과 투자기간에 따라 "
     "효율적 투자선 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스"
 )
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 
 RISK_FREE_RATE = 0.02
 FRONTIER_POINT_COUNT = 24

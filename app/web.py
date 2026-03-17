@@ -1279,6 +1279,7 @@ def render_homepage() -> HTMLResponse:
         자산배분 시뮬레이터
       </a>
       <div class="navbar-links">
+        <a href="/admin">관리 콘솔</a>
         <a href="/docs">API 문서</a>
         <a href="/redoc">참고 문서</a>
         <span class="badge">한국어 데모</span>
@@ -1314,8 +1315,8 @@ def render_homepage() -> HTMLResponse:
             <form id="portfolio-form">
               <div class="field-group">
                 <label class="field-label">계산 기준</label>
-                <input type="hidden" id="data_source" name="data_source" value="stock_combination_demo" />
-                <span class="field-hint">현재 데모는 개별주식 조합을 먼저 찾고, 그 결과를 자산군 Efficient Frontier 계산에 연결합니다.</span>
+                <input type="hidden" id="data_source" name="data_source" value="managed_universe" />
+                <span class="field-hint">기본값은 관리자 종목 유니버스이며, 아직 설정되지 않았으면 내장 데모 조합으로 자동 대체됩니다.</span>
               </div>
 
               <div class="field-group">
@@ -1464,7 +1465,10 @@ def render_homepage() -> HTMLResponse:
 
     <footer class="footer">
       <span>효율적 투자선 자산배분 시뮬레이터</span>
-      <div><a href="/docs">Swagger</a></div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <a href="/admin">관리 콘솔</a>
+        <a href="/docs">Swagger</a>
+      </div>
     </footer>
   </div>
 

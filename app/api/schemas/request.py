@@ -1,12 +1,16 @@
 from pydantic import BaseModel, Field, model_validator
 
-from app.domain.enums import InvestmentHorizon, RiskProfile
+from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 from app.domain.models import UserProfile
 
 
 class PortfolioSimulationRequest(BaseModel):
     risk_profile: RiskProfile = Field(..., description="위험 성향")
     investment_horizon: InvestmentHorizon = Field(..., description="투자 기간")
+    data_source: SimulationDataSource = Field(
+        default=SimulationDataSource.STOCK_COMBINATION_DEMO,
+        description="계산에 사용할 데이터 소스. 현재 기본값은 개별주식 조합 데모 모드입니다.",
+    )
     target_volatility: float | None = Field(
         default=None,
         ge=0.03,
@@ -25,4 +29,5 @@ class PortfolioSimulationRequest(BaseModel):
             risk_profile=self.risk_profile,
             investment_horizon=self.investment_horizon,
             target_volatility=self.target_volatility,
+            data_source=self.data_source,
         )

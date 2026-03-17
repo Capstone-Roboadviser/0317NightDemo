@@ -32,6 +32,7 @@ uvicorn app.main:app --reload
 ## 핵심 기능
 
 - 고정된 8개 자산군 기반 시뮬레이션
+- 계산 데이터 2종 지원: `자산군 가정값` / `개별주식 조합 데모`
 - 위험 성향 3단계: `안정형`, `균형형`, `성장형`
 - 투자기간 반영: `단기`, `중기`, `장기`
 - 목표 변동성 선택 입력 지원
@@ -143,7 +144,10 @@ docs/
 
 ## 개별 주식 기반 확장 준비
 
-현재 데모 API는 8개 자산군 기준 시뮬레이션이지만, 개별 주식 조합을 샘플링해서 섹터 수익률을 만들고 각 조합의 최대 Sharpe Ratio를 비교할 수 있도록 스캐폴드를 추가해두었습니다.
+현재 데모 API는 두 가지 계산 경로를 지원합니다.
+
+- 기본 경로: 8개 자산군 가정값 기반 시뮬레이션
+- 확장 경로: 개별 주식 조합을 샘플링해 섹터 수익률을 만든 뒤, 그 결과를 자산군 Efficient Frontier 엔진에 연결하는 데모 모드
 
 관련 파일:
 
@@ -155,7 +159,7 @@ docs/
 - [demo_stock_universe.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/demo/demo_stock_universe.csv)
 - [demo_stock_prices.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/demo/demo_stock_prices.csv)
 
-이 흐름은 아직 API에 연결된 기능은 아니고, 데이터 준비와 오프라인 탐색을 위한 1차 구조입니다.
+웹 화면과 `POST /portfolio/simulate`에서 `data_source=stock_combination_demo`를 선택하면, 내장된 더미 종목 데이터셋으로 섹터별 최고 Sharpe 조합을 먼저 찾은 뒤 그 결과를 자산군 엔진에 연결합니다.
 
 ## Railway 배포
 

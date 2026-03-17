@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from app.domain.enums import InvestmentHorizon, RiskProfile
+from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,7 @@ class UserProfile:
     risk_profile: RiskProfile
     investment_horizon: InvestmentHorizon
     target_volatility: float | None = None
+    data_source: SimulationDataSource = SimulationDataSource.STOCK_COMBINATION_DEMO
 
 
 @dataclass(frozen=True)
@@ -93,12 +94,23 @@ class CombinationSearchResult:
 
 
 @dataclass(frozen=True)
+class CombinationSelectionView:
+    combination_id: str
+    members_by_sector: dict[str, list[str]]
+    total_combinations_tested: int
+    successful_combinations: int
+    discard_reasons: dict[str, int]
+
+
+@dataclass(frozen=True)
 class PortfolioSimulationResult:
     portfolio_id: str
     disclaimer: str
     summary: str
     explanation_title: str
     explanation_body: str
+    data_source: SimulationDataSource
+    data_source_label: str
     target_volatility: float
     metrics: PortfolioMetrics
     weights: dict[str, float]
@@ -108,3 +120,4 @@ class PortfolioSimulationResult:
     selected_point_index: int
     random_portfolios: list[tuple[float, float, dict[str, float]]]
     used_fallback: bool
+    selected_combination: CombinationSelectionView | None = None

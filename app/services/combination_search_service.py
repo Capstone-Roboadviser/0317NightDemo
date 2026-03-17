@@ -7,10 +7,10 @@ from itertools import islice
 import numpy as np
 import pandas as pd
 
-from app.core.config import FRONTIER_POINT_COUNT, MINIMUM_HISTORY_ROWS, RISK_FREE_RATE
+from app.core.config import FRONTIER_POINT_COUNT, MINIMUM_HISTORY_ROWS, RANDOM_PORTFOLIO_COUNT, RISK_FREE_RATE
 from app.data.repository import StaticDataRepository
 from app.data.stock_repository import StockDataRepository
-from app.domain.models import AssetClass, CombinationEvaluation, CombinationSearchResult, ExpectedReturnModelInput, StockInstrument
+from app.domain.models import AssetClass, CombinationEvaluation, CombinationSearchResult, ExpectedReturnModelInput, FrontierPoint, StockInstrument
 from app.engine.constraints import ConstraintEngine
 from app.engine.covariance import ShrinkageCovarianceModel
 from app.engine.math import portfolio_metrics_from_weights
@@ -24,6 +24,16 @@ class CombinationSearchConfig:
     sample_count: int = 250
     per_sector_weighting: str = "equal"
     random_seed: int = 23
+
+
+@dataclass(frozen=True)
+class CombinationEngineData:
+    assets: list[AssetClass]
+    search_result: CombinationSearchResult
+    expected_returns: pd.Series
+    covariance: pd.DataFrame
+    frontier_points: list[FrontierPoint]
+    random_portfolios: list[tuple[float, float, dict[str, float]]]
 
 
 class CombinationSearchService:
@@ -46,6 +56,73 @@ class CombinationSearchService:
         stock_prices_path: str,
         config: CombinationSearchConfig,
     ) -> CombinationSearchResult:
+        _, _, _, search_result = self._run_search(
+            stock_universe_path=stock_universe_path,
+            stock_prices_path=stock_prices_path,
+            config=config,
+        )
+        return search_result
+
+    def build_engine_data(
+        self,
+        stock_universe_path: str,
+        stock_prices_path: str,
+        config: CombinationSearchConfig,
+    ) -> CombinationEngineData:
+        assets, instruments, stock_returns, search_result = self._run_search(
+            stock_universe_path=stock_universe_path,
+            stock_prices_path=stock_prices_path,
+            config=config,
+        )
+
+        best_combination = search_result.best_evaluation.members_by_sector
+        sector_returns = self._build_sector_returns(
+            combination=best_combination,
+            instruments=instruments,
+            stock_returns=stock_returns,
+            weighting=config.per_sector_weighting,
+        )
+        if sector_returns.empty:
+            raise RuntimeError("선택된 최고 조합에서 자산군 수익률 시계열을 만들지 못했습니다.")
+
+        asset_codes = [asset.code for asset in assets]
+        sector_returns = sector_returns.reindex(columns=asset_codes).dropna(how="any")
+        if len(sector_returns) < MINIMUM_HISTORY_ROWS:
+            raise RuntimeError("선택된 최고 조합의 공통 히스토리가 부족합니다.")
+
+        constraints = self.constraint_engine.build(assets)
+        expected_returns = self.return_model.calculate(
+            ExpectedReturnModelInput(asset_codes=asset_codes, returns=sector_returns)
+        )
+        covariance = self.covariance_model.calculate(sector_returns)
+        frontier_points = self.optimizer.build_frontier(
+            expected_returns=expected_returns.reindex(constraints.asset_codes),
+            covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
+            constraints=constraints,
+            point_count=FRONTIER_POINT_COUNT,
+        )
+        random_portfolios = self.optimizer.sample_random_portfolios(
+            expected_returns=expected_returns.reindex(constraints.asset_codes),
+            covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
+            constraints=constraints,
+            sample_count=RANDOM_PORTFOLIO_COUNT,
+        )
+
+        return CombinationEngineData(
+            assets=assets,
+            search_result=search_result,
+            expected_returns=expected_returns.reindex(asset_codes).astype(float),
+            covariance=covariance.reindex(index=asset_codes, columns=asset_codes).astype(float),
+            frontier_points=sorted(frontier_points, key=lambda point: point.volatility),
+            random_portfolios=random_portfolios,
+        )
+
+    def _run_search(
+        self,
+        stock_universe_path: str,
+        stock_prices_path: str,
+        config: CombinationSearchConfig,
+    ) -> tuple[list[AssetClass], list[StockInstrument], pd.DataFrame, CombinationSearchResult]:
         asset_repository = StaticDataRepository()
         stock_repository = StockDataRepository()
         assets = asset_repository.load_asset_universe()
@@ -75,12 +152,17 @@ class CombinationSearchService:
             raise RuntimeError(f"평가 가능한 종목 조합을 찾지 못했습니다. 사유: {reason_text or 'unknown'}")
 
         top_evaluations = sorted(evaluations, key=lambda item: item.metrics.sharpe_ratio, reverse=True)
-        return CombinationSearchResult(
-            total_combinations_tested=len(combinations),
-            successful_combinations=len(evaluations),
-            discard_reasons=dict(discard_reasons),
-            best_evaluation=top_evaluations[0],
-            top_evaluations=list(islice(top_evaluations, 10)),
+        return (
+            assets,
+            instruments,
+            stock_returns,
+            CombinationSearchResult(
+                total_combinations_tested=len(combinations),
+                successful_combinations=len(evaluations),
+                discard_reasons=dict(discard_reasons),
+                best_evaluation=top_evaluations[0],
+                top_evaluations=list(islice(top_evaluations, 10)),
+            ),
         )
 
     def _sample_combinations(

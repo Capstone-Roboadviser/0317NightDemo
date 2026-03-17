@@ -4,16 +4,36 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from app.core.config import FALLBACK_WEIGHTS, FRONTIER_POINT_COUNT, MINIMUM_HISTORY_ROWS, RANDOM_PORTFOLIO_COUNT, RISK_FREE_RATE
+from app.core.config import (
+    DEMO_COMBINATION_SAMPLE_COUNT,
+    DEMO_COMBINATION_SELECTION_SIZES,
+    DEMO_COMBINATION_WEIGHTING,
+    DEMO_STOCK_PRICES_PATH,
+    DEMO_STOCK_UNIVERSE_PATH,
+    FALLBACK_WEIGHTS,
+    FRONTIER_POINT_COUNT,
+    MINIMUM_HISTORY_ROWS,
+    RANDOM_PORTFOLIO_COUNT,
+    RISK_FREE_RATE,
+)
 from app.data.repository import StaticDataRepository
-from app.domain.enums import RiskProfile
-from app.domain.models import AllocationView, AssetClass, ExpectedReturnModelInput, FrontierPoint, PortfolioSimulationResult, UserProfile
+from app.domain.enums import RiskProfile, SimulationDataSource
+from app.domain.models import (
+    AllocationView,
+    AssetClass,
+    CombinationSelectionView,
+    ExpectedReturnModelInput,
+    FrontierPoint,
+    PortfolioSimulationResult,
+    UserProfile,
+)
 from app.engine.constraints import ConstraintEngine
 from app.engine.covariance import ShrinkageCovarianceModel
 from app.engine.frontier import build_frontier_options, select_frontier_point_index
 from app.engine.math import portfolio_metrics_from_weights, risk_contributions
 from app.engine.optimizer import EfficientFrontierOptimizer
 from app.engine.returns import AssumptionReturnModel, ExpectedReturnModel
+from app.services.combination_search_service import CombinationSearchConfig, CombinationSearchService
 from app.services.explanation_service import ExplanationService
 from app.services.mapping_service import ProfileMappingService
 
@@ -26,6 +46,9 @@ class EngineContext:
     frontier_points: list[FrontierPoint]
     random_portfolios: list[tuple[float, float, dict[str, float]]]
     used_fallback: bool
+    data_source: SimulationDataSource
+    data_source_label: str
+    selected_combination: CombinationSelectionView | None = None
 
 
 class PortfolioSimulationService:
@@ -33,6 +56,7 @@ class PortfolioSimulationService:
         self.mapping_service = ProfileMappingService()
         self.explanation_service = ExplanationService()
         self.return_model = return_model or AssumptionReturnModel()
+        self.combination_service = CombinationSearchService()
         self.covariance_model = ShrinkageCovarianceModel()
         self.constraint_engine = ConstraintEngine()
         self.optimizer = EfficientFrontierOptimizer()
@@ -43,7 +67,9 @@ class PortfolioSimulationService:
     def simulate(self, user_profile: UserProfile) -> PortfolioSimulationResult:
         target_volatility = self.mapping_service.resolve_target_volatility(user_profile)
         portfolio_id = self.mapping_service.build_portfolio_id(user_profile, target_volatility)
-        context = self._prepare_context()
+        context = self._prepare_context(user_profile)
+        if user_profile.data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
+            portfolio_id = f"stocks-{portfolio_id}"
 
         selected_point_index = select_frontier_point_index(context.frontier_points, target_volatility)
         selected_point = context.frontier_points[selected_point_index]
@@ -76,6 +102,15 @@ class PortfolioSimulationService:
             target_volatility=target_volatility,
             user_profile=user_profile,
         )
+        if context.selected_combination is not None:
+            summary += (
+                f" 개별 종목 조합 모드에서는 {context.selected_combination.total_combinations_tested}개 조합 중 "
+                f"{context.selected_combination.successful_combinations}개를 평가해 가장 효율적인 조합을 자산군 입력값으로 사용했습니다."
+            )
+            explanation_body += (
+                f" 현재 적용된 조합 ID는 '{context.selected_combination.combination_id}'이며, "
+                "섹터별로 선택된 종목 묶음의 수익률 시계열을 집계해 효율적 투자선을 다시 계산했습니다."
+            )
 
         return PortfolioSimulationResult(
             portfolio_id=portfolio_id,
@@ -83,6 +118,8 @@ class PortfolioSimulationService:
             summary=summary,
             explanation_title=explanation_title,
             explanation_body=explanation_body,
+            data_source=context.data_source,
+            data_source_label=context.data_source_label,
             target_volatility=target_volatility,
             metrics=metrics,
             weights=selected_point.weights,
@@ -92,9 +129,15 @@ class PortfolioSimulationService:
             selected_point_index=selected_point_index,
             random_portfolios=context.random_portfolios,
             used_fallback=context.used_fallback,
+            selected_combination=context.selected_combination,
         )
 
-    def _prepare_context(self) -> EngineContext:
+    def _prepare_context(self, user_profile: UserProfile) -> EngineContext:
+        if user_profile.data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
+            return self._prepare_stock_combination_context()
+        return self._prepare_assumption_context()
+
+    def _prepare_assumption_context(self) -> EngineContext:
         repository = StaticDataRepository()
         assets = repository.load_asset_universe()
         market_assumptions = repository.load_market_assumptions()
@@ -138,6 +181,38 @@ class PortfolioSimulationService:
             frontier_points=sorted(frontier_points, key=lambda point: point.volatility),
             random_portfolios=random_portfolios,
             used_fallback=used_fallback,
+            data_source=SimulationDataSource.ASSET_ASSUMPTIONS,
+            data_source_label="자산군 가정값",
+        )
+
+    def _prepare_stock_combination_context(self) -> EngineContext:
+        engine_data = self.combination_service.build_engine_data(
+            stock_universe_path=str(DEMO_STOCK_UNIVERSE_PATH),
+            stock_prices_path=str(DEMO_STOCK_PRICES_PATH),
+            config=CombinationSearchConfig(
+                selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
+                sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
+                per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
+            ),
+        )
+        search_result = engine_data.search_result
+        selected_combination = CombinationSelectionView(
+            combination_id=search_result.best_evaluation.combination_id,
+            members_by_sector=search_result.best_evaluation.members_by_sector,
+            total_combinations_tested=search_result.total_combinations_tested,
+            successful_combinations=search_result.successful_combinations,
+            discard_reasons=search_result.discard_reasons,
+        )
+        return EngineContext(
+            assets=engine_data.assets,
+            expected_returns=engine_data.expected_returns,
+            covariance=engine_data.covariance,
+            frontier_points=engine_data.frontier_points,
+            random_portfolios=engine_data.random_portfolios,
+            used_fallback=False,
+            data_source=SimulationDataSource.STOCK_COMBINATION_DEMO,
+            data_source_label="개별주식 조합 데모",
+            selected_combination=selected_combination,
         )
 
     def _fallback_frontier(self, expected_returns: pd.Series, covariance: pd.DataFrame) -> list[FrontierPoint]:

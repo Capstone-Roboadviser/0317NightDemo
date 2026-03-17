@@ -488,6 +488,55 @@ def render_homepage() -> HTMLResponse:
       margin-top: 4px;
     }
 
+    .combination-panel {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--muted);
+    }
+
+    .combination-panel[hidden] {
+      display: none;
+    }
+
+    .combination-panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--foreground);
+      margin-bottom: 6px;
+    }
+
+    .combination-panel-meta {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+    }
+
+    .combination-members {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .combination-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: var(--background);
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .combination-chip strong {
+      font-weight: 700;
+    }
+
     .results {
       display: flex;
       flex-direction: column;
@@ -1093,6 +1142,12 @@ def render_homepage() -> HTMLResponse:
           <div class="card-content">
             <form id="portfolio-form">
               <div class="field-group">
+                <label class="field-label">계산 기준</label>
+                <input type="hidden" id="data_source" name="data_source" value="stock_combination_demo" />
+                <span class="field-hint">현재 데모는 개별주식 조합을 먼저 찾고, 그 결과를 자산군 Efficient Frontier 계산에 연결합니다.</span>
+              </div>
+
+              <div class="field-group">
                 <div class="slider-card">
                   <div class="slider-header">
                     <span class="slider-profile" id="risk-label">균형형</span>
@@ -1193,6 +1248,11 @@ def render_homepage() -> HTMLResponse:
               <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
               <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
               <div class="summary-text fade-content" id="summary"></div>
+              <div class="combination-panel fade-content" id="combination-panel" hidden>
+                <div class="combination-panel-title">현재 적용된 개별 종목 조합</div>
+                <div class="combination-panel-meta" id="combination-meta"></div>
+                <div class="combination-members" id="combination-members"></div>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -1261,11 +1321,15 @@ def render_homepage() -> HTMLResponse:
     const riskLabel = document.getElementById("risk-label");
     const sliderTarget = document.getElementById("slider-target");
     const horizonEl = document.getElementById("investment_horizon");
+    const dataSourceEl = document.getElementById("data_source");
     const targetVolInput = document.getElementById("target_volatility");
     const statusEl = document.getElementById("status");
     const summaryEl = document.getElementById("summary");
     const explanationTitleEl = document.getElementById("explanation-title");
     const explanationBodyEl = document.getElementById("explanation-body");
+    const combinationPanelEl = document.getElementById("combination-panel");
+    const combinationMetaEl = document.getElementById("combination-meta");
+    const combinationMembersEl = document.getElementById("combination-members");
     const optionsEl = document.getElementById("frontier-options");
     const allocationsEl = document.getElementById("allocations");
     const chartEl = document.getElementById("frontier-chart");
@@ -1338,10 +1402,35 @@ def render_homepage() -> HTMLResponse:
       const payload = {
         risk_profile: profile.risk_profile,
         investment_horizon: horizonEl.value,
+        data_source: dataSourceEl.value,
       };
       const manualTarget = targetVolInput.value.trim();
       payload.target_volatility = manualTarget ? Number(manualTarget) : target;
       return payload;
+    }
+
+    function renderCombinationSelection(selection, sourceLabel) {
+      if (!selection) {
+        combinationPanelEl.hidden = true;
+        combinationMetaEl.textContent = "";
+        combinationMembersEl.innerHTML = "";
+        return;
+      }
+
+      combinationPanelEl.hidden = false;
+      combinationMetaEl.textContent = `${sourceLabel || "개별주식 조합"} 기준으로 ${selection.total_combinations_tested}개 조합을 탐색했고, ${selection.successful_combinations}개를 실제 평가했습니다. 현재 적용된 조합 ID는 ${selection.combination_id} 입니다.`;
+      combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
+        .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
+        .join("");
+    }
+
+    function selectedStocksForSector(code) {
+      const selection = lastData?.selected_combination?.members_by_sector || {};
+      const selectedTickers = selection[code] || [];
+      if (!selectedTickers.length) return [];
+
+      const stockLookup = new Map((stocksBySector[code] || []).map((item) => [item.ticker, item]));
+      return selectedTickers.map((ticker) => stockLookup.get(ticker) || { ticker, name: ticker });
     }
 
     function buildDonutSVG(items, valueKey, centerText) {
@@ -1599,6 +1688,7 @@ def render_homepage() -> HTMLResponse:
         crossfade(summaryEl, function() {
           summaryEl.textContent = [data.summary, data.disclaimer].filter(Boolean).join(" ");
         });
+        renderCombinationSelection(data.selected_combination, data.data_source_label);
         crossfade(optionsEl, function() {
           renderOptions(data.frontier_options || [], data.selected_point);
         });
@@ -1762,7 +1852,7 @@ def render_homepage() -> HTMLResponse:
         html += '<span class="donut-tooltip-value">' + value + '</span>';
         html += '</div>';
 
-        const stocks = stocksBySector[code];
+        const stocks = selectedStocksForSector(code);
         if (stocks && stocks.length > 0) {
           html += '<div class="donut-tooltip-stocks">';
           stocks.forEach(function(s) {

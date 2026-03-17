@@ -90,6 +90,16 @@ class ManagedPriceRefreshJobResponse(BaseModel):
     finished_at: str | None
 
 
+class ManagedPriceRefreshJobItemResponse(BaseModel):
+    job_id: int
+    ticker: str
+    status: str
+    rows_upserted: int
+    error_message: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+
+
 class ManagedUniverseStatusResponse(BaseModel):
     database_configured: bool
     active_version: ManagedUniverseVersionResponse | None = None

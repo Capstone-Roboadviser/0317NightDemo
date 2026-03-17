@@ -6,6 +6,7 @@ from app.api.schemas.request import (
 )
 from app.api.schemas.response import (
     ManagedPriceRefreshJobResponse,
+    ManagedPriceRefreshJobItemResponse,
     ManagedPriceRefreshResponse,
     ManagedPriceStatsResponse,
     ManagedUniverseStatusResponse,
@@ -110,6 +111,30 @@ def refresh_prices(payload: PriceRefreshRequest) -> ManagedPriceRefreshResponse:
 @router.get("/prices/status", response_model=ManagedUniverseStatusResponse)
 def get_price_refresh_status() -> ManagedUniverseStatusResponse:
     return get_managed_universe_status()
+
+
+@router.get("/prices/jobs/{job_id}/items", response_model=list[ManagedPriceRefreshJobItemResponse])
+def get_price_refresh_job_items(job_id: int, failed_only: bool = False, limit: int = 100) -> list[ManagedPriceRefreshJobItemResponse]:
+    try:
+        items = managed_universe_service.repository.get_refresh_job_items(
+            job_id,
+            failed_only=failed_only,
+            limit=limit,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return [
+        ManagedPriceRefreshJobItemResponse(
+            job_id=item.job_id,
+            ticker=item.ticker,
+            status=item.status,
+            rows_upserted=item.rows_upserted,
+            error_message=item.error_message,
+            started_at=item.started_at,
+            finished_at=item.finished_at,
+        )
+        for item in items
+    ]
 
 
 @router.get("/tickers/lookup", response_model=TickerLookupResponse)

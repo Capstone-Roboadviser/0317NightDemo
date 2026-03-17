@@ -6,7 +6,13 @@ import pandas as pd
 
 from app.core.config import DATABASE_URL
 from app.domain.enums import PriceRefreshMode
-from app.domain.models import ManagedPriceRefreshJob, ManagedPriceStats, ManagedUniverseVersion, StockInstrument
+from app.domain.models import (
+    ManagedPriceRefreshJob,
+    ManagedPriceRefreshJobItem,
+    ManagedPriceStats,
+    ManagedUniverseVersion,
+    StockInstrument,
+)
 
 try:
     import psycopg
@@ -523,6 +529,45 @@ class ManagedUniverseRepository:
                 row = cursor.fetchone()
         return None if row is None else self._refresh_job_from_row(row)
 
+    def get_refresh_job_items(
+        self,
+        job_id: int,
+        *,
+        failed_only: bool = False,
+        limit: int = 100,
+    ) -> list[ManagedPriceRefreshJobItem]:
+        self._ensure_ready()
+        where_clause = "WHERE job_id = %s"
+        params: list[object] = [job_id]
+        if failed_only:
+            where_clause += " AND status = 'failed'"
+        limit = max(1, min(limit, 500))
+        params.append(limit)
+
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT
+                        job_id,
+                        ticker,
+                        status,
+                        rows_upserted,
+                        error_message,
+                        TO_CHAR(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS started_at,
+                        TO_CHAR(finished_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS finished_at
+                    FROM refresh_job_items
+                    {where_clause}
+                    ORDER BY
+                        CASE WHEN status = 'failed' THEN 0 ELSE 1 END,
+                        ticker ASC
+                    LIMIT %s
+                    """,
+                    tuple(params),
+                )
+                rows = cursor.fetchall()
+        return [self._refresh_job_item_from_row(row) for row in rows]
+
     def is_empty(self) -> bool:
         if not self.is_configured():
             return True
@@ -577,6 +622,17 @@ class ManagedUniverseRepository:
             failure_count=int(row["failure_count"] or 0),
             message=None if row["message"] is None else str(row["message"]),
             created_at=str(row["created_at"]),
+            started_at=None if row["started_at"] is None else str(row["started_at"]),
+            finished_at=None if row["finished_at"] is None else str(row["finished_at"]),
+        )
+
+    def _refresh_job_item_from_row(self, row: dict) -> ManagedPriceRefreshJobItem:
+        return ManagedPriceRefreshJobItem(
+            job_id=int(row["job_id"]),
+            ticker=str(row["ticker"]),
+            status=str(row["status"]),
+            rows_upserted=int(row["rows_upserted"] or 0),
+            error_message=None if row["error_message"] is None else str(row["error_message"]),
             started_at=None if row["started_at"] is None else str(row["started_at"]),
             finished_at=None if row["finished_at"] is None else str(row["finished_at"]),
         )

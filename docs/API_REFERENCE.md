@@ -274,6 +274,21 @@ GET /admin/tickers/lookup?ticker=NVDA
 }
 ```
 
+### `GET /admin/prices/jobs/{job_id}/items`
+
+최근 가격 갱신 잡의 티커별 성공/실패 상세를 반환합니다. `/admin` 화면에서 실패 원인 확인용으로 사용합니다.
+
+쿼리 파라미터:
+
+- `failed_only`: `true`면 실패 항목만 반환
+- `limit`: 최대 반환 건수
+
+예시:
+
+```text
+GET /admin/prices/jobs/12/items?failed_only=true&limit=40
+```
+
 ### `GET /admin/prices/status`
 
 현재 활성 유니버스의 가격 데이터 범위와 최근 갱신 잡 상태를 반환합니다.

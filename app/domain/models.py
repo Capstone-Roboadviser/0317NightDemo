@@ -111,6 +111,17 @@ class ManagedPriceRefreshJob:
 
 
 @dataclass(frozen=True)
+class ManagedPriceRefreshJobItem:
+    job_id: int
+    ticker: str
+    status: str
+    rows_upserted: int
+    error_message: str | None
+    started_at: str | None
+    finished_at: str | None
+
+
+@dataclass(frozen=True)
 class ManagedPriceRefreshResult:
     job: ManagedPriceRefreshJob
     price_stats: ManagedPriceStats

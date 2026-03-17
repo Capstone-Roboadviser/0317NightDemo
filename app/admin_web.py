@@ -135,6 +135,15 @@ def render_admin_page() -> HTMLResponse:
       transform: translateY(-1px);
     }
 
+    .secondary-btn:disabled,
+    .primary-btn:disabled,
+    .ghost-btn:disabled {
+      opacity: 0.62;
+      cursor: wait;
+      transform: none;
+      box-shadow: none;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: 1.1fr 0.9fr;
@@ -243,6 +252,66 @@ def render_admin_page() -> HTMLResponse:
       font-size: 13px;
       font-weight: 700;
       color: var(--muted);
+    }
+
+    .job-detail {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #f8fafc;
+      padding: 14px;
+    }
+
+    .job-detail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .job-detail-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+
+    .job-detail-list {
+      display: grid;
+      gap: 10px;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .job-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .job-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .job-item-ticker {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .job-item-meta {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
     }
 
     input,
@@ -719,6 +788,18 @@ def render_admin_page() -> HTMLResponse:
             <button class="primary-btn" id="refresh-prices-btn">가격 갱신 실행</button>
             <button class="ghost-btn" id="check-price-status-btn">최근 갱신 상태 보기</button>
           </div>
+          <p class="card-copy" style="margin-top: 14px; margin-bottom: 0;">
+            `full` 모드에서는 active 종목 수와 조회 상태에 따라 1~2분 이상 걸릴 수 있습니다. 실행 중에는 버튼이 잠시 비활성화됩니다.
+          </p>
+          <div class="job-detail">
+            <div class="job-detail-head">
+              <div class="job-detail-title">최근 갱신 상세</div>
+              <div id="job-detail-summary" class="pill warn">아직 갱신 기록 없음</div>
+            </div>
+            <div id="job-detail-list" class="job-detail-list">
+              <div class="empty">최근 갱신 잡이 없어서 상세 내역을 표시할 수 없습니다.</div>
+            </div>
+          </div>
         </section>
 
         <section class="card">
@@ -776,6 +857,10 @@ def render_admin_page() -> HTMLResponse:
     const versionsBodyEl = document.getElementById("versions-body");
     const instrumentCountSummaryEl = document.getElementById("instrument-count-summary");
     const sectorCountSummaryEl = document.getElementById("sector-count-summary");
+    const jobDetailListEl = document.getElementById("job-detail-list");
+    const jobDetailSummaryEl = document.getElementById("job-detail-summary");
+    const refreshPricesBtn = document.getElementById("refresh-prices-btn");
+    const checkPriceStatusBtn = document.getElementById("check-price-status-btn");
     let activeSectorCode = sectorOptions[0].code;
 
     function logMessage(message, payload) {
@@ -1094,6 +1179,37 @@ def render_admin_page() -> HTMLResponse:
       pillEl.innerHTML = `<span class="pill ${pillClass}">${pillText}</span>`;
     }
 
+    function renderJobItems(job, items) {
+      if (!job) {
+        jobDetailSummaryEl.className = "pill warn";
+        jobDetailSummaryEl.textContent = "아직 갱신 기록 없음";
+        jobDetailListEl.innerHTML = '<div class="empty">최근 갱신 잡이 없어서 상세 내역을 표시할 수 없습니다.</div>';
+        return;
+      }
+
+      const jobStatusClass = job.status === "success"
+        ? "success"
+        : (job.status === "partial_success" ? "warn" : "danger");
+      jobDetailSummaryEl.className = `pill ${jobStatusClass}`;
+      jobDetailSummaryEl.textContent = `${job.status} · 성공 ${job.success_count} / 실패 ${job.failure_count}`;
+
+      if (!items.length) {
+        jobDetailListEl.innerHTML = '<div class="empty">표시할 갱신 상세 항목이 없습니다.</div>';
+        return;
+      }
+
+      jobDetailListEl.innerHTML = items.map((item) => `
+        <div class="job-item">
+          <div class="job-item-top">
+            <div class="job-item-ticker">${item.ticker}</div>
+            <span class="pill ${item.status === "success" ? "success" : "danger"}">${item.status}</span>
+          </div>
+          <div class="job-item-meta">rows_upserted: ${item.rows_upserted}</div>
+          ${item.error_message ? `<div class="job-item-meta">error: ${item.error_message}</div>` : ""}
+        </div>
+      `).join("");
+    }
+
     function renderVersions(versions) {
       if (!versions.length) {
         versionsBodyEl.innerHTML = '<tr><td colspan="7">저장된 유니버스 버전이 없습니다.</td></tr>';
@@ -1143,17 +1259,47 @@ def render_admin_page() -> HTMLResponse:
       return versions;
     }
 
+    async function reloadLatestJobItems(status) {
+      const latestJob = status?.latest_refresh_job;
+      if (!latestJob) {
+        renderJobItems(null, []);
+        return [];
+      }
+      const failedOnly = latestJob.status !== "success";
+      try {
+        const items = await apiRequest(`/admin/prices/jobs/${latestJob.job_id}/items?failed_only=${failedOnly ? "true" : "false"}&limit=40`);
+        renderJobItems(latestJob, items);
+        return items;
+      } catch (error) {
+        renderJobItems(latestJob, []);
+        logMessage("최근 갱신 상세 조회 실패", error.message);
+        return [];
+      }
+    }
+
     async function reloadAll() {
       try {
         const [status, versions] = await Promise.all([reloadStatus(), reloadVersions()]);
-        logMessage("상태 새로고침 완료", { status, version_count: versions.length });
+        const jobItems = await reloadLatestJobItems(status);
+        logMessage("상태 새로고침 완료", {
+          status,
+          version_count: versions.length,
+          latest_job_item_count: jobItems.length
+        });
       } catch (error) {
         logMessage("상태 새로고침 실패", error.message);
       }
     }
 
+    function setPriceRefreshBusy(isBusy) {
+      refreshPricesBtn.disabled = isBusy;
+      checkPriceStatusBtn.disabled = isBusy;
+      refreshPricesBtn.textContent = isBusy ? "가격 갱신 실행 중..." : "가격 갱신 실행";
+      refreshPricesBtn.setAttribute("aria-busy", String(isBusy));
+    }
+
     document.getElementById("reload-status-btn").addEventListener("click", reloadAll);
-    document.getElementById("check-price-status-btn").addEventListener("click", reloadAll);
+    checkPriceStatusBtn.addEventListener("click", reloadAll);
 
     document.getElementById("create-version-btn").addEventListener("click", async () => {
       const instruments = collectBuilderRows();
@@ -1197,20 +1343,32 @@ def render_admin_page() -> HTMLResponse:
       }
     });
 
-    document.getElementById("refresh-prices-btn").addEventListener("click", async () => {
+    refreshPricesBtn.addEventListener("click", async () => {
       const payload = {
         refresh_mode: document.getElementById("refresh-mode").value,
         full_lookback_years: Number(document.getElementById("lookback-years").value || 5)
       };
+      const startedAt = Date.now();
+      setPriceRefreshBusy(true);
+      logMessage("가격 갱신 시작", {
+        ...payload,
+        note: "외부 시세 조회와 DB 저장이 끝날 때까지 잠시 기다려주세요."
+      });
       try {
         const data = await apiRequest("/admin/prices/refresh", {
           method: "POST",
           body: JSON.stringify(payload)
         });
-        logMessage("가격 갱신 완료", data);
+        const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+        logMessage("가격 갱신 완료", {
+          ...data,
+          elapsed_seconds: Number(elapsedSeconds)
+        });
         await reloadAll();
       } catch (error) {
         logMessage("가격 갱신 실패", error.message);
+      } finally {
+        setPriceRefreshBusy(false);
       }
     });
 

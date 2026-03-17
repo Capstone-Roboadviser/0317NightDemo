@@ -1002,6 +1002,16 @@ def render_homepage() -> HTMLResponse:
       cursor: pointer;
       transition: r 0.12s ease;
     }
+    #sel-glow, #sel-hit, #sel-dot {
+      transition: cx 0.35s cubic-bezier(0.4, 0, 0.2, 1), cy 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes sel-pulse {
+      0%, 100% { r: 12; opacity: 0.3; }
+      50% { r: 18; opacity: 0.1; }
+    }
+    #sel-glow {
+      animation: sel-pulse 2.5s ease-in-out infinite;
+    }
     .frontier-hit {
       cursor: pointer;
     }
@@ -1491,6 +1501,8 @@ def render_homepage() -> HTMLResponse:
     let lastAllocations = [];
     let lastAllocFiltered = [];
     let allocView = "pie"; // "pie" or "list"
+    let chartXScale = null; // stored after renderChart
+    let chartYScale = null;
     let debounceTimer = null;
     const activeAnimations = {};
 
@@ -1866,14 +1878,39 @@ def render_homepage() -> HTMLResponse:
 
       const cx = xScale(selectedPoint.volatility);
       const cy = yScale(selectedPoint.expected_return);
-      svg += `<circle cx="${cx}" cy="${cy}" r="12" fill="rgba(249, 115, 22, 0.15)" />`;
-      svg += `<circle class="scatter-point" cx="${cx}" cy="${cy}" r="10" fill="transparent" data-vol="${(selectedPoint.volatility * 100).toFixed(1)}" data-ret="${(selectedPoint.expected_return * 100).toFixed(1)}" data-alloc="${selectedAllocJSON}" data-label="현재 포트폴리오" />`;
-      svg += `<circle cx="${cx}" cy="${cy}" r="6" fill="${c.selected}" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
-      svg += `<text x="${cx + 16}" y="${cy - 12}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif" fill="${c.text}" font-weight="600" pointer-events="none">현재 포트폴리오</text>`;
+      svg += `<circle id="sel-glow" cx="${cx}" cy="${cy}" r="12" fill="rgba(249, 115, 22, 0.15)" />`;
+      svg += `<circle id="sel-hit" class="scatter-point" cx="${cx}" cy="${cy}" r="10" fill="transparent" data-vol="${(selectedPoint.volatility * 100).toFixed(1)}" data-ret="${(selectedPoint.expected_return * 100).toFixed(1)}" data-alloc="${selectedAllocJSON}" data-label="현재 포트폴리오" />`;
+      svg += `<circle id="sel-dot" cx="${cx}" cy="${cy}" r="6" fill="${c.selected}" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
       svg += `<text x="${width / 2}" y="${height - 2}" text-anchor="middle" fill="${c.label}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif">위험 (변동성)</text>`;
       svg += `<text x="14" y="${height / 2}" text-anchor="middle" fill="${c.label}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif" transform="rotate(-90 14 ${height / 2})">예상 수익률</text>`;
 
       chartEl.innerHTML = svg;
+
+      // Store scale functions for slider animation
+      chartXScale = xScale;
+      chartYScale = yScale;
+    }
+
+    // Animate the selected portfolio dot to a new frontier point
+    function animateSelectedDot(point, allocJSON) {
+      if (!chartXScale || !chartYScale) return;
+      const newCx = chartXScale(point.volatility);
+      const newCy = chartYScale(point.expected_return);
+
+      const glow = document.getElementById("sel-glow");
+      const hit = document.getElementById("sel-hit");
+      const dot = document.getElementById("sel-dot");
+      if (!glow || !dot) return;
+
+      glow.setAttribute("cx", newCx);
+      glow.setAttribute("cy", newCy);
+      hit.setAttribute("cx", newCx);
+      hit.setAttribute("cy", newCy);
+      hit.setAttribute("data-vol", (point.volatility * 100).toFixed(1));
+      hit.setAttribute("data-ret", (point.expected_return * 100).toFixed(1));
+      if (allocJSON) hit.setAttribute("data-alloc", allocJSON);
+      dot.setAttribute("cx", newCx);
+      dot.setAttribute("cy", newCy);
     }
 
     // Find the frontier point index closest to a target volatility
@@ -1933,8 +1970,16 @@ def render_homepage() -> HTMLResponse:
       // Update options highlight
       renderOptions(lastData.frontier_options || [], point);
 
-      // Re-render chart with new selected point
-      renderChart(lastData);
+      // Animate selected dot to new position (no full chart re-render)
+      const allocations = lastData.allocations || [];
+      const assetNameMap = {};
+      allocations.forEach(a => { assetNameMap[a.asset_code] = a.asset_name; });
+      const allocArr = Object.entries(point.weights || {})
+        .filter(([, w]) => w > 0.001)
+        .sort(([, a], [, b]) => b - a)
+        .map(([code, w]) => ({ name: assetNameMap[code] || code, code: code, weight: w }));
+      const allocJSON = JSON.stringify(allocArr).replace(/"/g, '&quot;');
+      animateSelectedDot(point, allocJSON);
     }
 
     async function loadPortfolio() {

@@ -4,6 +4,7 @@ from app.api.schemas.request import PortfolioSimulationRequest
 from app.api.schemas.response import (
     AssetClassResponse,
     AssetUniverseResponse,
+    CombinationSelectionResponse,
     FrontierPreviewResponse,
     FrontierPointResponse,
     PortfolioSimulationResponse,
@@ -13,7 +14,7 @@ from app.api.schemas.response import (
 )
 from app.core.config import DATA_DIR
 from app.data.stock_repository import StockDataRepository
-from app.domain.enums import InvestmentHorizon, RiskProfile
+from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 from app.domain.models import PortfolioSimulationResult, UserProfile
 from app.services.portfolio_service import PortfolioSimulationService
 
@@ -62,11 +63,21 @@ def list_stocks() -> StocksBySectorResponse:
 def get_frontier(
     risk_profile: RiskProfile = Query(default=RiskProfile.BALANCED),
     investment_horizon: InvestmentHorizon = Query(default=InvestmentHorizon.MEDIUM),
+    data_source: SimulationDataSource = Query(default=SimulationDataSource.ASSET_ASSUMPTIONS),
     target_volatility: float | None = Query(default=None, ge=0.03, le=0.25),
 ) -> FrontierPreviewResponse:
-    result = _simulate(UserProfile(risk_profile=risk_profile, investment_horizon=investment_horizon, target_volatility=target_volatility))
+    result = _simulate(
+        UserProfile(
+            risk_profile=risk_profile,
+            investment_horizon=investment_horizon,
+            target_volatility=target_volatility,
+            data_source=data_source,
+        )
+    )
     return FrontierPreviewResponse(
         portfolio_id=result.portfolio_id,
+        data_source=result.data_source.value,
+        data_source_label=result.data_source_label,
         target_volatility=round(result.target_volatility, 4),
         frontier_points=[_frontier_point_response(point) for point in result.frontier_points],
         frontier_options=[_frontier_point_response(point, label=label) for label, point in result.frontier_options],
@@ -76,6 +87,7 @@ def get_frontier(
             RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4), weights={k: round(v, 4) for k, v in point[2].items()})
             for point in result.random_portfolios
         ],
+        selected_combination=_combination_response(result.selected_combination),
     )
 
 
@@ -89,6 +101,8 @@ def simulate_portfolio(payload: PortfolioSimulationRequest) -> PortfolioSimulati
         summary=result.summary,
         explanation_title=result.explanation_title,
         explanation=result.explanation_body,
+        data_source=result.data_source.value,
+        data_source_label=result.data_source_label,
         target_volatility=round(result.target_volatility, 4),
         expected_return=round(result.metrics.expected_return, 4),
         volatility=round(result.metrics.volatility, 4),
@@ -112,6 +126,7 @@ def simulate_portfolio(payload: PortfolioSimulationRequest) -> PortfolioSimulati
             for point in result.random_portfolios
         ],
         used_fallback=result.used_fallback,
+        selected_combination=_combination_response(result.selected_combination),
     )
 
 
@@ -129,4 +144,17 @@ def _frontier_point_response(point, label: str | None = None) -> FrontierPointRe
         label=label,
         volatility=round(point.volatility, 4),
         expected_return=round(point.expected_return, 4),
+        weights={code: round(weight, 4) for code, weight in point.weights.items()},
+    )
+
+
+def _combination_response(selection) -> CombinationSelectionResponse | None:
+    if selection is None:
+        return None
+    return CombinationSelectionResponse(
+        combination_id=selection.combination_id,
+        members_by_sector=selection.members_by_sector,
+        total_combinations_tested=selection.total_combinations_tested,
+        successful_combinations=selection.successful_combinations,
+        discard_reasons=selection.discard_reasons,
     )

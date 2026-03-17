@@ -248,6 +248,44 @@ def render_homepage() -> HTMLResponse:
       color: var(--muted-foreground);
     }
 
+    .source-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .source-toggle-button {
+      border: 1px solid var(--input);
+      border-radius: var(--radius);
+      background: var(--background);
+      color: var(--foreground);
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 13px;
+      line-height: 1.45;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .source-toggle-button strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .source-toggle-button:hover {
+      border-color: var(--ring);
+      transform: translateY(-1px);
+    }
+
+    .source-toggle-button.active {
+      border-color: var(--ring);
+      background: var(--accent);
+      color: var(--accent-foreground);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
+    }
+
     input[type="number"] {
       width: 100%;
       height: 40px;
@@ -486,6 +524,55 @@ def render_homepage() -> HTMLResponse:
       color: var(--muted-foreground);
       min-height: 20px;
       margin-top: 4px;
+    }
+
+    .combination-panel {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--muted);
+    }
+
+    .combination-panel[hidden] {
+      display: none;
+    }
+
+    .combination-panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--foreground);
+      margin-bottom: 6px;
+    }
+
+    .combination-panel-meta {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+    }
+
+    .combination-members {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .combination-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: var(--background);
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .combination-chip strong {
+      font-weight: 700;
     }
 
     .results {
@@ -1093,6 +1180,22 @@ def render_homepage() -> HTMLResponse:
           <div class="card-content">
             <form id="portfolio-form">
               <div class="field-group">
+                <label class="field-label">계산 데이터</label>
+                <input type="hidden" id="data_source" name="data_source" value="asset_assumptions" />
+                <div class="source-toggle" id="data-source-toggle">
+                  <button type="button" class="source-toggle-button active" data-source="asset_assumptions">
+                    <strong>자산군 가정값</strong>
+                    고정된 8개 자산군 가정으로 frontier를 계산합니다.
+                  </button>
+                  <button type="button" class="source-toggle-button" data-source="stock_combination_demo">
+                    <strong>개별주식 조합 데모</strong>
+                    섹터별 최고 Sharpe 조합을 찾은 뒤 자산군 frontier에 연결합니다.
+                  </button>
+                </div>
+                <span class="field-hint">개별주식 조합 데모는 내장된 더미 종목 데이터셋으로 섹터별 조합을 먼저 탐색합니다.</span>
+              </div>
+
+              <div class="field-group">
                 <div class="slider-card">
                   <div class="slider-header">
                     <span class="slider-profile" id="risk-label">균형형</span>
@@ -1193,6 +1296,11 @@ def render_homepage() -> HTMLResponse:
               <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
               <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
               <div class="summary-text fade-content" id="summary"></div>
+              <div class="combination-panel fade-content" id="combination-panel" hidden>
+                <div class="combination-panel-title">현재 적용된 개별 종목 조합</div>
+                <div class="combination-panel-meta" id="combination-meta"></div>
+                <div class="combination-members" id="combination-members"></div>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -1261,11 +1369,16 @@ def render_homepage() -> HTMLResponse:
     const riskLabel = document.getElementById("risk-label");
     const sliderTarget = document.getElementById("slider-target");
     const horizonEl = document.getElementById("investment_horizon");
+    const dataSourceEl = document.getElementById("data_source");
+    const dataSourceToggleEl = document.getElementById("data-source-toggle");
     const targetVolInput = document.getElementById("target_volatility");
     const statusEl = document.getElementById("status");
     const summaryEl = document.getElementById("summary");
     const explanationTitleEl = document.getElementById("explanation-title");
     const explanationBodyEl = document.getElementById("explanation-body");
+    const combinationPanelEl = document.getElementById("combination-panel");
+    const combinationMetaEl = document.getElementById("combination-meta");
+    const combinationMembersEl = document.getElementById("combination-members");
     const optionsEl = document.getElementById("frontier-options");
     const allocationsEl = document.getElementById("allocations");
     const chartEl = document.getElementById("frontier-chart");
@@ -1338,10 +1451,26 @@ def render_homepage() -> HTMLResponse:
       const payload = {
         risk_profile: profile.risk_profile,
         investment_horizon: horizonEl.value,
+        data_source: dataSourceEl.value,
       };
       const manualTarget = targetVolInput.value.trim();
       payload.target_volatility = manualTarget ? Number(manualTarget) : target;
       return payload;
+    }
+
+    function renderCombinationSelection(selection, sourceLabel) {
+      if (!selection) {
+        combinationPanelEl.hidden = true;
+        combinationMetaEl.textContent = "";
+        combinationMembersEl.innerHTML = "";
+        return;
+      }
+
+      combinationPanelEl.hidden = false;
+      combinationMetaEl.textContent = `${sourceLabel || "개별주식 조합"} 기준으로 ${selection.total_combinations_tested}개 조합을 탐색했고, ${selection.successful_combinations}개를 실제 평가했습니다. 현재 적용된 조합 ID는 ${selection.combination_id} 입니다.`;
+      combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
+        .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
+        .join("");
     }
 
     function buildDonutSVG(items, valueKey, centerText) {
@@ -1599,6 +1728,7 @@ def render_homepage() -> HTMLResponse:
         crossfade(summaryEl, function() {
           summaryEl.textContent = [data.summary, data.disclaimer].filter(Boolean).join(" ");
         });
+        renderCombinationSelection(data.selected_combination, data.data_source_label);
         crossfade(optionsEl, function() {
           renderOptions(data.frontier_options || [], data.selected_point);
         });
@@ -1619,6 +1749,16 @@ def render_homepage() -> HTMLResponse:
       if (!targetVolInput.value.trim()) {
         debounceTimer = setTimeout(loadPortfolio, 150);
       }
+    });
+
+    dataSourceToggleEl.querySelectorAll(".source-toggle-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        dataSourceEl.value = button.dataset.source;
+        dataSourceToggleEl.querySelectorAll(".source-toggle-button").forEach((item) => {
+          item.classList.toggle("active", item === button);
+        });
+        loadPortfolio();
+      });
     });
 
     // ── Custom Select Component ──

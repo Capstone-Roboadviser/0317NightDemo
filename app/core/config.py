@@ -7,6 +7,9 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 ASSET_UNIVERSE_PATH = DATA_DIR / "asset_universe.json"
 SAMPLE_MARKET_ASSUMPTIONS_PATH = DATA_DIR / "sample_market_assumptions.json"
+DEMO_STOCK_DATA_DIR = DATA_DIR / "demo"
+DEMO_STOCK_UNIVERSE_PATH = DEMO_STOCK_DATA_DIR / "demo_stock_universe.csv"
+DEMO_STOCK_PRICES_PATH = DEMO_STOCK_DATA_DIR / "demo_stock_prices.csv"
 
 APP_NAME = "자산배분 시뮬레이터 데모 API"
 APP_DESCRIPTION = (
@@ -19,6 +22,18 @@ RISK_FREE_RATE = 0.02
 FRONTIER_POINT_COUNT = 24
 RANDOM_PORTFOLIO_COUNT = 160
 MINIMUM_HISTORY_ROWS = 252
+DEMO_COMBINATION_SAMPLE_COUNT = 40
+DEMO_COMBINATION_WEIGHTING = "equal"
+DEMO_COMBINATION_SELECTION_SIZES = {
+    "bond": 2,
+    "real_assets": 2,
+    "etf": 2,
+    "tech_healthcare": 2,
+    "ai_semiconductor_social": 2,
+    "financials": 2,
+    "energy": 2,
+    "consumer_other": 2,
+}
 
 DEFAULT_TARGET_VOLATILITY = {
     RiskProfile.CONSERVATIVE: 0.07,

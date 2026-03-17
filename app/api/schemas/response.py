@@ -23,6 +23,7 @@ class FrontierPointResponse(BaseModel):
     label: str | None = None
     volatility: float
     expected_return: float
+    weights: dict[str, float] | None = None
 
 
 class RandomPortfolioResponse(BaseModel):
@@ -49,14 +50,25 @@ class StocksBySectorResponse(BaseModel):
     sectors: dict[str, list[StockInstrumentResponse]]
 
 
+class CombinationSelectionResponse(BaseModel):
+    combination_id: str
+    members_by_sector: dict[str, list[str]]
+    total_combinations_tested: int
+    successful_combinations: int
+    discard_reasons: dict[str, int]
+
+
 class FrontierPreviewResponse(BaseModel):
     portfolio_id: str
+    data_source: str
+    data_source_label: str
     target_volatility: float
     frontier_points: list[FrontierPointResponse]
     frontier_options: list[FrontierPointResponse]
     selected_point_index: int
     selected_point: FrontierPointResponse
     random_portfolios: list[RandomPortfolioResponse]
+    selected_combination: CombinationSelectionResponse | None = None
 
 
 class PortfolioSimulationResponse(BaseModel):
@@ -65,6 +77,8 @@ class PortfolioSimulationResponse(BaseModel):
     summary: str
     explanation_title: str
     explanation: str
+    data_source: str
+    data_source_label: str
     target_volatility: float
     expected_return: float
     volatility: float
@@ -77,3 +91,4 @@ class PortfolioSimulationResponse(BaseModel):
     selected_point: FrontierPointResponse
     random_portfolios: list[RandomPortfolioResponse]
     used_fallback: bool
+    selected_combination: CombinationSelectionResponse | None = None

@@ -5,597 +5,906 @@ def render_homepage() -> HTMLResponse:
     html = """<!DOCTYPE html>
 <html lang="ko">
 <head>
+  <script>(function(){var t=localStorage.getItem('theme');if(t==='dark'||(t===null&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}})()</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>효율적 투자선 자산배분 시뮬레이터</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f6f1e8;
-      --panel: rgba(255, 252, 246, 0.9);
-      --text: #18211e;
-      --muted: #61706a;
-      --line: rgba(24, 33, 30, 0.12);
-      --primary: #173f35;
-      --accent: #d58532;
-      --accent-soft: rgba(213, 133, 50, 0.12);
-      --blue: #1f5f8b;
-      --blue-soft: rgba(31, 95, 139, 0.12);
-      --shadow: 0 28px 70px rgba(36, 48, 40, 0.12);
-      --radius: 24px;
+      --background: #FFFFFF;
+      --foreground: #0F172A;
+      --card: #FFFFFF;
+      --card-foreground: #0F172A;
+      --muted: #F1F5F9;
+      --muted-foreground: #64748B;
+      --border: #E2E8F0;
+      --input: #E2E8F0;
+      --primary: #0F172A;
+      --primary-foreground: #F8FAFC;
+      --secondary: #F1F5F9;
+      --secondary-foreground: #0F172A;
+      --accent: #F1F5F9;
+      --accent-foreground: #0F172A;
+      --destructive: #EF4444;
+      --ring: #94A3B8;
+      --radius: 0.5rem;
+      --chart-1: #0F4C81;
+      --chart-2: #5B8E7D;
+      --chart-3: #C97C5D;
+      --chart-4: #C6A700;
+      --chart-5: #7A7A7A;
+      --chart-bg: #F8FAFC;
+      --chart-grid: #E2E8F0;
+      --chart-label: #94A3B8;
+      --chart-line: #0F172A;
+      --chart-scatter: rgba(15,76,129,0.2);
+      --chart-text: #0F172A;
     }
 
-    * { box-sizing: border-box; }
+    .dark {
+      --background: #020817;
+      --foreground: #F8FAFC;
+      --card: #0F172A;
+      --card-foreground: #F8FAFC;
+      --muted: #1E293B;
+      --muted-foreground: #94A3B8;
+      --border: #1E293B;
+      --input: #1E293B;
+      --primary: #F8FAFC;
+      --primary-foreground: #0F172A;
+      --secondary: #1E293B;
+      --secondary-foreground: #F8FAFC;
+      --accent: #1E293B;
+      --accent-foreground: #F8FAFC;
+      --destructive: #7F1D1D;
+      --ring: #334155;
+      --chart-bg: #1E293B;
+      --chart-grid: #334155;
+      --chart-label: #64748B;
+      --chart-line: #F8FAFC;
+      --chart-scatter: rgba(96,165,250,0.3);
+      --chart-text: #F8FAFC;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0;
       min-height: 100vh;
-      color: var(--text);
-      font-family: Georgia, "Iowan Old Style", "Noto Serif KR", serif;
-      background:
-        radial-gradient(circle at top left, rgba(213, 133, 50, 0.18), transparent 28%),
-        radial-gradient(circle at right 20%, rgba(23, 63, 53, 0.14), transparent 26%),
-        linear-gradient(180deg, #f9f4eb 0%, var(--bg) 100%);
+      color: var(--foreground);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--background);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    .shell {
+    /* ── Layout ── */
+    .container {
       max-width: 1280px;
       margin: 0 auto;
-      padding: 36px 20px 56px;
+      padding: 24px 24px 48px;
     }
 
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
-    }
-
-    .hero {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 24px;
-      margin-bottom: 24px;
-    }
-
-    .hero-copy {
-      padding: 34px;
-    }
-
-    .eyebrow {
-      display: inline-block;
-      margin-bottom: 14px;
-      font-size: 12px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--primary);
-    }
-
-    h1 {
-      margin: 0 0 16px;
-      font-size: clamp(2.5rem, 6vw, 4.8rem);
-      line-height: 0.96;
-      font-weight: 700;
-    }
-
-    .lead {
-      max-width: 60ch;
-      margin: 0 0 16px;
-      color: var(--muted);
-      line-height: 1.75;
-      font-size: 1.04rem;
-    }
-
-    .hero-note {
-      padding: 16px 18px;
-      border-radius: 18px;
-      background: rgba(23, 63, 53, 0.08);
-      color: var(--primary);
-      line-height: 1.65;
-    }
-
-    .hero-side {
-      padding: 28px;
-      background:
-        linear-gradient(145deg, rgba(23, 63, 53, 0.97), rgba(14, 33, 43, 0.95));
-      color: #f8f3ea;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero-side::after {
-      content: "";
-      position: absolute;
-      right: -46px;
-      bottom: -70px;
-      width: 220px;
-      height: 220px;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(213, 133, 50, 0.34), transparent 68%);
-    }
-
-    .hero-side h2 {
-      margin: 0 0 10px;
-      color: rgba(248, 243, 234, 0.76);
-      font-size: 1rem;
-      font-weight: 600;
-    }
-
-    .hero-side strong {
-      display: block;
-      font-size: 2.3rem;
-      line-height: 1.05;
-      margin-bottom: 12px;
-    }
-
-    .hero-side p {
-      margin: 0;
-      color: rgba(248, 243, 234, 0.84);
-      line-height: 1.75;
-    }
-
-    .app-grid {
-      display: grid;
-      grid-template-columns: 330px 1fr;
-      gap: 24px;
-    }
-
-    .controls {
-      padding: 24px;
-      align-self: start;
-      position: sticky;
-      top: 20px;
-    }
-
-    .kicker {
-      margin: 0 0 6px;
-      color: var(--primary);
-      font-size: 0.84rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .section-title {
-      margin: 0 0 16px;
-      font-size: 1.15rem;
-      color: var(--text);
-    }
-
-    .step {
-      display: inline-flex;
+    /* ── Navbar ── */
+    .navbar {
+      display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--foreground);
+      text-decoration: none;
+    }
+    .navbar-brand svg {
       width: 28px;
       height: 28px;
-      border-radius: 999px;
-      margin-right: 10px;
-      font-size: 0.88rem;
-      color: white;
-      background: linear-gradient(135deg, var(--accent), #e3b362);
+    }
+    .navbar-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .navbar-links a {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .navbar-links a:hover { color: var(--foreground); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      background: var(--muted);
     }
 
-    .field {
-      margin-bottom: 18px;
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 48px;
+    }
+    .hero .badge { margin-bottom: 16px; }
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      max-width: 580px;
+      margin: 0 auto 24px;
+    }
+    .hero-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      background: var(--muted);
+      color: var(--muted-foreground);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .hero-note svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
     }
 
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--muted);
-      font-size: 0.92rem;
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 24px 24px 0;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+    .card-description {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      line-height: 1.5;
+    }
+    .card-content {
+      padding: 24px;
+    }
+
+    /* ── App Grid ── */
+    .app-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      position: sticky;
+      top: 24px;
+    }
+    .controls .card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Form Elements ── */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .field-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--foreground);
+    }
+    .field-hint {
+      font-size: 13px;
+      color: var(--muted-foreground);
     }
 
     select, input[type="number"] {
       width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 13px 14px;
-      font-size: 0.98rem;
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.84);
+      height: 40px;
+      border: 1px solid var(--input);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--foreground);
+      background: var(--background);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    select:focus, input[type="number"]:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
     }
 
-    .slider-wrap {
-      padding: 16px 16px 14px;
-      border-radius: 20px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.56);
+    /* ── Slider ── */
+    .slider-card {
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--muted);
     }
-
-    .slider-value {
+    .slider-header {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
       margin-bottom: 12px;
     }
-
-    .slider-value strong {
-      font-size: 1.6rem;
-      color: var(--primary);
+    .slider-profile {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--foreground);
     }
-
-    .slider-labels {
-      display: flex;
-      justify-content: space-between;
-      color: var(--muted);
-      font-size: 0.82rem;
-      margin-top: 10px;
+    .slider-target {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      background: var(--background);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
     }
 
     input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
       width: 100%;
-      accent-color: var(--accent);
-    }
-
-    button {
-      width: 100%;
-      padding: 14px 16px;
-      border: none;
-      border-radius: 16px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
       cursor: pointer;
-      color: white;
-      background: linear-gradient(135deg, var(--primary), #255f4e);
-      box-shadow: 0 14px 30px rgba(23, 63, 53, 0.24);
-      font-weight: 600;
-      font-size: 0.98rem;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--background);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--background);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      cursor: pointer;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted-foreground);
     }
 
-    .hint, .status {
-      color: var(--muted);
+    /* ── Button ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 40px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-outline {
+      background: transparent;
+      color: var(--foreground);
+      border: 1px solid var(--input);
+    }
+    .btn-outline:hover { background: var(--accent); }
+
+    .status-text {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      min-height: 20px;
+      margin-top: 4px;
+    }
+    .hint-text {
+      font-size: 13px;
+      color: var(--muted-foreground);
       line-height: 1.6;
-      font-size: 0.9rem;
     }
 
-    .status {
-      min-height: 24px;
-      margin-top: 12px;
-      color: var(--primary);
-    }
-
+    /* ── Results area ── */
     .results {
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 24px;
     }
 
-    .chart-card {
-      padding: 24px;
+    /* ── Step indicator ── */
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+      margin-bottom: 12px;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--foreground);
+      color: var(--primary-foreground);
+      font-size: 11px;
+      font-weight: 700;
     }
 
-    .chart-head {
+    /* ── Chart ── */
+    .chart-header {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
       align-items: flex-start;
-      margin-bottom: 14px;
+      gap: 16px;
+      flex-wrap: wrap;
     }
-
-    .chart-copy {
-      max-width: 60ch;
-      color: var(--muted);
-      line-height: 1.65;
-    }
-
     .legend {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px 16px;
-      color: var(--muted);
-      font-size: 0.88rem;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--muted-foreground);
     }
-
-    .legend span {
+    .legend-item {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
-
-    .swatch {
-      width: 12px;
-      height: 12px;
-      border-radius: 999px;
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
       display: inline-block;
     }
-
     .chart-wrap {
-      border-radius: 20px;
+      margin-top: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--muted);
       padding: 12px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(247,242,233,0.84));
-      border: 1px solid var(--line);
     }
-
     svg {
       width: 100%;
       height: auto;
       display: block;
     }
 
-    .metrics {
+    /* ── Metrics ── */
+    .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px;
     }
-
-    .metric {
-      padding: 22px;
+    .metric-card .card-content {
+      padding: 20px 24px;
     }
-
-    .metric span {
-      display: block;
-      color: var(--muted);
-      font-size: 0.84rem;
-      letter-spacing: 0.1em;
+    .metric-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted-foreground);
       text-transform: uppercase;
-      margin-bottom: 10px;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .metric-value {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--foreground);
+      margin-bottom: 6px;
+    }
+    .metric-desc {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      line-height: 1.5;
     }
 
-    .metric strong {
-      display: block;
-      font-size: 2rem;
-      color: var(--primary);
-      margin-bottom: 10px;
-    }
-
-    .metric p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.6;
-      font-size: 0.92rem;
-    }
-
-    .explain-grid {
+    /* ── Two-col sections ── */
+    .two-col {
       display: grid;
       grid-template-columns: 1.1fr 0.9fr;
       gap: 24px;
     }
 
-    .card {
-      padding: 24px;
+    /* ── Allocations table ── */
+    .alloc-table {
+      width: 100%;
+      border-collapse: collapse;
     }
-
-    .story {
-      line-height: 1.75;
-      color: var(--muted);
-    }
-
-    .story strong {
-      color: var(--text);
-      display: block;
-      margin-bottom: 10px;
-      font-size: 1.16rem;
-    }
-
-    .alloc-table, .options-list {
-      display: grid;
-      gap: 12px;
-    }
-
-    .alloc-row {
-      display: grid;
-      grid-template-columns: 1.2fr 0.8fr 0.9fr;
-      gap: 10px;
-      align-items: center;
-      padding: 14px 16px;
-      border-radius: 18px;
-      background: rgba(23, 63, 53, 0.05);
-      border: 1px solid rgba(23, 63, 53, 0.08);
-    }
-
-    .alloc-row.header {
-      background: transparent;
-      border: none;
-      padding: 0 2px 4px;
-      color: var(--muted);
-      font-size: 0.82rem;
+    .alloc-table thead th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+      border-bottom: 1px solid var(--border);
     }
-
+    .alloc-table tbody td {
+      padding: 12px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .alloc-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .alloc-table tbody tr:hover {
+      background: var(--muted);
+    }
     .asset-name {
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .asset-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .weight-bar-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .weight-bar-bg {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .weight-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--foreground);
+      transition: width 0.4s ease;
+    }
+    .weight-value {
+      font-size: 14px;
+      font-weight: 600;
+      min-width: 48px;
+      text-align: right;
     }
 
-    .options-item {
+    /* ── Options list ── */
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .option-item {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      align-items: center;
       padding: 14px 16px;
-      border-radius: 18px;
-      border: 1px solid rgba(31, 95, 139, 0.12);
-      background: rgba(31, 95, 139, 0.06);
-      color: var(--muted);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--background);
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+    .option-item.active {
+      border-color: var(--foreground);
+      background: var(--muted);
+    }
+    .option-item .option-label {
+      font-weight: 600;
+    }
+    .option-item .option-stats {
+      display: flex;
+      gap: 16px;
+      color: var(--muted-foreground);
+      font-size: 13px;
+    }
+    .option-item .option-stats span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
 
-    .options-item.active {
-      border-color: rgba(213, 133, 50, 0.36);
-      background: var(--accent-soft);
-      color: var(--text);
+    /* ── Explanation ── */
+    .explanation-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .explanation-body {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+    }
+    .summary-text {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted-foreground);
+      line-height: 1.6;
     }
 
+    /* ── Interpretation card ── */
+    .interpretation {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+    }
+
+    /* ── Footer ── */
     .footer {
-      margin-top: 22px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+    .footer a {
+      color: var(--muted-foreground);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .footer a:hover {
+      color: var(--foreground);
     }
 
-    a { color: var(--blue); }
+    /* ── Separator ── */
+    .separator {
+      height: 1px;
+      background: var(--border);
+      width: 100%;
+    }
 
+    /* ── Loading skeleton ── */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--muted) 25%, var(--border) 50%, var(--muted) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+    }
+
+    /* ── Theme Toggle ── */
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--background);
+      color: var(--foreground);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle:hover {
+      background: var(--accent);
+    }
+    .theme-toggle svg {
+      width: 16px;
+      height: 16px;
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    .dark .theme-toggle .icon-sun { display: block; }
+    .dark .theme-toggle .icon-moon { display: none; }
+
+    /* ── Dark mode transition ── */
+    body, .card, .navbar, .footer, .slider-card, .chart-wrap,
+    .option-item, .hero-note, .badge, select, input,
+    .btn-primary, .slider-target, .theme-toggle {
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* ── Responsive ── */
     @media (max-width: 980px) {
-      .hero, .app-grid, .metrics, .explain-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .controls {
-        position: static;
-      }
-
-      .chart-head {
-        flex-direction: column;
-      }
-
-      .alloc-row {
-        grid-template-columns: 1fr;
-      }
+      .container { padding: 16px 16px 32px; }
+      .app-grid { grid-template-columns: 1fr; }
+      .controls { position: static; }
+      .metrics-grid { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+      .hero { margin-bottom: 32px; }
+      .hero h1 { font-size: 28px; }
+      .hero p { font-size: 14px; }
+      .chart-header { flex-direction: column; }
+      .footer { flex-direction: column; gap: 8px; text-align: center; }
+      .navbar { margin-bottom: 24px; }
+      .navbar-links a { display: none; }
+      .navbar-links .badge { display: inline-flex; }
+      .alloc-table thead th:nth-child(2),
+      .alloc-table tbody td:nth-child(2) { min-width: 80px; }
+      .weight-bar-bg { display: none; }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="hero">
-      <div class="panel hero-copy">
-        <div class="eyebrow">위험-수익 구조 기반 데모</div>
-        <h1>효율적 투자선<br />자산배분 시뮬레이터</h1>
-        <p class="lead">
-          이 데모의 핵심은 선택된 포트폴리오가 효율적 투자선 위의 한 점이라는 사실을
-          직관적으로 보여주는 것입니다. 위험 수준을 바꾸면 점의 위치와 비중, 리스크 기여도가 함께 변합니다.
-        </p>
-        <div class="hero-note">
-          본 서비스는 발표와 시연을 위한 데모입니다. 결과는 고정된 샘플 데이터를 기반으로 계산되며,
-          시장 예측이나 투자 자문을 제공하지 않습니다.
-        </div>
+  <div class="container">
+    <!-- Navbar -->
+    <nav class="navbar">
+      <a href="/" class="navbar-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        Portfolio Simulator
+      </a>
+      <div class="navbar-links">
+        <a href="/docs">API Docs</a>
+        <a href="/redoc">Reference</a>
+        <span class="badge">Demo v1.0</span>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
       </div>
-      <div class="panel hero-side">
-        <h2>데모 핵심</h2>
-        <strong>먼저 구조를 보고,<br />그 다음 숫자를 봅니다.</strong>
-        <p>
-          차트, 선택된 포인트, 설명 카드가 같은 메시지를 반복합니다.
-          이 포트폴리오는 샘플 자산군 안에서 위험 대비 가장 효율적인 구간 위에 놓여 있습니다.
-        </p>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+      <span class="badge">Efficient Frontier Simulator</span>
+      <h1>효율적 투자선<br />자산배분 시뮬레이터</h1>
+      <p>
+        선택된 포트폴리오가 효율적 투자선 위의 한 점이라는 사실을
+        직관적으로 보여줍니다. 위험 수준을 바꾸면 점의 위치와 비중, 리스크 기여도가 함께 변합니다.
+      </p>
+      <div class="hero-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        본 서비스는 데모입니다. 고정된 샘플 데이터 기반이며 투자 자문을 제공하지 않습니다.
       </div>
     </section>
 
+    <!-- Main App -->
     <section class="app-grid">
-      <aside class="panel controls">
-        <p class="kicker"><span class="step">1</span>위험 선택</p>
-        <h2 class="section-title">원하는 위험 수준을 정하세요</h2>
-        <form id="portfolio-form">
-          <div class="field slider-wrap">
-            <div class="slider-value">
-              <div>
-                <label for="risk_slider">위험 슬라이더</label>
-                <strong id="risk-label">균형형</strong>
+      <!-- Controls Sidebar -->
+      <aside class="controls">
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">1</span> 위험 설정</div>
+            <div class="card-title">투자 위험 수준 선택</div>
+            <div class="card-description">슬라이더를 움직여 원하는 위험 수준을 정하세요.</div>
+          </div>
+          <div class="card-content">
+            <form id="portfolio-form">
+              <!-- Risk Slider -->
+              <div class="field-group">
+                <div class="slider-card">
+                  <div class="slider-header">
+                    <span class="slider-profile" id="risk-label">균형형</span>
+                    <span class="slider-target" id="slider-target">11.0% 목표</span>
+                  </div>
+                  <input id="risk_slider" type="range" min="0" max="100" step="1" value="50" />
+                  <div class="slider-labels">
+                    <span>안정형</span>
+                    <span>공격형</span>
+                  </div>
+                </div>
               </div>
-              <div id="slider-target">11.0% 목표 변동성</div>
-            </div>
-            <input id="risk_slider" type="range" min="0" max="100" step="1" value="50" />
-            <div class="slider-labels">
-              <span>안정형</span>
-              <span>공격형</span>
-            </div>
+
+              <!-- Investment Horizon -->
+              <div class="field-group">
+                <label class="field-label" for="investment_horizon">투자 기간</label>
+                <select id="investment_horizon" name="investment_horizon">
+                  <option value="short">단기 (1~2년)</option>
+                  <option value="medium" selected>중기 (3~5년)</option>
+                  <option value="long">장기 (5년 이상)</option>
+                </select>
+              </div>
+
+              <!-- Target Volatility -->
+              <div class="field-group">
+                <label class="field-label" for="target_volatility">목표 변동성 직접 입력</label>
+                <input id="target_volatility" name="target_volatility" type="number" step="0.01" min="0.03" max="0.25" placeholder="예: 0.11" />
+                <span class="field-hint">0.03 ~ 0.25 범위. 비워두면 슬라이더 값을 사용합니다.</span>
+              </div>
+
+              <!-- Submit -->
+              <button type="submit" class="btn btn-primary">포트폴리오 계산하기</button>
+              <div id="status" class="status-text"></div>
+            </form>
           </div>
-
-          <div class="field">
-            <label for="investment_horizon">Investment Horizon</label>
-            <select id="investment_horizon" name="investment_horizon">
-              <option value="short">단기</option>
-              <option value="medium" selected>중기</option>
-              <option value="long">장기</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="target_volatility">목표 변동성 직접 입력</label>
-            <input id="target_volatility" name="target_volatility" type="number" step="0.01" min="0.03" max="0.25" placeholder="예: 0.11" />
-          </div>
-
-          <button type="submit">포트폴리오 다시 계산하기</button>
-          <div id="status" class="status"></div>
-        </form>
-
-        <p class="hint">
-          슬라이더를 움직이면 효율적 투자선 위에서 현재 포트폴리오 위치가 바뀝니다.
-          필요하면 목표 변동성을 직접 숫자로 입력할 수도 있습니다.
-        </p>
+        </div>
       </aside>
 
+      <!-- Results -->
       <div class="results">
-        <section class="panel chart-card">
-          <p class="kicker"><span class="step">2</span>프론티어 보기</p>
-          <div class="chart-head">
-            <div>
-              <h2 class="section-title">효율적 투자선 차트</h2>
-              <div class="chart-copy" id="chart-copy">
-                선택된 포트폴리오는 가능한 포트폴리오 점 구름 위쪽의 효율적 투자선 위에 표시됩니다.
+        <!-- Chart -->
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">2</span> 프론티어</div>
+            <div class="chart-header">
+              <div>
+                <div class="card-title">효율적 투자선 차트</div>
+                <div class="card-description" id="chart-copy">선택된 포트폴리오는 효율적 투자선 위에 표시됩니다.</div>
+              </div>
+              <div class="legend">
+                <span class="legend-item"><i class="legend-dot" style="background: var(--chart-scatter);"></i>가능한 포트폴리오</span>
+                <span class="legend-item"><i class="legend-dot" style="background: var(--chart-line);"></i>효율적 투자선</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #F97316;"></i>현재 포트폴리오</span>
               </div>
             </div>
-            <div class="legend">
-              <span><i class="swatch" style="background: rgba(31,95,139,0.28);"></i>가능한 포트폴리오</span>
-              <span><i class="swatch" style="background: #173f35;"></i>효율적 투자선</span>
-              <span><i class="swatch" style="background: #d58532;"></i>현재 포트폴리오</span>
+          </div>
+          <div class="card-content">
+            <div class="chart-wrap">
+              <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="효율적 투자선 차트"></svg>
             </div>
           </div>
-          <div class="chart-wrap">
-            <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="효율적 투자선 차트"></svg>
-          </div>
-        </section>
+        </div>
 
-        <section class="metrics">
-          <div class="panel metric">
-            <span>예상 수익률</span>
-            <strong id="metric-return">-</strong>
-            <p>샘플 데이터를 바탕으로 계산한 연율 기준 기대수익률입니다.</p>
-          </div>
-          <div class="panel metric">
-            <span>변동성</span>
-            <strong id="metric-vol">-</strong>
-            <p>효율적 투자선 위 포트폴리오 위치를 결정하는 연율 기준 위험 수준입니다.</p>
-          </div>
-          <div class="panel metric">
-            <span>샤프 지수</span>
-            <strong id="metric-sharpe">-</strong>
-            <p>위험을 감안한 상대적 효율을 비교하는 지표입니다.</p>
-          </div>
-        </section>
-
-        <section class="explain-grid">
-          <div class="panel card story">
-            <p class="kicker"><span class="step">3</span>설명 보기</p>
-            <strong id="explanation-title">왜 이런 포트폴리오가 나왔을까?</strong>
-            <div id="explanation-body">
-              첫 계산이 완료되면 이 위치에 설명이 표시됩니다.
+        <!-- Metrics -->
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">예상 수익률</div>
+              <div class="metric-value" id="metric-return">-</div>
+              <div class="metric-desc">연율 기준 기대수익률</div>
             </div>
-            <div style="margin-top: 16px;" id="summary"></div>
           </div>
-
-          <div class="panel card">
-            <p class="kicker"><span class="step">4</span>옵션 비교</p>
-            <h2 class="section-title">효율적 투자선 옵션</h2>
-            <div id="frontier-options" class="options-list"></div>
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">변동성</div>
+              <div class="metric-value" id="metric-vol">-</div>
+              <div class="metric-desc">연율 기준 위험 수준</div>
+            </div>
           </div>
-        </section>
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">샤프 지수</div>
+              <div class="metric-value" id="metric-sharpe">-</div>
+              <div class="metric-desc">위험 대비 효율 지표</div>
+            </div>
+          </div>
+        </div>
 
-        <section class="explain-grid">
-          <div class="panel card">
-            <p class="kicker"><span class="step">5</span>자산배분</p>
-            <h2 class="section-title">비중과 리스크 기여도</h2>
-            <div class="alloc-table">
-              <div class="alloc-row header">
-                <div>자산군</div>
-                <div>비중</div>
-                <div>리스크 기여도</div>
+        <!-- Explanation + Options -->
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <div class="step-badge"><span class="step-num">3</span> 분석</div>
+            </div>
+            <div class="card-content">
+              <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
+              <div class="explanation-body" id="explanation-body">
+                첫 계산이 완료되면 이 위치에 설명이 표시됩니다.
               </div>
-              <div id="allocations"></div>
+              <div class="summary-text" id="summary"></div>
             </div>
           </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="step-badge"><span class="step-num">4</span> 옵션 비교</div>
+              <div class="card-title">효율적 투자선 옵션</div>
+              <div class="card-description">각 위험 수준별 최적 포트폴리오를 비교합니다.</div>
+            </div>
+            <div class="card-content">
+              <div id="frontier-options" class="options-list"></div>
+            </div>
+          </div>
+        </div>
 
-          <div class="panel card">
-            <p class="kicker">해석 포인트</p>
-            <h2 class="section-title">어떻게 보면 좋을까</h2>
-            <div class="story">
-              비중은 자금이 어디에 배분되는지를 보여주고, 리스크 기여도는 실제 변동성이 어디에서 나오는지를 보여줍니다.
-              효율적 자산배분에서는 이 둘이 다르게 나타날 수 있고, 그 차이를 이해하는 것이 이 데모의 중요한 포인트입니다.
+        <!-- Allocations + Interpretation -->
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <div class="step-badge"><span class="step-num">5</span> 자산배분</div>
+              <div class="card-title">비중과 리스크 기여도</div>
+            </div>
+            <div class="card-content" style="padding-top: 0;">
+              <table class="alloc-table">
+                <thead>
+                  <tr>
+                    <th>자산군</th>
+                    <th>비중</th>
+                    <th>리스크 기여도</th>
+                  </tr>
+                </thead>
+                <tbody id="allocations"></tbody>
+              </table>
             </div>
           </div>
-        </section>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">해석 포인트</div>
+              <div class="card-description">결과를 어떻게 읽어야 할까</div>
+            </div>
+            <div class="card-content">
+              <div class="interpretation">
+                <p style="margin-bottom: 12px;">
+                  <strong style="color: var(--foreground);">비중</strong>은 자금이 어디에 배분되는지를 보여주고,
+                  <strong style="color: var(--foreground);">리스크 기여도</strong>는 실제 변동성이 어디에서 나오는지를 보여줍니다.
+                </p>
+                <p>
+                  효율적 자산배분에서는 이 둘이 다르게 나타날 수 있고,
+                  그 차이를 이해하는 것이 이 시뮬레이터의 중요한 포인트입니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <div class="footer">
-      효율적 투자선 자산배분 시뮬레이터 · <a href="/docs">Swagger 문서</a>
-    </div>
+    <!-- Footer -->
+    <footer class="footer">
+      <span>효율적 투자선 자산배분 시뮬레이터</span>
+      <div>
+        <a href="/docs">Swagger</a>
+      </div>
+    </footer>
   </div>
 
   <script>
+    const ASSET_COLORS = {
+      "us_equity": "#0F4C81",
+      "global_bond": "#5B8E7D",
+      "reit": "#C97C5D",
+      "gold": "#C6A700",
+      "cash": "#7A7A7A"
+    };
+
     const slider = document.getElementById("risk_slider");
     const riskLabel = document.getElementById("risk-label");
     const sliderTarget = document.getElementById("slider-target");
@@ -610,7 +919,7 @@ def render_homepage() -> HTMLResponse:
     const chartEl = document.getElementById("frontier-chart");
 
     function percent(value) {
-      return `${(value * 100).toFixed(1)}%`;
+      return (value * 100).toFixed(1) + "%";
     }
 
     function sliderProfile(value) {
@@ -630,7 +939,7 @@ def render_homepage() -> HTMLResponse:
       const exact = profile.base + horizonAdjustment(horizonEl.value);
       const clamped = Math.min(Math.max(exact, 0.04), 0.22);
       riskLabel.textContent = profile.label;
-      sliderTarget.textContent = `${percent(clamped)} 목표 변동성`;
+      sliderTarget.textContent = percent(clamped) + " 목표";
       return { profile, target: clamped };
     }
 
@@ -646,104 +955,122 @@ def render_homepage() -> HTMLResponse:
     }
 
     function renderAllocations(items) {
-      allocationsEl.innerHTML = items.map((item) => `
-        <div class="alloc-row">
-          <div class="asset-name">${item.asset_name}</div>
-          <div>${percent(item.weight)}</div>
-          <div>${percent(item.risk_contribution)}</div>
-        </div>
-      `).join("");
-    }
-
-    function renderOptions(items, selectedPoint) {
-      optionsEl.innerHTML = items.map((item) => {
-        const active = Math.abs(item.volatility - selectedPoint.volatility) < 0.02 ? "active" : "";
-        return `
-          <div class="options-item ${active}">
-            <strong>${item.label || "옵션"}</strong>
-            <span>변동성 ${percent(item.volatility)}</span>
-            <span>수익률 ${percent(item.expected_return)}</span>
-          </div>
-        `;
+      allocationsEl.innerHTML = items.map(function(item) {
+        const pct = (item.weight * 100).toFixed(1);
+        const riskPct = (item.risk_contribution * 100).toFixed(1);
+        const color = ASSET_COLORS[item.asset_code] || "#64748B";
+        return '<tr>' +
+          '<td><span class="asset-name"><span class="asset-dot" style="background:' + color + '"></span>' + item.asset_name + '</span></td>' +
+          '<td><div class="weight-bar-cell"><div class="weight-bar-bg"><div class="weight-bar-fill" style="width:' + pct + '%; background:' + color + '"></div></div><span class="weight-value">' + pct + '%</span></div></td>' +
+          '<td>' + riskPct + '%</td>' +
+        '</tr>';
       }).join("");
     }
 
+    function renderOptions(items, selectedPoint) {
+      optionsEl.innerHTML = items.map(function(item) {
+        var active = Math.abs(item.volatility - selectedPoint.volatility) < 0.02 ? " active" : "";
+        return '<div class="option-item' + active + '">' +
+          '<span class="option-label">' + (item.label || "옵션") + '</span>' +
+          '<div class="option-stats">' +
+            '<span>변동성 ' + percent(item.volatility) + '</span>' +
+            '<span>수익률 ' + percent(item.expected_return) + '</span>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function getThemeColors() {
+      var style = getComputedStyle(document.documentElement);
+      return {
+        bg: style.getPropertyValue('--chart-bg').trim(),
+        grid: style.getPropertyValue('--chart-grid').trim(),
+        label: style.getPropertyValue('--chart-label').trim(),
+        line: style.getPropertyValue('--chart-line').trim(),
+        scatter: style.getPropertyValue('--chart-scatter').trim(),
+        text: style.getPropertyValue('--chart-text').trim()
+      };
+    }
+
     function renderChart(data) {
-      const margin = { top: 20, right: 24, bottom: 46, left: 60 };
-      const width = 900;
-      const height = 460;
-      const innerWidth = width - margin.left - margin.right;
-      const innerHeight = height - margin.top - margin.bottom;
+      var c = getThemeColors();
+      var margin = { top: 20, right: 24, bottom: 46, left: 60 };
+      var width = 900;
+      var height = 460;
+      var innerWidth = width - margin.left - margin.right;
+      var innerHeight = height - margin.top - margin.bottom;
 
-      const allPoints = [
-        ...data.random_portfolios,
-        ...data.frontier,
-        data.selected_point,
-      ];
+      var allPoints = data.random_portfolios.concat(data.frontier).concat([data.selected_point]);
 
-      const volMin = Math.min(...allPoints.map((p) => p.volatility)) * 0.9;
-      const volMax = Math.max(...allPoints.map((p) => p.volatility)) * 1.1;
-      const retMin = Math.min(...allPoints.map((p) => p.expected_return)) * 0.9;
-      const retMax = Math.max(...allPoints.map((p) => p.expected_return)) * 1.1;
+      var volMin = Math.min.apply(null, allPoints.map(function(p) { return p.volatility; })) * 0.9;
+      var volMax = Math.max.apply(null, allPoints.map(function(p) { return p.volatility; })) * 1.1;
+      var retMin = Math.min.apply(null, allPoints.map(function(p) { return p.expected_return; })) * 0.9;
+      var retMax = Math.max.apply(null, allPoints.map(function(p) { return p.expected_return; })) * 1.1;
 
       function xScale(value) {
         return margin.left + ((value - volMin) / (volMax - volMin || 1)) * innerWidth;
       }
-
       function yScale(value) {
         return margin.top + innerHeight - ((value - retMin) / (retMax - retMin || 1)) * innerHeight;
       }
 
-      const xTicks = 5;
-      const yTicks = 5;
+      var xTicks = 5;
+      var yTicks = 5;
+      var svg = '';
 
-      let axes = "";
-      for (let i = 0; i <= xTicks; i++) {
-        const value = volMin + ((volMax - volMin) * i) / xTicks;
-        const x = xScale(value);
-        axes += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${margin.top + innerHeight}" stroke="rgba(24,33,30,0.08)" />`;
-        axes += `<text x="${x}" y="${height - 14}" fill="#61706a" font-size="12" text-anchor="middle">${(value * 100).toFixed(1)}%</text>`;
+      /* Background */
+      svg += '<rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerWidth + '" height="' + innerHeight + '" fill="' + c.bg + '" rx="6" />';
+
+      /* Grid lines */
+      for (var i = 0; i <= xTicks; i++) {
+        var val = volMin + ((volMax - volMin) * i) / xTicks;
+        var x = xScale(val);
+        svg += '<line x1="' + x + '" y1="' + margin.top + '" x2="' + x + '" y2="' + (margin.top + innerHeight) + '" stroke="' + c.grid + '" stroke-dasharray="4,4" />';
+        svg += '<text x="' + x + '" y="' + (height - 14) + '" fill="' + c.label + '" font-size="11" font-family="Inter, sans-serif" text-anchor="middle">' + (val * 100).toFixed(1) + '%</text>';
       }
-      for (let i = 0; i <= yTicks; i++) {
-        const value = retMin + ((retMax - retMin) * i) / yTicks;
-        const y = yScale(value);
-        axes += `<line x1="${margin.left}" y1="${y}" x2="${margin.left + innerWidth}" y2="${y}" stroke="rgba(24,33,30,0.08)" />`;
-        axes += `<text x="18" y="${y + 4}" fill="#61706a" font-size="12">${(value * 100).toFixed(1)}%</text>`;
+      for (var j = 0; j <= yTicks; j++) {
+        var val2 = retMin + ((retMax - retMin) * j) / yTicks;
+        var y = yScale(val2);
+        svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerWidth) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" />';
+        svg += '<text x="18" y="' + (y + 4) + '" fill="' + c.label + '" font-size="11" font-family="Inter, sans-serif">' + (val2 * 100).toFixed(1) + '%</text>';
       }
 
-      const randomDots = data.random_portfolios.map((point) =>
-        `<circle cx="${xScale(point.volatility)}" cy="${yScale(point.expected_return)}" r="3.2" fill="rgba(31,95,139,0.24)" />`
-      ).join("");
+      /* Random portfolios */
+      data.random_portfolios.forEach(function(point) {
+        svg += '<circle cx="' + xScale(point.volatility) + '" cy="' + yScale(point.expected_return) + '" r="3" fill="' + c.scatter + '" />';
+      });
 
-      const frontierPath = data.frontier.map((point, index) =>
-        `${index === 0 ? "M" : "L"} ${xScale(point.volatility)} ${yScale(point.expected_return)}`
-      ).join(" ");
+      /* Frontier line */
+      var frontierPath = data.frontier.map(function(point, index) {
+        return (index === 0 ? "M" : "L") + " " + xScale(point.volatility) + " " + yScale(point.expected_return);
+      }).join(" ");
+      svg += '<path d="' + frontierPath + '" fill="none" stroke="' + c.line + '" stroke-width="2.5" stroke-linecap="round" />';
 
-      const currentX = xScale(data.selected_point.volatility);
-      const currentY = yScale(data.selected_point.expected_return);
+      /* Selected point */
+      var cx = xScale(data.selected_point.volatility);
+      var cy = yScale(data.selected_point.expected_return);
+      svg += '<circle cx="' + cx + '" cy="' + cy + '" r="12" fill="rgba(249,115,22,0.15)" />';
+      svg += '<circle cx="' + cx + '" cy="' + cy + '" r="6" fill="#F97316" stroke="' + c.bg + '" stroke-width="2.5" />';
+      svg += '<text x="' + (cx + 16) + '" y="' + (cy - 12) + '" font-size="12" font-family="Inter, sans-serif" fill="' + c.text + '" font-weight="600">현재 포트폴리오</text>';
 
-      chartEl.innerHTML = `
-        <rect x="${margin.left}" y="${margin.top}" width="${innerWidth}" height="${innerHeight}" fill="rgba(255,255,255,0.65)" rx="18" />
-        ${axes}
-        <path d="${frontierPath}" fill="none" stroke="#173f35" stroke-width="4" stroke-linecap="round" />
-        ${randomDots}
-        <circle cx="${currentX}" cy="${currentY}" r="8" fill="#d58532" stroke="#ffffff" stroke-width="4" />
-        <text x="${currentX + 14}" y="${currentY - 14}" font-size="13" fill="#173f35" font-weight="700">현재 포트폴리오</text>
-        <text x="${width / 2}" y="${height - 2}" text-anchor="middle" fill="#61706a" font-size="13">위험(변동성)</text>
-        <text x="18" y="${height / 2}" text-anchor="middle" fill="#61706a" font-size="13" transform="rotate(-90 18 ${height / 2})">예상 수익률</text>
-      `;
+      /* Axis labels */
+      svg += '<text x="' + (width / 2) + '" y="' + (height - 2) + '" text-anchor="middle" fill="' + c.label + '" font-size="12" font-family="Inter, sans-serif">위험 (변동성)</text>';
+      svg += '<text x="14" y="' + (height / 2) + '" text-anchor="middle" fill="' + c.label + '" font-size="12" font-family="Inter, sans-serif" transform="rotate(-90 14 ' + (height / 2) + ')">예상 수익률</text>';
+
+      chartEl.innerHTML = svg;
     }
 
+    var debounceTimer;
     async function loadPortfolio() {
-      statusEl.textContent = "효율적 투자선 위치를 계산하고 있습니다...";
+      statusEl.textContent = "계산 중...";
       try {
-        const payload = payloadFromInputs();
-        const response = await fetch("/v1/portfolio/recommend", {
+        var payload = payloadFromInputs();
+        var response = await fetch("/v1/portfolio/recommend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        var data = await response.json();
         if (!response.ok) {
           throw new Error(data.detail || "요청 처리에 실패했습니다.");
         }
@@ -753,28 +1080,90 @@ def render_homepage() -> HTMLResponse:
         document.getElementById("metric-sharpe").textContent = data.metrics.sharpe_ratio.toFixed(2);
         explanationTitleEl.textContent = data.explanation.title;
         explanationBodyEl.textContent = data.explanation.body;
-        summaryEl.textContent = `${data.summary} ${data.disclaimer}`;
+        summaryEl.textContent = data.summary + " " + data.disclaimer;
         renderAllocations(data.allocations);
         renderOptions(data.frontier_options, data.selected_point);
         renderChart(data);
-        statusEl.textContent = "포트폴리오 계산이 완료되었습니다.";
+        statusEl.textContent = "";
       } catch (error) {
         statusEl.textContent = error.message;
       }
     }
 
-    slider.addEventListener("input", () => {
+    slider.addEventListener("input", function() {
       suggestedVolatility();
+      clearTimeout(debounceTimer);
       if (!targetVolInput.value.trim()) {
-        loadPortfolio();
+        debounceTimer = setTimeout(loadPortfolio, 150);
       }
     });
     horizonEl.addEventListener("change", loadPortfolio);
 
-    document.getElementById("portfolio-form").addEventListener("submit", (event) => {
+    document.getElementById("portfolio-form").addEventListener("submit", function(event) {
       event.preventDefault();
       loadPortfolio();
     });
+
+    /* ── Theme Toggle ── */
+    var lastData = null;
+    var origLoadPortfolio = loadPortfolio;
+    loadPortfolio = async function() {
+      statusEl.textContent = "계산 중...";
+      try {
+        var payload = payloadFromInputs();
+        var response = await fetch("/v1/portfolio/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        var data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "요청 처리에 실패했습니다.");
+        }
+        lastData = data;
+        document.getElementById("metric-return").textContent = percent(data.metrics.expected_return);
+        document.getElementById("metric-vol").textContent = percent(data.metrics.volatility);
+        document.getElementById("metric-sharpe").textContent = data.metrics.sharpe_ratio.toFixed(2);
+        explanationTitleEl.textContent = data.explanation.title;
+        explanationBodyEl.textContent = data.explanation.body;
+        summaryEl.textContent = data.summary + " " + data.disclaimer;
+        renderAllocations(data.allocations);
+        renderOptions(data.frontier_options, data.selected_point);
+        renderChart(data);
+        statusEl.textContent = "";
+      } catch (error) {
+        statusEl.textContent = error.message;
+      }
+    };
+
+    (function() {
+      var toggle = document.getElementById('theme-toggle');
+      var html = document.documentElement;
+
+      function applyTheme(dark) {
+        if (dark) {
+          html.classList.add('dark');
+        } else {
+          html.classList.remove('dark');
+        }
+        if (lastData) {
+          setTimeout(function() { renderChart(lastData); }, 50);
+        }
+      }
+
+      var saved = localStorage.getItem('theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        applyTheme(true);
+      }
+
+      toggle.addEventListener('click', function() {
+        var isDark = html.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        if (lastData) {
+          setTimeout(function() { renderChart(lastData); }, 50);
+        }
+      });
+    })();
 
     suggestedVolatility();
     loadPortfolio();

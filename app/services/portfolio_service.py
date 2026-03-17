@@ -7,6 +7,7 @@ import pandas as pd
 from app.core.config import (
     DEMO_COMBINATION_SAMPLE_COUNT,
     DEMO_COMBINATION_SELECTION_SIZES,
+    DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
     DEMO_COMBINATION_WEIGHTING,
     DEMO_STOCK_PRICES_PATH,
     DEMO_STOCK_UNIVERSE_PATH,
@@ -178,6 +179,7 @@ class PortfolioSimulationService:
                     selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
                     sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
                     per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
+                    use_all_instruments_per_sector=DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
                 ),
             )
         except (RuntimeError, ValueError) as exc:
@@ -207,8 +209,9 @@ class PortfolioSimulationService:
         return ManagedUniverseReadiness(
             ready=True,
             summary=(
-                f"시뮬레이션 준비 완료 · {search_result.successful_combinations}개 조합을 평가했고 "
-                f"유효 공통 히스토리는 {effective_history_rows}행입니다."
+                f"시뮬레이션 준비 완료 · 등록된 전 종목을 사용했고 유효 공통 히스토리는 {effective_history_rows}행입니다."
+                if DEMO_COMBINATION_USE_ALL_INSTRUMENTS
+                else f"시뮬레이션 준비 완료 · {search_result.successful_combinations}개 조합을 평가했고 유효 공통 히스토리는 {effective_history_rows}행입니다."
             ),
             issues=[],
             active_version_name=active_version.version_name,
@@ -265,10 +268,13 @@ class PortfolioSimulationService:
                 if context.data_source == SimulationDataSource.MANAGED_UNIVERSE
                 else "개별 종목 조합 모드"
             )
-            summary += (
-                f" {mode_label}에서는 {context.selected_combination.total_combinations_tested}개 조합 중 "
-                f"{context.selected_combination.successful_combinations}개를 평가해 가장 효율적인 조합을 자산군 입력값으로 사용했습니다."
-            )
+            if DEMO_COMBINATION_USE_ALL_INSTRUMENTS:
+                summary += f" {mode_label}에서는 각 섹터에 등록된 전 종목을 모두 사용해 자산군 수익률을 구성했습니다."
+            else:
+                summary += (
+                    f" {mode_label}에서는 {context.selected_combination.total_combinations_tested}개 조합 중 "
+                    f"{context.selected_combination.successful_combinations}개를 평가해 가장 효율적인 조합을 자산군 입력값으로 사용했습니다."
+                )
             explanation_body += (
                 f" 현재 적용된 조합 ID는 '{context.selected_combination.combination_id}'이며, "
                 "섹터별로 선택된 종목 묶음의 수익률 시계열을 집계해 효율적 투자선을 다시 계산했습니다."
@@ -378,6 +384,7 @@ class PortfolioSimulationService:
                     selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
                     sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
                     per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
+                    use_all_instruments_per_sector=DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
                 ),
             )
         except ValueError as exc:
@@ -417,6 +424,7 @@ class PortfolioSimulationService:
                 selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
                 sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
                 per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
+                use_all_instruments_per_sector=DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
             ),
         )
         search_result = engine_data.search_result
@@ -455,9 +463,11 @@ class PortfolioSimulationService:
             ManagedUniverseSectorReadiness(
                 sector_code=asset.code,
                 sector_name=asset.name,
-                required_count=int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0)),
+                required_count=1 if DEMO_COMBINATION_USE_ALL_INSTRUMENTS else int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0)),
                 actual_count=int(counts_by_sector.get(asset.code, 0)),
-                ready=int(counts_by_sector.get(asset.code, 0)) >= int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0)),
+                ready=int(counts_by_sector.get(asset.code, 0)) >= (
+                    1 if DEMO_COMBINATION_USE_ALL_INSTRUMENTS else int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0))
+                ),
             )
             for asset in assets
         ]

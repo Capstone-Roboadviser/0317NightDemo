@@ -24,6 +24,7 @@ class CombinationSearchConfig:
     sample_count: int = 250
     per_sector_weighting: str = "equal"
     random_seed: int = 23
+    use_all_instruments_per_sector: bool = False
 
 
 @dataclass(frozen=True)
@@ -178,7 +179,11 @@ class CombinationSearchService:
         if stock_returns.empty:
             raise RuntimeError("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
 
-        combinations = self._sample_combinations(instruments, config)
+        combinations = (
+            [self._build_all_instruments_combination(assets, instruments)]
+            if config.use_all_instruments_per_sector
+            else self._sample_combinations(instruments, config)
+        )
         evaluations: list[CombinationEvaluation] = []
         discard_reasons: dict[str, int] = defaultdict(int)
         for combination in combinations:
@@ -211,6 +216,19 @@ class CombinationSearchService:
                 top_evaluations=list(islice(top_evaluations, 10)),
             ),
         )
+
+    def _build_all_instruments_combination(
+        self,
+        assets: list[AssetClass],
+        instruments: list[StockInstrument],
+    ) -> dict[str, list[str]]:
+        by_sector: dict[str, list[str]] = defaultdict(list)
+        for instrument in instruments:
+            by_sector[instrument.sector_code].append(instrument.ticker)
+        return {
+            asset.code: sorted(set(by_sector.get(asset.code, [])))
+            for asset in assets
+        }
 
     def _sample_combinations(
         self,
@@ -388,7 +406,7 @@ class CombinationSearchService:
 
         shortages: list[str] = []
         for asset in assets:
-            required = int(config.selection_sizes.get(asset.code, 0))
+            required = 1 if config.use_all_instruments_per_sector else int(config.selection_sizes.get(asset.code, 0))
             actual = int(counts_by_sector.get(asset.code, 0))
             if actual < required:
                 shortages.append(f"{asset.name}({asset.code}) 필요 {required}개 / 현재 {actual}개")

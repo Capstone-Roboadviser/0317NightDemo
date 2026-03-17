@@ -1657,7 +1657,11 @@ def render_homepage() -> HTMLResponse:
       }
 
       combinationPanelEl.hidden = false;
-      combinationMetaEl.textContent = `${sourceLabel || "개별주식 조합"} 기준으로 ${selection.total_combinations_tested}개 조합을 탐색했고, ${selection.successful_combinations}개를 실제 평가했습니다. 현재 적용된 조합 ID는 ${selection.combination_id} 입니다.`;
+      if (selection.total_combinations_tested === 1 && selection.successful_combinations === 1) {
+        combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 각 섹터에 등록된 전 종목을 모두 사용했습니다. 현재 적용된 구성 ID는 ${selection.combination_id} 입니다.`;
+      } else {
+        combinationMetaEl.textContent = `${sourceLabel || "개별주식 조합"} 기준으로 ${selection.total_combinations_tested}개 조합을 탐색했고, ${selection.successful_combinations}개를 실제 평가했습니다. 현재 적용된 조합 ID는 ${selection.combination_id} 입니다.`;
+      }
       combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
         .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
         .join("");

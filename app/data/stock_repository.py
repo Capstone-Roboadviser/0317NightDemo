@@ -99,7 +99,21 @@ class StockDataRepository:
         return normalized[["date", "ticker", "adjusted_close"]]
 
     def build_stock_returns(self, prices: pd.DataFrame) -> pd.DataFrame:
-        pivoted = prices.pivot(index="date", columns="ticker", values="adjusted_close").sort_index()
+        normalized = prices.copy()
+        normalized["date"] = pd.to_datetime(normalized["date"], errors="coerce").dt.normalize()
+        normalized["ticker"] = normalized["ticker"].astype(str).str.strip().str.upper()
+        normalized["adjusted_close"] = pd.to_numeric(normalized["adjusted_close"], errors="coerce")
+        normalized = normalized.dropna(subset=["date", "ticker", "adjusted_close"])
+        normalized = normalized.sort_values(["ticker", "date"]).drop_duplicates(
+            subset=["date", "ticker"],
+            keep="last",
+        )
+        pivoted = normalized.pivot_table(
+            index="date",
+            columns="ticker",
+            values="adjusted_close",
+            aggfunc="last",
+        ).sort_index()
         returns = pivoted.pct_change().dropna(how="all")
         returns = returns.replace([float("inf"), float("-inf")], pd.NA).dropna(axis=0, how="all")
         return returns.astype(float)

@@ -340,7 +340,14 @@ class ManagedUniverseRepository:
                 params=(unique_tickers,),
                 parse_dates=["date"],
             )
-        return frame
+        if frame.empty:
+            return frame
+        frame["ticker"] = frame["ticker"].astype(str).str.strip().str.upper()
+        frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.normalize()
+        frame["adjusted_close"] = pd.to_numeric(frame["adjusted_close"], errors="coerce")
+        frame = frame.dropna(subset=["date", "ticker", "adjusted_close"])
+        frame = frame.sort_values(["ticker", "date"]).drop_duplicates(subset=["date", "ticker"], keep="last")
+        return frame[["date", "ticker", "adjusted_close"]]
 
     def get_price_stats(self, tickers: list[str] | None = None) -> ManagedPriceStats:
         if not self.is_configured():

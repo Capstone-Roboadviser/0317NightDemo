@@ -560,9 +560,9 @@ def render_admin_page() -> HTMLResponse:
       min-width: 0;
     }
 
-    .builder-row .readonly {
+    .builder-row .assist {
       background: #f8fafc;
-      color: var(--muted);
+      color: var(--text);
     }
 
     .builder-row .mini-btn {
@@ -906,9 +906,9 @@ def render_admin_page() -> HTMLResponse:
           <button class="mini-btn delete-btn" type="button">삭제</button>
         </div>
         <div class="builder-row-meta">
-          <input class="tiny name readonly" placeholder="종목명 자동채움" value="${seed.name || ""}" readonly />
-          <input class="tiny market readonly" placeholder="시장 자동채움" value="${seed.market || ""}" readonly />
-          <input class="tiny currency readonly" placeholder="통화 자동채움" value="${seed.currency || ""}" readonly />
+          <input class="tiny name assist" placeholder="종목명 자동채움 또는 수기 입력" value="${seed.name || ""}" />
+          <input class="tiny market assist" placeholder="시장 자동채움 또는 수기 입력" value="${seed.market || ""}" />
+          <input class="tiny currency assist" placeholder="통화 자동채움 또는 수기 입력" value="${seed.currency || ""}" />
           <input class="tiny weight" type="number" step="0.01" min="0" placeholder="비중(선택)" value="${seed.base_weight ?? ""}" />
         </div>
       `;
@@ -974,7 +974,7 @@ def render_admin_page() -> HTMLResponse:
         }
       } catch (error) {
         if (!silent) {
-          logMessage("티커 자동채움 실패", error.message);
+          logMessage("티커 자동채움 실패", `${error.message}\n필요하면 종목명/시장/통화를 직접 입력한 뒤 저장할 수 있습니다.`);
         }
       }
     }

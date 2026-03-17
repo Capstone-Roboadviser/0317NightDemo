@@ -285,7 +285,7 @@ class ManagedUniverseRepository:
                 rows = cursor.fetchall()
         return [
             StockInstrument(
-                ticker=str(row["ticker"]),
+                ticker=str(row["ticker"]).strip().upper(),
                 name=str(row["name"]),
                 sector_code=str(row["sector_code"]),
                 sector_name=str(row["sector_name"]),
@@ -303,6 +303,9 @@ class ManagedUniverseRepository:
 
         normalized = prices.copy()
         normalized["date"] = pd.to_datetime(normalized["date"]).dt.date
+        normalized["ticker"] = normalized["ticker"].astype(str).str.strip().str.upper()
+        normalized["adjusted_close"] = pd.to_numeric(normalized["adjusted_close"], errors="coerce")
+        normalized = normalized.dropna(subset=["date", "ticker", "adjusted_close"])
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.executemany(
@@ -324,22 +327,23 @@ class ManagedUniverseRepository:
 
     def load_prices_for_tickers(self, tickers: list[str]) -> pd.DataFrame:
         self._ensure_ready()
-        unique_tickers = sorted({ticker for ticker in tickers if ticker})
+        unique_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
         if not unique_tickers:
             return pd.DataFrame(columns=["date", "ticker", "adjusted_close"])
 
         with self._connect() as connection:
-            frame = pd.read_sql_query(
-                """
-                SELECT date, ticker, adjusted_close
-                FROM price_history
-                WHERE ticker = ANY(%s)
-                ORDER BY ticker, date
-                """,
-                connection,
-                params=(unique_tickers,),
-                parse_dates=["date"],
-            )
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT date, UPPER(ticker) AS ticker, adjusted_close
+                    FROM price_history
+                    WHERE UPPER(ticker) = ANY(%s)
+                    ORDER BY UPPER(ticker), date
+                    """,
+                    (unique_tickers,),
+                )
+                rows = cursor.fetchall()
+        frame = pd.DataFrame(rows)
         if frame.empty:
             return frame
         frame["ticker"] = frame["ticker"].astype(str).str.strip().str.upper()
@@ -356,8 +360,8 @@ class ManagedUniverseRepository:
         params: tuple[object, ...] = ()
         where_clause = ""
         if tickers:
-            unique_tickers = sorted({ticker for ticker in tickers if ticker})
-            where_clause = "WHERE ticker = ANY(%s)"
+            unique_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
+            where_clause = "WHERE UPPER(ticker) = ANY(%s)"
             params = (unique_tickers,)
 
         with self._connect() as connection:
@@ -366,7 +370,7 @@ class ManagedUniverseRepository:
                     f"""
                     SELECT
                         COUNT(*) AS total_rows,
-                        COUNT(DISTINCT ticker) AS ticker_count,
+                        COUNT(DISTINCT UPPER(ticker)) AS ticker_count,
                         MIN(date)::TEXT AS min_date,
                         MAX(date)::TEXT AS max_date
                     FROM price_history
@@ -384,7 +388,7 @@ class ManagedUniverseRepository:
 
     def get_latest_price_dates(self, tickers: list[str]) -> dict[str, str]:
         self._ensure_ready()
-        unique_tickers = sorted({ticker for ticker in tickers if ticker})
+        unique_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
         if not unique_tickers:
             return {}
 
@@ -392,10 +396,10 @@ class ManagedUniverseRepository:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT ticker, MAX(date)::TEXT AS max_date
+                    SELECT UPPER(ticker) AS ticker, MAX(date)::TEXT AS max_date
                     FROM price_history
-                    WHERE ticker = ANY(%s)
-                    GROUP BY ticker
+                    WHERE UPPER(ticker) = ANY(%s)
+                    GROUP BY UPPER(ticker)
                     """,
                     (unique_tickers,),
                 )

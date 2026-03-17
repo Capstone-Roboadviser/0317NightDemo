@@ -40,6 +40,7 @@ class StockDataRepository:
             frame[column] = frame[column].astype(str).str.strip()
             if (frame[column] == "").any():
                 raise RuntimeError(f"종목 유니버스 CSV의 '{column}' 컬럼에 빈 값이 있습니다.")
+        frame["ticker"] = frame["ticker"].str.upper()
 
         if frame["ticker"].duplicated().any():
             duplicates = ", ".join(sorted(frame.loc[frame["ticker"].duplicated(), "ticker"].unique().tolist()))
@@ -56,7 +57,7 @@ class StockDataRepository:
         for row in frame.to_dict(orient="records"):
             instruments.append(
                 StockInstrument(
-                    ticker=str(row["ticker"]).strip(),
+                    ticker=str(row["ticker"]).strip().upper(),
                     name=str(row["name"]).strip(),
                     sector_code=str(row["sector_code"]).strip(),
                     sector_name=str(row["sector_name"]).strip(),

@@ -10,6 +10,9 @@ from app.api.schemas.response import (
     ManagedPriceStatsResponse,
     ManagedUniverseStatusResponse,
     ManagedUniverseVersionResponse,
+    TickerLookupResponse,
+    TickerSearchResponse,
+    TickerSearchResultResponse,
 )
 from app.domain.models import (
     ManagedPriceRefreshJob,
@@ -19,11 +22,13 @@ from app.domain.models import (
 )
 from app.services.managed_universe_service import ManagedUniverseService
 from app.services.price_refresh_service import PriceRefreshService
+from app.services.ticker_discovery_service import TickerDiscoveryService
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 managed_universe_service = ManagedUniverseService()
 price_refresh_service = PriceRefreshService(managed_universe_service)
+ticker_discovery_service = TickerDiscoveryService()
 
 
 @router.get("/universe/status", response_model=ManagedUniverseStatusResponse)
@@ -105,6 +110,46 @@ def refresh_prices(payload: PriceRefreshRequest) -> ManagedPriceRefreshResponse:
 @router.get("/prices/status", response_model=ManagedUniverseStatusResponse)
 def get_price_refresh_status() -> ManagedUniverseStatusResponse:
     return get_managed_universe_status()
+
+
+@router.get("/tickers/lookup", response_model=TickerLookupResponse)
+def lookup_ticker(ticker: str) -> TickerLookupResponse:
+    try:
+        result = ticker_discovery_service.lookup_ticker(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return TickerLookupResponse(
+        ticker=result.ticker,
+        name=result.name,
+        market=result.market,
+        currency=result.currency,
+        exchange=result.exchange,
+        quote_type=result.quote_type,
+    )
+
+
+@router.get("/tickers/search", response_model=TickerSearchResponse)
+def search_tickers(query: str, max_results: int = 8) -> TickerSearchResponse:
+    if max_results < 1 or max_results > 20:
+        raise HTTPException(status_code=422, detail="max_results는 1 이상 20 이하로 입력해주세요.")
+    try:
+        results = ticker_discovery_service.search_tickers(query=query, max_results=max_results)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return TickerSearchResponse(
+        query=query.strip(),
+        results=[
+            TickerSearchResultResponse(
+                ticker=item.ticker,
+                name=item.name,
+                exchange=item.exchange,
+                quote_type=item.quote_type,
+                market=item.market,
+                currency=item.currency,
+            )
+            for item in results
+        ],
+    )
 
 
 def _version_response(version: ManagedUniverseVersion) -> ManagedUniverseVersionResponse:

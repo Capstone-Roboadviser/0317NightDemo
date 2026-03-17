@@ -343,60 +343,173 @@ def render_admin_page() -> HTMLResponse:
       font-weight: 800;
     }
 
-    .sector-board {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
+    .sector-tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
     }
 
-    .sector-card {
+    .sector-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
       border: 1px solid var(--line);
-      border-radius: 18px;
-      background: #f8fafc;
-      padding: 14px;
+      background: #ffffff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .sector-tab:hover {
+      transform: translateY(-1px);
+    }
+
+    .sector-tab.active {
+      background: var(--primary);
+      color: var(--primary-contrast);
+      border-color: var(--primary);
+    }
+
+    .sector-tab-count {
+      display: inline-flex;
+      min-width: 22px;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: rgba(15, 23, 42, 0.08);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .sector-tab.active .sector-tab-count {
+      background: rgba(248, 250, 252, 0.16);
+    }
+
+    .sector-panel-wrap {
       display: grid;
       gap: 12px;
     }
 
-    .sector-card.empty {
-      border-style: dashed;
+    .sector-panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #ffffff;
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .sector-panel[hidden] {
+      display: none;
     }
 
     .sector-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 12px;
+      align-items: flex-start;
+    }
+
+    .sector-head > div:first-child {
+      min-width: 0;
     }
 
     .sector-name {
-      font-size: 16px;
+      font-size: 22px;
       font-weight: 800;
       line-height: 1.2;
+      overflow-wrap: anywhere;
     }
 
     .sector-code {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--muted);
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-top: 4px;
+      margin-top: 6px;
+      overflow-wrap: anywhere;
     }
 
     .sector-count {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--muted);
       font-weight: 800;
       white-space: nowrap;
+      text-align: right;
     }
 
     .sector-actions {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .sector-copy {
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 14px;
+    }
+
+    .sector-search {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search-results {
+      display: grid;
+      gap: 8px;
+    }
+
+    .search-results[hidden] {
+      display: none;
+    }
+
+    .search-result-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #f8fafc;
+    }
+
+    .search-result-main {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .search-result-symbol {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .search-result-name {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .search-result-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     .sector-rows {
@@ -416,7 +529,7 @@ def render_admin_page() -> HTMLResponse:
 
     .builder-row {
       display: grid;
-      grid-template-columns: 1fr 1.4fr 0.9fr 0.9fr 0.8fr auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       align-items: center;
       padding: 10px;
@@ -425,10 +538,35 @@ def render_admin_page() -> HTMLResponse:
       background: #ffffff;
     }
 
+    .builder-row-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      grid-column: 1 / -1;
+    }
+
+    .builder-row-meta {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      grid-column: 1 / -1;
+    }
+
     .builder-row .tiny {
       font-size: 12px;
       padding: 10px 11px;
       border-radius: 12px;
+      min-width: 0;
+    }
+
+    .builder-row .readonly {
+      background: #f8fafc;
+      color: var(--muted);
+    }
+
+    .builder-row .mini-btn {
+      justify-self: end;
     }
 
     .log-box {
@@ -460,12 +598,23 @@ def render_admin_page() -> HTMLResponse:
         grid-template-columns: 1fr;
       }
 
-      .sector-board {
+      .builder-row {
         grid-template-columns: 1fr;
       }
 
-      .builder-row {
+      .builder-row-main,
+      .builder-row-meta,
+      .sector-search,
+      .search-result-item {
         grid-template-columns: 1fr;
+      }
+
+      .sector-head {
+        grid-template-columns: 1fr;
+      }
+
+      .sector-count {
+        text-align: left;
       }
     }
   </style>
@@ -521,9 +670,9 @@ def render_admin_page() -> HTMLResponse:
           <div class="builder-head">
             <div>
               <h2>수기 유니버스 생성</h2>
-              <p class="card-copy">관리자는 섹터별 카드 안에서 종목을 추가하고, 전체를 하나의 유니버스 버전으로 저장합니다. 가격 데이터는 이후 별도 갱신 버튼으로 가져옵니다.</p>
+              <p class="card-copy">관리자는 섹터 탭을 눌러 각 섹터의 종목 후보군을 관리합니다. 티커를 직접 입력한 뒤 자동채움을 누르거나, 검색 결과에서 바로 추가할 수 있습니다.</p>
             </div>
-            <span class="pill warn">섹터별 관리</span>
+            <span class="pill warn">섹터 탭 관리</span>
           </div>
 
           <div class="form-grid">
@@ -541,7 +690,8 @@ def render_admin_page() -> HTMLResponse:
             <div class="summary-pill">총 섹터 수 <span id="sector-count-summary">8</span></div>
             <div class="summary-pill">입력 종목 수 <span id="instrument-count-summary">0</span></div>
           </div>
-          <div class="sector-board" id="builder-rows"></div>
+          <div class="sector-tabs" id="sector-tabs"></div>
+          <div class="sector-panel-wrap" id="builder-rows"></div>
           <div class="toolbar" style="margin-top: 14px;">
             <button class="primary-btn" id="create-version-btn">버전 생성 및 활성화</button>
           </div>
@@ -621,10 +771,12 @@ def render_admin_page() -> HTMLResponse:
     ];
 
     const builderRowsEl = document.getElementById("builder-rows");
+    const sectorTabsEl = document.getElementById("sector-tabs");
     const adminLogEl = document.getElementById("admin-log");
     const versionsBodyEl = document.getElementById("versions-body");
     const instrumentCountSummaryEl = document.getElementById("instrument-count-summary");
     const sectorCountSummaryEl = document.getElementById("sector-count-summary");
+    let activeSectorCode = sectorOptions[0].code;
 
     function logMessage(message, payload) {
       const lines = [message];
@@ -641,34 +793,48 @@ def render_admin_page() -> HTMLResponse:
 
       sectorOptions.forEach((sector) => {
         const rows = builderRowsEl.querySelectorAll(`.builder-row[data-sector-code="${sector.code}"]`);
-        const card = builderRowsEl.querySelector(`.sector-card[data-sector-code="${sector.code}"]`);
-        const countEl = card?.querySelector(".sector-count strong");
-        const emptyEl = card?.querySelector(".sector-empty");
+        const panel = builderRowsEl.querySelector(`.sector-panel[data-sector-code="${sector.code}"]`);
+        const countEl = panel?.querySelector(".sector-count strong");
+        const emptyEl = panel?.querySelector(".sector-empty");
+        const tabCountEl = sectorTabsEl.querySelector(`.sector-tab[data-sector-code="${sector.code}"] .sector-tab-count`);
         if (countEl) {
           countEl.textContent = String(rows.length);
-        }
-        if (card) {
-          card.classList.toggle("empty", rows.length === 0);
         }
         if (emptyEl) {
           emptyEl.hidden = rows.length > 0;
         }
+        if (tabCountEl) {
+          tabCountEl.textContent = String(rows.length);
+        }
       });
     }
 
-    function ensureSectorCard(sectorCode) {
-      let card = builderRowsEl.querySelector(`.sector-card[data-sector-code="${sectorCode}"]`);
-      if (card) {
-        return card;
+    function setActiveSector(sectorCode) {
+      activeSectorCode = sectorCode;
+      Array.from(sectorTabsEl.querySelectorAll(".sector-tab")).forEach((button) => {
+        const isActive = button.dataset.sectorCode === sectorCode;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", String(isActive));
+      });
+      Array.from(builderRowsEl.querySelectorAll(".sector-panel")).forEach((panel) => {
+        panel.hidden = panel.dataset.sectorCode !== sectorCode;
+      });
+    }
+
+    function ensureSectorPanel(sectorCode) {
+      let panel = builderRowsEl.querySelector(`.sector-panel[data-sector-code="${sectorCode}"]`);
+      if (panel) {
+        return panel;
       }
       const sector = sectorOptions.find((item) => item.code === sectorCode);
       if (!sector) {
         throw new Error(`알 수 없는 섹터 코드: ${sectorCode}`);
       }
-      card = document.createElement("div");
-      card.className = "sector-card empty";
-      card.dataset.sectorCode = sector.code;
-      card.innerHTML = `
+      panel = document.createElement("div");
+      panel.className = "sector-panel";
+      panel.dataset.sectorCode = sector.code;
+      panel.hidden = sector.code !== activeSectorCode;
+      panel.innerHTML = `
         <div class="sector-head">
           <div>
             <div class="sector-name">${sector.name}</div>
@@ -676,6 +842,12 @@ def render_admin_page() -> HTMLResponse:
           </div>
           <div class="sector-count"><strong>0</strong>개 종목</div>
         </div>
+        <div class="sector-copy">이 섹터에 포함할 종목 후보군을 관리합니다. 저장하면 현재 입력된 전체 섹터 구성이 하나의 유니버스 버전으로 생성됩니다.</div>
+        <div class="sector-search">
+          <input class="sector-search-input" data-search-input="${sector.code}" placeholder="티커 또는 회사명 검색 (예: NVDA, Microsoft)" />
+          <button class="secondary-btn" type="button" data-search-sector="${sector.code}">검색</button>
+        </div>
+        <div class="search-results" data-search-results="${sector.code}" hidden></div>
         <div class="sector-actions">
           <span class="pill warn">섹터 후보군</span>
           <button class="secondary-btn" type="button" data-add-sector="${sector.code}">종목 추가</button>
@@ -683,38 +855,195 @@ def render_admin_page() -> HTMLResponse:
         <div class="sector-empty">아직 등록된 종목이 없습니다. 이 섹터에 티커를 추가하면 다음 유니버스 버전에 포함됩니다.</div>
         <div class="sector-rows" data-sector-rows="${sector.code}"></div>
       `;
-      card.querySelector(`[data-add-sector="${sector.code}"]`).addEventListener("click", () => addBuilderRow({ sector_code: sector.code }));
-      builderRowsEl.appendChild(card);
-      return card;
+      panel.querySelector(`[data-add-sector="${sector.code}"]`).addEventListener("click", () => addBuilderRow({ sector_code: sector.code }));
+      panel.querySelector(`[data-search-sector="${sector.code}"]`).addEventListener("click", () => searchSectorTickers(sector.code));
+      panel.querySelector(`[data-search-input="${sector.code}"]`).addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          searchSectorTickers(sector.code);
+        }
+      });
+      builderRowsEl.appendChild(panel);
+      return panel;
     }
 
-    function renderSectorCards() {
+    function renderSectorTabs() {
+      sectorTabsEl.innerHTML = sectorOptions.map((sector) => `
+        <button
+          type="button"
+          class="sector-tab"
+          data-sector-code="${sector.code}"
+          aria-selected="false"
+        >
+          <span>${sector.name}</span>
+          <span class="sector-tab-count">0</span>
+        </button>
+      `).join("");
+
+      Array.from(sectorTabsEl.querySelectorAll(".sector-tab")).forEach((button) => {
+        button.addEventListener("click", () => setActiveSector(button.dataset.sectorCode));
+      });
+    }
+
+    function renderSectorPanels() {
       builderRowsEl.innerHTML = "";
-      sectorOptions.forEach((sector) => ensureSectorCard(sector.code));
+      sectorOptions.forEach((sector) => ensureSectorPanel(sector.code));
+      setActiveSector(activeSectorCode);
       updateSectorSummary();
     }
 
     function addBuilderRow(seed = {}) {
       const sectorCode = seed.sector_code || "etf";
-      const card = ensureSectorCard(sectorCode);
-      const rowsWrap = card.querySelector(`[data-sector-rows="${sectorCode}"]`);
+      const panel = ensureSectorPanel(sectorCode);
+      const rowsWrap = panel.querySelector(`[data-sector-rows="${sectorCode}"]`);
       const row = document.createElement("div");
       row.className = "builder-row";
       row.dataset.sectorCode = sectorCode;
       row.innerHTML = `
-        <input class="tiny ticker" placeholder="SPY" value="${seed.ticker || ""}" />
-        <input class="tiny name" placeholder="SPDR S&P 500 ETF Trust" value="${seed.name || ""}" />
-        <input class="tiny market" placeholder="USA" value="${seed.market || "USA"}" />
-        <input class="tiny currency" placeholder="USD" value="${seed.currency || "USD"}" />
-        <input class="tiny weight" type="number" step="0.01" min="0" placeholder="0.25" value="${seed.base_weight ?? ""}" />
-        <button class="mini-btn" type="button">삭제</button>
+        <div class="builder-row-main">
+          <input class="tiny ticker" placeholder="SPY" value="${seed.ticker || ""}" />
+          <button class="mini-btn primary autofill-btn" type="button">자동채움</button>
+          <button class="mini-btn delete-btn" type="button">삭제</button>
+        </div>
+        <div class="builder-row-meta">
+          <input class="tiny name readonly" placeholder="종목명 자동채움" value="${seed.name || ""}" readonly />
+          <input class="tiny market readonly" placeholder="시장 자동채움" value="${seed.market || ""}" readonly />
+          <input class="tiny currency readonly" placeholder="통화 자동채움" value="${seed.currency || ""}" readonly />
+          <input class="tiny weight" type="number" step="0.01" min="0" placeholder="비중(선택)" value="${seed.base_weight ?? ""}" />
+        </div>
       `;
-      row.querySelector(".mini-btn").addEventListener("click", () => {
+      row.querySelector(".delete-btn").addEventListener("click", () => {
         row.remove();
         updateSectorSummary();
       });
+      row.querySelector(".autofill-btn").addEventListener("click", async () => {
+        await autofillRowFromTicker(row);
+      });
+      row.querySelector(".ticker").addEventListener("blur", async () => {
+        const ticker = normalizeTicker(row.querySelector(".ticker").value);
+        const name = row.querySelector(".name").value.trim();
+        if (ticker && !name) {
+          await autofillRowFromTicker(row, { silent: true });
+        }
+      });
       rowsWrap.appendChild(row);
+      setActiveSector(sectorCode);
       updateSectorSummary();
+    }
+
+    function normalizeTicker(value) {
+      return (value || "").trim().toUpperCase();
+    }
+
+    function findDuplicateTicker(ticker, currentRow = null) {
+      const normalized = normalizeTicker(ticker);
+      if (!normalized) return null;
+      return Array.from(builderRowsEl.querySelectorAll(".builder-row")).find((row) => {
+        if (currentRow && row === currentRow) return false;
+        return normalizeTicker(row.querySelector(".ticker").value) === normalized;
+      }) || null;
+    }
+
+    async function lookupTicker(ticker) {
+      const normalized = normalizeTicker(ticker);
+      return apiRequest(`/admin/tickers/lookup?ticker=${encodeURIComponent(normalized)}`);
+    }
+
+    async function autofillRowFromTicker(row, { silent = false } = {}) {
+      const tickerInput = row.querySelector(".ticker");
+      const ticker = normalizeTicker(tickerInput.value);
+      tickerInput.value = ticker;
+      if (!ticker) {
+        if (!silent) logMessage("자동채움 실패", "티커를 먼저 입력해주세요.");
+        return;
+      }
+
+      const duplicate = findDuplicateTicker(ticker, row);
+      if (duplicate) {
+        if (!silent) logMessage("중복 티커", `${ticker} 는 이미 다른 섹터 또는 동일 섹터에 추가되어 있습니다.`);
+        return;
+      }
+
+      try {
+        const data = await lookupTicker(ticker);
+        row.querySelector(".name").value = data.name || ticker;
+        row.querySelector(".market").value = data.market || "";
+        row.querySelector(".currency").value = data.currency || "";
+        if (!silent) {
+          logMessage("티커 자동채움 완료", data);
+        }
+      } catch (error) {
+        if (!silent) {
+          logMessage("티커 자동채움 실패", error.message);
+        }
+      }
+    }
+
+    function renderSearchResults(sectorCode, results) {
+      const panel = ensureSectorPanel(sectorCode);
+      const resultsEl = panel.querySelector(`[data-search-results="${sectorCode}"]`);
+      if (!results.length) {
+        resultsEl.hidden = false;
+        resultsEl.innerHTML = '<div class="sector-empty">검색 결과가 없습니다. 정확한 티커를 입력하고 자동채움을 사용해보세요.</div>';
+        return;
+      }
+
+      resultsEl.hidden = false;
+      resultsEl.innerHTML = results.map((item) => `
+        <div class="search-result-item">
+          <div class="search-result-main">
+            <div class="search-result-symbol">${item.ticker}</div>
+            <div class="search-result-name">${item.name}</div>
+            <div class="search-result-meta">${[item.exchange, item.currency, item.quote_type].filter(Boolean).join(" · ")}</div>
+          </div>
+          <button class="mini-btn primary" type="button" data-add-result="${item.ticker}">추가</button>
+        </div>
+      `).join("");
+
+      Array.from(resultsEl.querySelectorAll("[data-add-result]")).forEach((button) => {
+        button.addEventListener("click", async () => {
+          const ticker = button.getAttribute("data-add-result");
+          if (findDuplicateTicker(ticker)) {
+            logMessage("중복 티커", `${ticker} 는 이미 추가되어 있습니다.`);
+            return;
+          }
+          const match = results.find((item) => item.ticker === ticker);
+          addBuilderRow({
+            ticker: ticker,
+            name: match?.name || "",
+            sector_code: sectorCode,
+            market: match?.market || match?.exchange || "",
+            currency: match?.currency || "",
+          });
+          const addedRow = Array.from(builderRowsEl.querySelectorAll(`.builder-row[data-sector-code="${sectorCode}"]`)).pop();
+          if (addedRow && (!match?.market || !match?.currency)) {
+            await autofillRowFromTicker(addedRow, { silent: true });
+          }
+          logMessage("검색 결과 추가 완료", { sector_code: sectorCode, ticker });
+        });
+      });
+    }
+
+    async function searchSectorTickers(sectorCode) {
+      const panel = ensureSectorPanel(sectorCode);
+      const input = panel.querySelector(`[data-search-input="${sectorCode}"]`);
+      const query = input.value.trim();
+      const resultsEl = panel.querySelector(`[data-search-results="${sectorCode}"]`);
+      if (!query) {
+        resultsEl.hidden = true;
+        resultsEl.innerHTML = "";
+        logMessage("티커 검색 실패", "검색어를 입력해주세요.");
+        return;
+      }
+      try {
+        const data = await apiRequest(`/admin/tickers/search?query=${encodeURIComponent(query)}&max_results=8`);
+        renderSearchResults(sectorCode, data.results || []);
+        logMessage("티커 검색 완료", { query, result_count: (data.results || []).length });
+      } catch (error) {
+        resultsEl.hidden = true;
+        resultsEl.innerHTML = "";
+        logMessage("티커 검색 실패", error.message);
+      }
     }
 
     function collectBuilderRows() {
@@ -723,7 +1052,7 @@ def render_admin_page() -> HTMLResponse:
         const sectorMeta = sectorOptions.find((item) => item.code === sectorCode);
         const baseWeightRaw = row.querySelector(".weight").value.trim();
         return {
-          ticker: row.querySelector(".ticker").value.trim(),
+          ticker: normalizeTicker(row.querySelector(".ticker").value),
           name: row.querySelector(".name").value.trim(),
           sector_code: sectorCode,
           sector_name: sectorMeta ? sectorMeta.name : sectorCode,
@@ -731,7 +1060,7 @@ def render_admin_page() -> HTMLResponse:
           currency: row.querySelector(".currency").value.trim() || "USD",
           base_weight: baseWeightRaw === "" ? null : Number(baseWeightRaw)
         };
-      }).filter((item) => item.ticker && item.name);
+      }).filter((item) => item.ticker || item.name || item.market || item.currency || item.base_weight !== null);
     }
 
     async function apiRequest(path, options = {}) {
@@ -832,6 +1161,24 @@ def render_admin_page() -> HTMLResponse:
         logMessage("수기 버전 생성 실패", "최소 1개 종목을 입력해주세요.");
         return;
       }
+      const missingTicker = instruments.find((item) => !item.ticker);
+      if (missingTicker) {
+        logMessage("수기 버전 생성 실패", "비어 있는 티커 행이 있습니다. 빈 행을 지우거나 티커를 입력해주세요.");
+        return;
+      }
+      const invalidRows = instruments.filter((item) => !item.name || !item.market || !item.currency);
+      if (invalidRows.length) {
+        logMessage("수기 버전 생성 실패", "자동채움이 완료되지 않은 종목이 있습니다. 각 행의 티커를 검증해주세요.");
+        return;
+      }
+      const seenTickers = new Set();
+      for (const item of instruments) {
+        if (seenTickers.has(item.ticker)) {
+          logMessage("수기 버전 생성 실패", `중복 ticker가 있습니다: ${item.ticker}`);
+          return;
+        }
+        seenTickers.add(item.ticker);
+      }
       const payload = {
         version_name: document.getElementById("manual-version-name").value.trim() || `manual-${Date.now()}`,
         notes: document.getElementById("manual-notes").value.trim() || null,
@@ -867,7 +1214,8 @@ def render_admin_page() -> HTMLResponse:
       }
     });
 
-    renderSectorCards();
+    renderSectorTabs();
+    renderSectorPanels();
     addBuilderRow({ ticker: "SPY", name: "SPDR S&P 500 ETF Trust", sector_code: "etf" });
     addBuilderRow({ ticker: "NVDA", name: "NVIDIA Corp", sector_code: "ai_semiconductor_social" });
     addBuilderRow({ ticker: "JPM", name: "JPMorgan Chase", sector_code: "financials" });

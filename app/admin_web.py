@@ -322,16 +322,107 @@ def render_admin_page() -> HTMLResponse:
       margin-bottom: 12px;
     }
 
-    .builder-grid {
-      display: grid;
+    .builder-summary {
+      display: flex;
+      align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .builder-summary .summary-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .sector-board {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .sector-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #f8fafc;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .sector-card.empty {
+      border-style: dashed;
+    }
+
+    .sector-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .sector-name {
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .sector-code {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .sector-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .sector-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sector-rows {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sector-empty {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px dashed var(--line);
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     .builder-row {
       display: grid;
-      grid-template-columns: 1.1fr 1.4fr 1.2fr 1fr 1fr 0.9fr auto;
+      grid-template-columns: 1fr 1.4fr 0.9fr 0.9fr 0.8fr auto;
       gap: 8px;
       align-items: center;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #ffffff;
     }
 
     .builder-row .tiny {
@@ -369,6 +460,10 @@ def render_admin_page() -> HTMLResponse:
         grid-template-columns: 1fr;
       }
 
+      .sector-board {
+        grid-template-columns: 1fr;
+      }
+
       .builder-row {
         grid-template-columns: 1fr;
       }
@@ -382,7 +477,7 @@ def render_admin_page() -> HTMLResponse:
         <div class="eyebrow">Admin Console</div>
         <div class="title">관리자 유니버스 콘솔</div>
         <div class="subtitle">
-          로그인 없이 관리자 유니버스 버전, 연구 패키지 import, 가격 갱신을 브라우저에서 바로 관리하는 데모용 화면입니다.
+          로그인 없이 섹터별 종목 후보군, 관리자 유니버스 버전, 가격 갱신을 브라우저에서 바로 관리하는 데모용 화면입니다.
           실제 계산은 active 유니버스와 누적 price history를 기준으로 수행됩니다.
         </div>
       </div>
@@ -426,9 +521,9 @@ def render_admin_page() -> HTMLResponse:
           <div class="builder-head">
             <div>
               <h2>수기 유니버스 생성</h2>
-              <p class="card-copy">관리자가 티커만 직접 넣어 새 버전을 만들 수 있습니다. 가격 데이터는 이후 별도 갱신 버튼으로 가져옵니다.</p>
+              <p class="card-copy">관리자는 섹터별 카드 안에서 종목을 추가하고, 전체를 하나의 유니버스 버전으로 저장합니다. 가격 데이터는 이후 별도 갱신 버튼으로 가져옵니다.</p>
             </div>
-            <button class="secondary-btn" id="add-row-btn">행 추가</button>
+            <span class="pill warn">섹터별 관리</span>
           </div>
 
           <div class="form-grid">
@@ -442,7 +537,11 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
 
-          <div class="builder-grid" id="builder-rows"></div>
+          <div class="builder-summary">
+            <div class="summary-pill">총 섹터 수 <span id="sector-count-summary">8</span></div>
+            <div class="summary-pill">입력 종목 수 <span id="instrument-count-summary">0</span></div>
+          </div>
+          <div class="sector-board" id="builder-rows"></div>
           <div class="toolbar" style="margin-top: 14px;">
             <button class="primary-btn" id="create-version-btn">버전 생성 및 활성화</button>
           </div>
@@ -524,6 +623,8 @@ def render_admin_page() -> HTMLResponse:
     const builderRowsEl = document.getElementById("builder-rows");
     const adminLogEl = document.getElementById("admin-log");
     const versionsBodyEl = document.getElementById("versions-body");
+    const instrumentCountSummaryEl = document.getElementById("instrument-count-summary");
+    const sectorCountSummaryEl = document.getElementById("sector-count-summary");
 
     function logMessage(message, payload) {
       const lines = [message];
@@ -533,33 +634,92 @@ def render_admin_page() -> HTMLResponse:
       adminLogEl.textContent = lines.join("\\n\\n");
     }
 
-    function sectorSelectMarkup() {
-      return sectorOptions
-        .map((item) => `<option value="${item.code}">${item.name} (${item.code})</option>`)
-        .join("");
+    function updateSectorSummary() {
+      const allRows = Array.from(builderRowsEl.querySelectorAll(".builder-row"));
+      instrumentCountSummaryEl.textContent = String(allRows.length);
+      sectorCountSummaryEl.textContent = String(sectorOptions.length);
+
+      sectorOptions.forEach((sector) => {
+        const rows = builderRowsEl.querySelectorAll(`.builder-row[data-sector-code="${sector.code}"]`);
+        const card = builderRowsEl.querySelector(`.sector-card[data-sector-code="${sector.code}"]`);
+        const countEl = card?.querySelector(".sector-count strong");
+        const emptyEl = card?.querySelector(".sector-empty");
+        if (countEl) {
+          countEl.textContent = String(rows.length);
+        }
+        if (card) {
+          card.classList.toggle("empty", rows.length === 0);
+        }
+        if (emptyEl) {
+          emptyEl.hidden = rows.length > 0;
+        }
+      });
+    }
+
+    function ensureSectorCard(sectorCode) {
+      let card = builderRowsEl.querySelector(`.sector-card[data-sector-code="${sectorCode}"]`);
+      if (card) {
+        return card;
+      }
+      const sector = sectorOptions.find((item) => item.code === sectorCode);
+      if (!sector) {
+        throw new Error(`알 수 없는 섹터 코드: ${sectorCode}`);
+      }
+      card = document.createElement("div");
+      card.className = "sector-card empty";
+      card.dataset.sectorCode = sector.code;
+      card.innerHTML = `
+        <div class="sector-head">
+          <div>
+            <div class="sector-name">${sector.name}</div>
+            <div class="sector-code">${sector.code}</div>
+          </div>
+          <div class="sector-count"><strong>0</strong>개 종목</div>
+        </div>
+        <div class="sector-actions">
+          <span class="pill warn">섹터 후보군</span>
+          <button class="secondary-btn" type="button" data-add-sector="${sector.code}">종목 추가</button>
+        </div>
+        <div class="sector-empty">아직 등록된 종목이 없습니다. 이 섹터에 티커를 추가하면 다음 유니버스 버전에 포함됩니다.</div>
+        <div class="sector-rows" data-sector-rows="${sector.code}"></div>
+      `;
+      card.querySelector(`[data-add-sector="${sector.code}"]`).addEventListener("click", () => addBuilderRow({ sector_code: sector.code }));
+      builderRowsEl.appendChild(card);
+      return card;
+    }
+
+    function renderSectorCards() {
+      builderRowsEl.innerHTML = "";
+      sectorOptions.forEach((sector) => ensureSectorCard(sector.code));
+      updateSectorSummary();
     }
 
     function addBuilderRow(seed = {}) {
+      const sectorCode = seed.sector_code || "etf";
+      const card = ensureSectorCard(sectorCode);
+      const rowsWrap = card.querySelector(`[data-sector-rows="${sectorCode}"]`);
       const row = document.createElement("div");
       row.className = "builder-row";
+      row.dataset.sectorCode = sectorCode;
       row.innerHTML = `
         <input class="tiny ticker" placeholder="SPY" value="${seed.ticker || ""}" />
         <input class="tiny name" placeholder="SPDR S&P 500 ETF Trust" value="${seed.name || ""}" />
-        <select class="tiny sector">${sectorSelectMarkup()}</select>
         <input class="tiny market" placeholder="USA" value="${seed.market || "USA"}" />
         <input class="tiny currency" placeholder="USD" value="${seed.currency || "USD"}" />
         <input class="tiny weight" type="number" step="0.01" min="0" placeholder="0.25" value="${seed.base_weight ?? ""}" />
         <button class="mini-btn" type="button">삭제</button>
       `;
-      const sectorSelect = row.querySelector(".sector");
-      sectorSelect.value = seed.sector_code || "etf";
-      row.querySelector(".mini-btn").addEventListener("click", () => row.remove());
-      builderRowsEl.appendChild(row);
+      row.querySelector(".mini-btn").addEventListener("click", () => {
+        row.remove();
+        updateSectorSummary();
+      });
+      rowsWrap.appendChild(row);
+      updateSectorSummary();
     }
 
     function collectBuilderRows() {
       return Array.from(builderRowsEl.querySelectorAll(".builder-row")).map((row) => {
-        const sectorCode = row.querySelector(".sector").value;
+        const sectorCode = row.dataset.sectorCode;
         const sectorMeta = sectorOptions.find((item) => item.code === sectorCode);
         const baseWeightRaw = row.querySelector(".weight").value.trim();
         return {
@@ -665,7 +825,6 @@ def render_admin_page() -> HTMLResponse:
 
     document.getElementById("reload-status-btn").addEventListener("click", reloadAll);
     document.getElementById("check-price-status-btn").addEventListener("click", reloadAll);
-    document.getElementById("add-row-btn").addEventListener("click", () => addBuilderRow());
 
     document.getElementById("create-version-btn").addEventListener("click", async () => {
       const instruments = collectBuilderRows();
@@ -708,6 +867,7 @@ def render_admin_page() -> HTMLResponse:
       }
     });
 
+    renderSectorCards();
     addBuilderRow({ ticker: "SPY", name: "SPDR S&P 500 ETF Trust", sector_code: "etf" });
     addBuilderRow({ ticker: "NVDA", name: "NVIDIA Corp", sector_code: "ai_semiconductor_social" });
     addBuilderRow({ ticker: "JPM", name: "JPMorgan Chase", sector_code: "financials" });

@@ -106,5 +106,5 @@ class PortfolioSimulationResult:
     frontier_points: list[FrontierPoint]
     frontier_options: list[tuple[str, FrontierPoint]]
     selected_point_index: int
-    random_portfolios: list[tuple[float, float]]
+    random_portfolios: list[tuple[float, float, dict[str, float]]]
     used_fallback: bool

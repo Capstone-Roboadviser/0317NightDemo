@@ -936,7 +936,6 @@ def render_admin_page() -> HTMLResponse:
 
         <section class="card">
           <h2>빠른 가이드</h2>
-          <p class="card-copy">데모에서는 아래 순서면 충분합니다.</p>
           <div class="empty">
             1. DATABASE_URL 연결<br/>
             2. 수기 유니버스 생성<br/>

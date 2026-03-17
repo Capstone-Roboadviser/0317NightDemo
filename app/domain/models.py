@@ -128,6 +128,15 @@ class ManagedPriceRefreshResult:
 
 
 @dataclass(frozen=True)
+class ManagedUniverseSectorReadiness:
+    sector_code: str
+    sector_name: str
+    required_count: int
+    actual_count: int
+    ready: bool
+
+
+@dataclass(frozen=True)
 class CombinationEvaluation:
     combination_id: str
     members_by_sector: dict[str, list[str]]
@@ -152,6 +161,21 @@ class CombinationSelectionView:
     total_combinations_tested: int
     successful_combinations: int
     discard_reasons: dict[str, int]
+
+
+@dataclass(frozen=True)
+class ManagedUniverseReadiness:
+    ready: bool
+    summary: str
+    issues: list[str]
+    active_version_name: str | None
+    instrument_count: int
+    priced_ticker_count: int
+    stock_return_rows: int
+    effective_history_rows: int | None
+    minimum_history_rows: int
+    sector_checks: list[ManagedUniverseSectorReadiness]
+    selected_combination: CombinationSelectionView | None = None
 
 
 @dataclass(frozen=True)

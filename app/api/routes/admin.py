@@ -5,9 +5,12 @@ from app.api.schemas.request import (
     PriceRefreshRequest,
 )
 from app.api.schemas.response import (
+    CombinationSelectionResponse,
     ManagedPriceRefreshJobResponse,
     ManagedPriceRefreshJobItemResponse,
     ManagedPriceRefreshResponse,
+    ManagedUniverseReadinessResponse,
+    ManagedUniverseSectorReadinessResponse,
     ManagedPriceStatsResponse,
     ManagedUniverseStatusResponse,
     ManagedUniverseVersionResponse,
@@ -22,6 +25,7 @@ from app.domain.models import (
     ManagedUniverseVersion,
 )
 from app.services.managed_universe_service import ManagedUniverseService
+from app.services.portfolio_service import PortfolioSimulationService
 from app.services.price_refresh_service import PriceRefreshService
 from app.services.ticker_discovery_service import TickerDiscoveryService
 
@@ -30,6 +34,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 managed_universe_service = ManagedUniverseService()
 price_refresh_service = PriceRefreshService(managed_universe_service)
 ticker_discovery_service = TickerDiscoveryService()
+portfolio_simulation_service = PortfolioSimulationService()
 
 
 @router.get("/universe/status", response_model=ManagedUniverseStatusResponse)
@@ -111,6 +116,44 @@ def refresh_prices(payload: PriceRefreshRequest) -> ManagedPriceRefreshResponse:
 @router.get("/prices/status", response_model=ManagedUniverseStatusResponse)
 def get_price_refresh_status() -> ManagedUniverseStatusResponse:
     return get_managed_universe_status()
+
+
+@router.get("/universe/readiness", response_model=ManagedUniverseReadinessResponse)
+def get_managed_universe_readiness() -> ManagedUniverseReadinessResponse:
+    try:
+        readiness = portfolio_simulation_service.inspect_managed_universe_readiness()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return ManagedUniverseReadinessResponse(
+        ready=readiness.ready,
+        summary=readiness.summary,
+        issues=readiness.issues,
+        active_version_name=readiness.active_version_name,
+        instrument_count=readiness.instrument_count,
+        priced_ticker_count=readiness.priced_ticker_count,
+        stock_return_rows=readiness.stock_return_rows,
+        effective_history_rows=readiness.effective_history_rows,
+        minimum_history_rows=readiness.minimum_history_rows,
+        sector_checks=[
+            ManagedUniverseSectorReadinessResponse(
+                sector_code=item.sector_code,
+                sector_name=item.sector_name,
+                required_count=item.required_count,
+                actual_count=item.actual_count,
+                ready=item.ready,
+            )
+            for item in readiness.sector_checks
+        ],
+        selected_combination=None
+        if readiness.selected_combination is None
+        else CombinationSelectionResponse(
+            combination_id=readiness.selected_combination.combination_id,
+            members_by_sector=readiness.selected_combination.members_by_sector,
+            total_combinations_tested=readiness.selected_combination.total_combinations_tested,
+            successful_combinations=readiness.selected_combination.successful_combinations,
+            discard_reasons=readiness.selected_combination.discard_reasons,
+        ),
+    )
 
 
 @router.get("/prices/jobs/{job_id}/items", response_model=list[ManagedPriceRefreshJobItemResponse])

@@ -314,6 +314,77 @@ def render_admin_page() -> HTMLResponse:
       word-break: break-word;
     }
 
+    .readiness-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .readiness-tile {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      padding: 14px;
+      min-height: 92px;
+    }
+
+    .readiness-section {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .readiness-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+
+    .issue-list,
+    .sector-check-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .issue-item,
+    .sector-check-item {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      padding: 12px 14px;
+    }
+
+    .issue-item {
+      color: var(--danger);
+      background: #fff7f7;
+      border-color: #fecaca;
+    }
+
+    .sector-check-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .sector-check-copy {
+      display: grid;
+      gap: 4px;
+    }
+
+    .sector-check-name {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .sector-check-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     input,
     select,
     textarea {
@@ -736,6 +807,44 @@ def render_admin_page() -> HTMLResponse:
         </section>
 
         <section class="card">
+          <h2>시뮬레이션 준비 상태</h2>
+          <p class="card-copy">가격 적재와는 별도로, 현재 active 유니버스가 실제 조합 탐색과 Efficient Frontier 계산까지 가능한지 점검합니다.</p>
+          <div class="toolbar" style="margin-bottom: 14px;">
+            <button class="ghost-btn" id="reload-readiness-btn">준비 상태 점검</button>
+          </div>
+          <div id="readiness-pill"><span class="pill warn">점검 전</span></div>
+          <p class="card-copy" id="readiness-summary-copy" style="margin-top: 12px; margin-bottom: 14px;">
+            아직 시뮬레이션 준비 상태를 점검하지 않았습니다.
+          </p>
+          <div class="readiness-grid">
+            <div class="readiness-tile">
+              <div class="status-label">active 버전</div>
+              <div class="status-value" id="readiness-version-name">-</div>
+            </div>
+            <div class="readiness-tile">
+              <div class="status-label">가격 티커 수</div>
+              <div class="status-value" id="readiness-priced-ticker-count">0</div>
+            </div>
+            <div class="readiness-tile">
+              <div class="status-label">유효 수익률 행 수</div>
+              <div class="status-value" id="readiness-return-rows">0</div>
+            </div>
+          </div>
+          <div class="readiness-section">
+            <div class="readiness-title">차단 사유</div>
+            <div class="issue-list" id="readiness-issues">
+              <div class="empty">아직 진단 결과가 없습니다.</div>
+            </div>
+          </div>
+          <div class="readiness-section">
+            <div class="readiness-title">섹터별 준비 상태</div>
+            <div class="sector-check-list" id="readiness-sector-checks">
+              <div class="empty">섹터별 진단 결과가 없습니다.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
           <div class="builder-head">
             <div>
               <h2>수기 유니버스 생성</h2>
@@ -859,6 +968,14 @@ def render_admin_page() -> HTMLResponse:
     const sectorCountSummaryEl = document.getElementById("sector-count-summary");
     const jobDetailListEl = document.getElementById("job-detail-list");
     const jobDetailSummaryEl = document.getElementById("job-detail-summary");
+    const readinessPillEl = document.getElementById("readiness-pill");
+    const readinessSummaryCopyEl = document.getElementById("readiness-summary-copy");
+    const readinessVersionNameEl = document.getElementById("readiness-version-name");
+    const readinessPricedTickerCountEl = document.getElementById("readiness-priced-ticker-count");
+    const readinessReturnRowsEl = document.getElementById("readiness-return-rows");
+    const readinessIssuesEl = document.getElementById("readiness-issues");
+    const readinessSectorChecksEl = document.getElementById("readiness-sector-checks");
+    const reloadReadinessBtn = document.getElementById("reload-readiness-btn");
     const refreshPricesBtn = document.getElementById("refresh-prices-btn");
     const checkPriceStatusBtn = document.getElementById("check-price-status-btn");
     let activeSectorCode = sectorOptions[0].code;
@@ -1179,6 +1296,54 @@ def render_admin_page() -> HTMLResponse:
       pillEl.innerHTML = `<span class="pill ${pillClass}">${pillText}</span>`;
     }
 
+    function renderReadiness(data) {
+      const readinessClass = data.ready ? "success" : "danger";
+      readinessPillEl.innerHTML = `<span class="pill ${readinessClass}">${data.ready ? "계산 가능" : "계산 차단"}</span>`;
+      readinessSummaryCopyEl.textContent = data.summary || "준비 상태 요약이 없습니다.";
+      readinessVersionNameEl.textContent = data.active_version_name || "-";
+      readinessPricedTickerCountEl.textContent = `${data.priced_ticker_count}/${data.instrument_count}`;
+
+      const effectiveRows = data.effective_history_rows;
+      const rowsText = effectiveRows === null
+        ? `${data.stock_return_rows}행`
+        : `${effectiveRows}행`;
+      readinessReturnRowsEl.textContent = rowsText;
+
+      if (data.issues?.length) {
+        readinessIssuesEl.innerHTML = data.issues.map((issue) => `
+          <div class="issue-item">${issue}</div>
+        `).join("");
+      } else {
+        readinessIssuesEl.innerHTML = '<div class="empty">현재 차단 사유가 없습니다.</div>';
+      }
+
+      if (data.sector_checks?.length) {
+        readinessSectorChecksEl.innerHTML = data.sector_checks.map((item) => `
+          <div class="sector-check-item">
+            <div class="sector-check-copy">
+              <div class="sector-check-name">${item.sector_name}</div>
+              <div class="sector-check-meta">${item.sector_code}</div>
+            </div>
+            <span class="pill ${item.ready ? "success" : "danger"}">
+              필요 ${item.required_count} / 현재 ${item.actual_count}
+            </span>
+          </div>
+        `).join("");
+      } else {
+        readinessSectorChecksEl.innerHTML = '<div class="empty">섹터별 진단 결과가 없습니다.</div>';
+      }
+    }
+
+    function renderReadinessError(message) {
+      readinessPillEl.innerHTML = '<span class="pill danger">진단 실패</span>';
+      readinessSummaryCopyEl.textContent = message;
+      readinessVersionNameEl.textContent = "-";
+      readinessPricedTickerCountEl.textContent = "0";
+      readinessReturnRowsEl.textContent = "0";
+      readinessIssuesEl.innerHTML = `<div class="issue-item">${message}</div>`;
+      readinessSectorChecksEl.innerHTML = '<div class="empty">섹터별 진단 결과를 불러오지 못했습니다.</div>';
+    }
+
     function renderJobItems(job, items) {
       if (!job) {
         jobDetailSummaryEl.className = "pill warn";
@@ -1259,6 +1424,17 @@ def render_admin_page() -> HTMLResponse:
       return versions;
     }
 
+    async function reloadReadiness() {
+      try {
+        const readiness = await apiRequest("/admin/universe/readiness");
+        renderReadiness(readiness);
+        return readiness;
+      } catch (error) {
+        renderReadinessError(error.message);
+        throw error;
+      }
+    }
+
     async function reloadLatestJobItems(status) {
       const latestJob = status?.latest_refresh_job;
       if (!latestJob) {
@@ -1279,10 +1455,11 @@ def render_admin_page() -> HTMLResponse:
 
     async function reloadAll() {
       try {
-        const [status, versions] = await Promise.all([reloadStatus(), reloadVersions()]);
+        const [status, versions, readiness] = await Promise.all([reloadStatus(), reloadVersions(), reloadReadiness()]);
         const jobItems = await reloadLatestJobItems(status);
         logMessage("상태 새로고침 완료", {
           status,
+          readiness,
           version_count: versions.length,
           latest_job_item_count: jobItems.length
         });
@@ -1300,6 +1477,7 @@ def render_admin_page() -> HTMLResponse:
 
     document.getElementById("reload-status-btn").addEventListener("click", reloadAll);
     checkPriceStatusBtn.addEventListener("click", reloadAll);
+    reloadReadinessBtn.addEventListener("click", reloadReadiness);
 
     document.getElementById("create-version-btn").addEventListener("click", async () => {
       const instruments = collectBuilderRows();

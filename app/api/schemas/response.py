@@ -107,6 +107,28 @@ class ManagedUniverseStatusResponse(BaseModel):
     latest_refresh_job: ManagedPriceRefreshJobResponse | None = None
 
 
+class ManagedUniverseSectorReadinessResponse(BaseModel):
+    sector_code: str
+    sector_name: str
+    required_count: int
+    actual_count: int
+    ready: bool
+
+
+class ManagedUniverseReadinessResponse(BaseModel):
+    ready: bool
+    summary: str
+    issues: list[str]
+    active_version_name: str | None = None
+    instrument_count: int
+    priced_ticker_count: int
+    stock_return_rows: int
+    effective_history_rows: int | None = None
+    minimum_history_rows: int
+    sector_checks: list[ManagedUniverseSectorReadinessResponse]
+    selected_combination: CombinationSelectionResponse | None = None
+
+
 class ManagedPriceRefreshResponse(BaseModel):
     job: ManagedPriceRefreshJobResponse
     price_stats: ManagedPriceStatsResponse

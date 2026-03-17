@@ -25,6 +25,8 @@ from app.domain.models import (
     CombinationSelectionView,
     ExpectedReturnModelInput,
     FrontierPoint,
+    ManagedUniverseReadiness,
+    ManagedUniverseSectorReadiness,
     PortfolioSimulationResult,
     UserProfile,
 )
@@ -73,6 +75,151 @@ class PortfolioSimulationService:
             if instruments:
                 return instruments
         return self._load_demo_instruments()
+
+    def inspect_managed_universe_readiness(self) -> ManagedUniverseReadiness:
+        assets = self.list_assets()
+        sector_checks = self._build_sector_checks(assets, [])
+
+        if not self.managed_universe_service.is_configured():
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="DATABASE_URL이 설정되지 않았습니다.",
+                issues=["관리자 유니버스는 Postgres 연결 후에만 사용할 수 있습니다."],
+                active_version_name=None,
+                instrument_count=0,
+                priced_ticker_count=0,
+                stock_return_rows=0,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
+        active_version = self.managed_universe_service.get_active_version()
+        if active_version is None:
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="활성화된 관리자 유니버스 버전이 없습니다.",
+                issues=["/admin 에서 유니버스 버전을 생성하고 active 로 전환해주세요."],
+                active_version_name=None,
+                instrument_count=0,
+                priced_ticker_count=0,
+                stock_return_rows=0,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
+        instruments = self.managed_universe_service.get_active_instruments()
+        sector_checks = self._build_sector_checks(assets, instruments)
+        issues: list[str] = []
+
+        if not instruments:
+            issues.append("활성 관리자 유니버스에 등록된 종목이 없습니다.")
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="활성 버전은 있지만 종목이 비어 있습니다.",
+                issues=issues,
+                active_version_name=active_version.version_name,
+                instrument_count=0,
+                priced_ticker_count=0,
+                stock_return_rows=0,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
+        shortages = [
+            f"{item.sector_name} 필요 {item.required_count}개 / 현재 {item.actual_count}개"
+            for item in sector_checks
+            if not item.ready
+        ]
+        issues.extend(shortages)
+
+        prices = self.managed_universe_service.load_prices_for_instruments(instruments)
+        if prices.empty:
+            issues.append("가격 데이터가 아직 적재되지 않았습니다. /admin 에서 가격 갱신을 먼저 실행해주세요.")
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="가격 이력이 없어 시뮬레이션을 시작할 수 없습니다.",
+                issues=issues,
+                active_version_name=active_version.version_name,
+                instrument_count=len(instruments),
+                priced_ticker_count=0,
+                stock_return_rows=0,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
+        stock_returns = StockDataRepository().build_stock_returns(prices)
+        priced_ticker_count = int(prices["ticker"].nunique())
+        stock_return_rows = int(len(stock_returns))
+
+        if stock_returns.empty:
+            issues.append("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="가격은 적재됐지만 수익률 시계열이 비어 있습니다.",
+                issues=issues,
+                active_version_name=active_version.version_name,
+                instrument_count=len(instruments),
+                priced_ticker_count=priced_ticker_count,
+                stock_return_rows=stock_return_rows,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
+        try:
+            engine_data = self.combination_service.build_engine_data_from_market_data(
+                instruments=instruments,
+                prices=prices,
+                config=CombinationSearchConfig(
+                    selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
+                    sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
+                    per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
+                ),
+            )
+        except (RuntimeError, ValueError) as exc:
+            issues.append(str(exc))
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="가격 적재는 완료됐지만 조합 탐색 또는 frontier 계산에서 막혔습니다.",
+                issues=issues,
+                active_version_name=active_version.version_name,
+                instrument_count=len(instruments),
+                priced_ticker_count=priced_ticker_count,
+                stock_return_rows=stock_return_rows,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
+        search_result = engine_data.search_result
+        selected_combination = CombinationSelectionView(
+            combination_id=search_result.best_evaluation.combination_id,
+            members_by_sector=search_result.best_evaluation.members_by_sector,
+            total_combinations_tested=search_result.total_combinations_tested,
+            successful_combinations=search_result.successful_combinations,
+            discard_reasons=search_result.discard_reasons,
+        )
+        effective_history_rows = int(search_result.best_evaluation.sector_returns_shape[0])
+        return ManagedUniverseReadiness(
+            ready=True,
+            summary=(
+                f"시뮬레이션 준비 완료 · {search_result.successful_combinations}개 조합을 평가했고 "
+                f"유효 공통 히스토리는 {effective_history_rows}행입니다."
+            ),
+            issues=[],
+            active_version_name=active_version.version_name,
+            instrument_count=len(instruments),
+            priced_ticker_count=priced_ticker_count,
+            stock_return_rows=stock_return_rows,
+            effective_history_rows=effective_history_rows,
+            minimum_history_rows=MINIMUM_HISTORY_ROWS,
+            sector_checks=sector_checks,
+            selected_combination=selected_combination,
+        )
 
     def simulate(self, user_profile: UserProfile) -> PortfolioSimulationResult:
         target_volatility = self.mapping_service.resolve_target_volatility(user_profile)
@@ -294,6 +441,26 @@ class PortfolioSimulationService:
 
     def _load_demo_instruments(self):
         return StockDataRepository().load_stock_universe(str(DEMO_STOCK_UNIVERSE_PATH))
+
+    def _build_sector_checks(
+        self,
+        assets: list[AssetClass],
+        instruments,
+    ) -> list[ManagedUniverseSectorReadiness]:
+        counts_by_sector: dict[str, int] = {}
+        for instrument in instruments:
+            counts_by_sector[instrument.sector_code] = counts_by_sector.get(instrument.sector_code, 0) + 1
+
+        return [
+            ManagedUniverseSectorReadiness(
+                sector_code=asset.code,
+                sector_name=asset.name,
+                required_count=int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0)),
+                actual_count=int(counts_by_sector.get(asset.code, 0)),
+                ready=int(counts_by_sector.get(asset.code, 0)) >= int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0)),
+            )
+            for asset in assets
+        ]
 
     def _fallback_frontier(self, expected_returns: pd.Series, covariance: pd.DataFrame) -> list[FrontierPoint]:
         fallback_points: list[FrontierPoint] = []

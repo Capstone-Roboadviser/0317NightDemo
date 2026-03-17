@@ -185,6 +185,15 @@ GET /portfolio/frontier?risk_profile=balanced&investment_horizon=medium&data_sou
 
 현재 활성화된 유니버스 버전을 반환합니다.
 
+### `GET /admin/universe/readiness`
+
+현재 active 유니버스가 실제 시뮬레이션 계산까지 가능한지 점검합니다.
+
+- 섹터별 필요 종목 수 충족 여부
+- 가격 적재 티커 수
+- 유효 수익률 행 수
+- 조합 탐색/Frontier 계산 차단 사유
+
 ### `POST /admin/universe/versions`
 
 로그인 없이 관리자 입력용 유니버스 버전을 직접 생성합니다.

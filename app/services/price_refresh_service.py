@@ -136,14 +136,9 @@ class PriceRefreshService:
             raise RuntimeError(f"{ticker} 가격 데이터를 가져오지 못했습니다.")
 
         working = frame.reset_index()
-        date_column = str(working.columns[0])
-        price_column = "Adj Close" if "Adj Close" in working.columns else "Close"
-        if price_column not in working.columns:
-            raise RuntimeError(f"{ticker} 데이터에서 adjusted close 컬럼을 찾지 못했습니다.")
-
-        result = working[[date_column, price_column]].rename(
-            columns={date_column: "date", price_column: "adjusted_close"}
-        )
+        date_column, price_column = self._resolve_history_columns(working, ticker)
+        result = working[[date_column, price_column]].copy()
+        result.columns = ["date", "adjusted_close"]
         result["ticker"] = ticker
         result["date"] = pd.to_datetime(result["date"], errors="coerce")
         result["adjusted_close"] = pd.to_numeric(result["adjusted_close"], errors="coerce")
@@ -151,3 +146,65 @@ class PriceRefreshService:
         if result.empty:
             raise RuntimeError(f"{ticker} 유효 가격 행이 없습니다.")
         return result[["date", "ticker", "adjusted_close"]]
+
+    def _resolve_history_columns(self, working: pd.DataFrame, ticker: str) -> tuple[object, object]:
+        columns = list(working.columns)
+        ticker_upper = ticker.upper()
+
+        date_column = next(
+            (
+                column
+                for column in columns
+                if self._column_matches(column, {"date", "datetime"})
+            ),
+            columns[0] if columns else None,
+        )
+        if date_column is None:
+            raise RuntimeError(f"{ticker} 데이터에서 날짜 컬럼을 찾지 못했습니다.")
+
+        price_column = next(
+            (
+                column
+                for column in columns
+                if self._column_matches(column, {"adj close", "adjclose"})
+            ),
+            None,
+        )
+        if price_column is None:
+            price_column = next(
+                (
+                    column
+                    for column in columns
+                    if self._column_matches(column, {"close"})
+                    and not self._column_matches(column, {"adj close", "adjclose"})
+                ),
+                None,
+            )
+        if price_column is None:
+            price_column = next(
+                (
+                    column
+                    for column in columns
+                    if isinstance(column, tuple)
+                    and any(str(part).upper() == ticker_upper for part in column)
+                    and any(str(part).lower() in {"adj close", "adjclose", "close"} for part in column)
+                ),
+                None,
+            )
+
+        if price_column is None:
+            available = [self._column_debug_name(column) for column in columns]
+            raise RuntimeError(
+                f"{ticker} 데이터에서 adjusted close/close 컬럼을 찾지 못했습니다. columns={available}"
+            )
+
+        return date_column, price_column
+
+    def _column_matches(self, column: object, candidates: set[str]) -> bool:
+        parts = [str(part).strip().lower() for part in (column if isinstance(column, tuple) else (column,))]
+        return any(part in candidates for part in parts)
+
+    def _column_debug_name(self, column: object) -> str:
+        if isinstance(column, tuple):
+            return " | ".join(str(part) for part in column if str(part))
+        return str(column)

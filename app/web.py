@@ -422,31 +422,49 @@ def render_homepage() -> HTMLResponse:
       appearance: none;
       width: 100%;
       height: 6px;
-      border-radius: 3px;
-      background: var(--border);
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--primary) 0%, var(--primary) var(--slider-pct, 50%), rgba(15, 23, 42, 0.2) var(--slider-pct, 50%), rgba(15, 23, 42, 0.2) 100%);
       outline: none;
       cursor: pointer;
     }
 
+    .dark input[type="range"] {
+      background: linear-gradient(to right, var(--primary) 0%, var(--primary) var(--slider-pct, 50%), rgba(248, 250, 252, 0.2) var(--slider-pct, 50%), rgba(248, 250, 252, 0.2) 100%);
+    }
+
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: var(--primary);
-      border: 2px solid var(--background);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      background: var(--background);
+      border: 1px solid rgba(15, 23, 42, 0.5);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       cursor: pointer;
+      transition: box-shadow 0.15s ease;
+    }
+
+    .dark input[type="range"]::-webkit-slider-thumb {
+      border-color: rgba(248, 250, 252, 0.5);
+    }
+
+    input[type="range"]:focus-visible::-webkit-slider-thumb {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
     }
 
     input[type="range"]::-moz-range-thumb {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: var(--primary);
-      border: 2px solid var(--background);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      background: var(--background);
+      border: 1px solid rgba(15, 23, 42, 0.5);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       cursor: pointer;
+    }
+
+    .dark input[type="range"]::-moz-range-thumb {
+      border-color: rgba(248, 250, 252, 0.5);
     }
 
     .slider-labels {
@@ -2045,7 +2063,13 @@ def render_homepage() -> HTMLResponse:
       }
     }
 
+    function updateSliderTrack() {
+      slider.style.setProperty("--slider-pct", slider.value + "%");
+    }
+    updateSliderTrack();
+
     slider.addEventListener("input", () => {
+      updateSliderTrack();
       suggestedVolatility();
       clearTimeout(debounceTimer);
       if (!targetVolInput.value.trim()) {

@@ -1,0 +1,14 @@
+ticker,name,sector_code,sector_name,market,currency,base_weight
+IEF,iShares 7-10 Year Treasury Bond ETF,bond,채권,USA,USD,0.34
+TLT,iShares 20+ Year Treasury Bond ETF,bond,채권,USA,USD,0.33
+BND,Vanguard Total Bond Market ETF,bond,채권,USA,USD,0.33
+VNQ,Vanguard Real Estate ETF,real_assets,실물,USA,USD,0.50
+GLD,SPDR Gold Shares,real_assets,실물,USA,USD,0.50
+SPY,SPDR S&P 500 ETF Trust,etf,ETF,USA,USD,0.50
+QQQ,Invesco QQQ Trust,etf,ETF,USA,USD,0.50
+MSFT,Microsoft Corp,tech_healthcare,기술주 및 헬스케어,USA,USD,0.34
+NVDA,NVIDIA Corp,ai_semiconductor_social,AI반도체 및 소셜미디어,USA,USD,0.34
+META,Meta Platforms Inc,ai_semiconductor_social,AI반도체 및 소셜미디어,USA,USD,0.33
+JPM,JPMorgan Chase & Co,financials,금융,USA,USD,0.50
+XOM,Exxon Mobil Corp,energy,에너지,USA,USD,0.50
+COST,Costco Wholesale Corp,consumer_other,소비재 및 기타,USA,USD,0.50

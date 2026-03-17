@@ -10,10 +10,10 @@ SAMPLE_MARKET_ASSUMPTIONS_PATH = DATA_DIR / "sample_market_assumptions.json"
 
 APP_NAME = "자산배분 시뮬레이터 데모 API"
 APP_DESCRIPTION = (
-    "고정된 5개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 "
+    "고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 "
     "효율적 투자선 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스"
 )
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 RISK_FREE_RATE = 0.02
 FRONTIER_POINT_COUNT = 24
@@ -34,25 +34,34 @@ HORIZON_VOLATILITY_ADJUSTMENT = {
 
 FALLBACK_WEIGHTS = {
     RiskProfile.CONSERVATIVE: {
-        "us_equity": 0.18,
-        "global_bond": 0.42,
-        "reits": 0.08,
-        "gold": 0.12,
-        "cash": 0.20,
+        "bond": 0.34,
+        "real_assets": 0.10,
+        "etf": 0.16,
+        "tech_healthcare": 0.08,
+        "ai_semiconductor_social": 0.05,
+        "financials": 0.08,
+        "energy": 0.05,
+        "consumer_other": 0.14,
     },
     RiskProfile.BALANCED: {
-        "us_equity": 0.36,
-        "global_bond": 0.28,
-        "reits": 0.14,
-        "gold": 0.10,
-        "cash": 0.12,
+        "bond": 0.22,
+        "real_assets": 0.11,
+        "etf": 0.18,
+        "tech_healthcare": 0.12,
+        "ai_semiconductor_social": 0.10,
+        "financials": 0.09,
+        "energy": 0.07,
+        "consumer_other": 0.11,
     },
     RiskProfile.GROWTH: {
-        "us_equity": 0.52,
-        "global_bond": 0.18,
-        "reits": 0.15,
-        "gold": 0.08,
-        "cash": 0.07,
+        "bond": 0.10,
+        "real_assets": 0.10,
+        "etf": 0.18,
+        "tech_healthcare": 0.17,
+        "ai_semiconductor_social": 0.18,
+        "financials": 0.10,
+        "energy": 0.08,
+        "consumer_other": 0.09,
     },
 }
 

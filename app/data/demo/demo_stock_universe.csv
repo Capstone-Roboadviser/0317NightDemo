@@ -1,0 +1,33 @@
+ticker,name,sector_code,sector_name,market,currency,base_weight
+BND1,Bond Core 1,bond,채권,USA,USD,0.25
+BND2,Bond Core 2,bond,채권,USA,USD,0.25
+BND3,Bond Core 3,bond,채권,USA,USD,0.25
+BND4,Bond Core 4,bond,채권,USA,USD,0.25
+RAS1,Real Asset 1,real_assets,실물,USA,USD,0.25
+RAS2,Real Asset 2,real_assets,실물,USA,USD,0.25
+RAS3,Real Asset 3,real_assets,실물,USA,USD,0.25
+RAS4,Real Asset 4,real_assets,실물,USA,USD,0.25
+ETF1,Index ETF 1,etf,ETF,USA,USD,0.25
+ETF2,Index ETF 2,etf,ETF,USA,USD,0.25
+ETF3,Index ETF 3,etf,ETF,USA,USD,0.25
+ETF4,Index ETF 4,etf,ETF,USA,USD,0.25
+THC1,Tech Health 1,tech_healthcare,기술주 및 헬스케어,USA,USD,0.25
+THC2,Tech Health 2,tech_healthcare,기술주 및 헬스케어,USA,USD,0.25
+THC3,Tech Health 3,tech_healthcare,기술주 및 헬스케어,USA,USD,0.25
+THC4,Tech Health 4,tech_healthcare,기술주 및 헬스케어,USA,USD,0.25
+AIS1,AI Social 1,ai_semiconductor_social,AI반도체 및 소셜미디어,USA,USD,0.25
+AIS2,AI Social 2,ai_semiconductor_social,AI반도체 및 소셜미디어,USA,USD,0.25
+AIS3,AI Social 3,ai_semiconductor_social,AI반도체 및 소셜미디어,USA,USD,0.25
+AIS4,AI Social 4,ai_semiconductor_social,AI반도체 및 소셜미디어,USA,USD,0.25
+FIN1,Financial 1,financials,금융,USA,USD,0.25
+FIN2,Financial 2,financials,금융,USA,USD,0.25
+FIN3,Financial 3,financials,금융,USA,USD,0.25
+FIN4,Financial 4,financials,금융,USA,USD,0.25
+ENG1,Energy 1,energy,에너지,USA,USD,0.25
+ENG2,Energy 2,energy,에너지,USA,USD,0.25
+ENG3,Energy 3,energy,에너지,USA,USD,0.25
+ENG4,Energy 4,energy,에너지,USA,USD,0.25
+CNS1,Consumer 1,consumer_other,소비재 및 기타,USA,USD,0.25
+CNS2,Consumer 2,consumer_other,소비재 및 기타,USA,USD,0.25
+CNS3,Consumer 3,consumer_other,소비재 및 기타,USA,USD,0.25
+CNS4,Consumer 4,consumer_other,소비재 및 기타,USA,USD,0.25

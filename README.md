@@ -2,7 +2,7 @@
 
 이 프로젝트의 목표는 아래 한 문장으로 정리됩니다.
 
-> 고정된 5개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 Efficient Frontier 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스
+> 고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 Efficient Frontier 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스
 
 즉 이 서비스는:
 
@@ -31,7 +31,7 @@ uvicorn app.main:app --reload
 
 ## 핵심 기능
 
-- 고정된 5개 자산군 기반 시뮬레이션
+- 고정된 8개 자산군 기반 시뮬레이션
 - 위험 성향 3단계: `안정형`, `균형형`, `성장형`
 - 투자기간 반영: `단기`, `중기`, `장기`
 - 목표 변동성 선택 입력 지원
@@ -42,11 +42,14 @@ uvicorn app.main:app --reload
 
 ## 현재 자산군
 
-- `us_equity`: 미국 주식
-- `global_bond`: 글로벌 채권
-- `reits`: 리츠
-- `gold`: 금
-- `cash`: 현금성 자산
+- `bond`: 채권
+- `real_assets`: 실물
+- `etf`: ETF
+- `tech_healthcare`: 기술주 및 헬스케어
+- `ai_semiconductor_social`: AI반도체 및 소셜미디어
+- `financials`: 금융
+- `energy`: 에너지
+- `consumer_other`: 소비재 및 기타
 
 ## API 개요
 
@@ -138,6 +141,22 @@ docs/
 - 응답 속도가 안정적임
 - 문서화와 설명이 쉬움
 
+## 개별 주식 기반 확장 준비
+
+현재 데모 API는 8개 자산군 기준 시뮬레이션이지만, 개별 주식 조합을 샘플링해서 섹터 수익률을 만들고 각 조합의 최대 Sharpe Ratio를 비교할 수 있도록 스캐폴드를 추가해두었습니다.
+
+관련 파일:
+
+- [stock_repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/stock_repository.py)
+- [combination_search_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/combination_search_service.py)
+- [generate_demo_stock_data.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/scripts/generate_demo_stock_data.py)
+- [stock_universe_template.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/templates/stock_universe_template.csv)
+- [stock_prices_template.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/templates/stock_prices_template.csv)
+- [demo_stock_universe.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/demo/demo_stock_universe.csv)
+- [demo_stock_prices.csv](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/demo/demo_stock_prices.csv)
+
+이 흐름은 아직 API에 연결된 기능은 아니고, 데이터 준비와 오프라인 탐색을 위한 1차 구조입니다.
+
 ## Railway 배포
 
 이 프로젝트는 Railway 배포를 위한 설정 파일을 포함합니다.
@@ -161,3 +180,5 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 - 아키텍처: [ARCHITECTURE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/ARCHITECTURE.md)
 - API 명세: [API_REFERENCE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/API_REFERENCE.md)
 - 데모 설명: [DEMO_GUIDE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/DEMO_GUIDE.md)
+- 개별 주식 데이터 준비: [STOCK_DATA_GUIDE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/STOCK_DATA_GUIDE.md)
+- 조합 탐색 가이드: [COMBINATION_SEARCH_GUIDE.md](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/docs/COMBINATION_SEARCH_GUIDE.md)

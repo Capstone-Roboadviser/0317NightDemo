@@ -1,47 +1,74 @@
 [
   {
-    "code": "us_equity",
-    "name": "미국 주식",
-    "category": "equity",
-    "description": "장기 기대수익률이 높지만 변동성도 큰 성장 자산군입니다.",
-    "color": "#0F4C81",
-    "min_weight": 0.05,
-    "max_weight": 0.65
-  },
-  {
-    "code": "global_bond",
-    "name": "글로벌 채권",
+    "code": "bond",
+    "name": "채권",
     "category": "bond",
-    "description": "포트폴리오 변동성을 낮추는 안정형 자산군입니다.",
-    "color": "#5B8E7D",
-    "min_weight": 0.10,
-    "max_weight": 0.70
+    "description": "변동성을 낮추고 포트폴리오의 방어 역할을 담당하는 금리 민감 자산군입니다.",
+    "color": "#5B7C99",
+    "min_weight": 0.05,
+    "max_weight": 0.50
   },
   {
-    "code": "reits",
-    "name": "리츠",
+    "code": "real_assets",
+    "name": "실물",
     "category": "real_asset",
-    "description": "부동산 기반의 인컴 자산으로 분산 효과를 기대할 수 있습니다.",
-    "color": "#C97C5D",
+    "description": "원자재, 부동산, 인프라 등 실물 기반 자산으로 인플레이션 방어 성격을 가집니다.",
+    "color": "#A67C52",
     "min_weight": 0.00,
     "max_weight": 0.25
   },
   {
-    "code": "gold",
-    "name": "금",
-    "category": "commodity",
-    "description": "시장 불안 시 방어 역할을 기대할 수 있는 대체 자산군입니다.",
-    "color": "#C6A700",
+    "code": "etf",
+    "name": "ETF",
+    "category": "broad_market",
+    "description": "광범위한 지수 추종을 통해 시장 전반에 분산 투자하는 핵심 자산군입니다.",
+    "color": "#2D6A8E",
+    "min_weight": 0.05,
+    "max_weight": 0.30
+  },
+  {
+    "code": "tech_healthcare",
+    "name": "기술주 및 헬스케어",
+    "category": "growth_sector",
+    "description": "성장성이 높지만 금리와 밸류에이션 변화에 민감한 혁신 섹터 자산군입니다.",
+    "color": "#7B6ED6",
+    "min_weight": 0.00,
+    "max_weight": 0.30
+  },
+  {
+    "code": "ai_semiconductor_social",
+    "name": "AI반도체 및 소셜미디어",
+    "category": "thematic_growth",
+    "description": "AI와 플랫폼 모멘텀에 민감한 고변동 테마 자산군입니다.",
+    "color": "#E76F51",
+    "min_weight": 0.00,
+    "max_weight": 0.30
+  },
+  {
+    "code": "financials",
+    "name": "금융",
+    "category": "financial_sector",
+    "description": "금리와 경기 흐름의 영향을 크게 받는 경기민감 자산군입니다.",
+    "color": "#2A9D8F",
     "min_weight": 0.00,
     "max_weight": 0.25
   },
   {
-    "code": "cash",
-    "name": "현금성 자산",
-    "category": "liquidity",
-    "description": "단기 운용과 유동성 확보를 위한 낮은 변동성 자산군입니다.",
-    "color": "#7A7A7A",
+    "code": "energy",
+    "name": "에너지",
+    "category": "energy_sector",
+    "description": "원자재 가격과 지정학적 이슈의 영향을 받는 섹터 자산군입니다.",
+    "color": "#E9C46A",
     "min_weight": 0.00,
-    "max_weight": 0.40
+    "max_weight": 0.20
+  },
+  {
+    "code": "consumer_other",
+    "name": "소비재 및 기타",
+    "category": "diversified_sector",
+    "description": "소비, 산업, 기타 일반 섹터를 포괄하는 보완형 자산군입니다.",
+    "color": "#6C757D",
+    "min_weight": 0.00,
+    "max_weight": 0.25
   }
 ]

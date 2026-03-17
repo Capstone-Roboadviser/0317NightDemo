@@ -566,11 +566,44 @@ def render_homepage() -> HTMLResponse:
     }
     /* Donut slice hover */
     .donut-slice {
-      transition: opacity 0.15s;
-      cursor: default;
+      transition: opacity 0.15s, filter 0.15s;
+      cursor: pointer;
     }
     .donut-slice:hover {
-      opacity: 0.8;
+      opacity: 0.85;
+      filter: brightness(1.1);
+    }
+    /* Donut tooltip */
+    .donut-tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 50;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      background: var(--foreground);
+      color: var(--primary-foreground);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .donut-tooltip.visible {
+      opacity: 1;
+    }
+    .donut-tooltip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .donut-tooltip-value {
+      font-weight: 700;
     }
 
     .options-list {
@@ -967,6 +1000,12 @@ def render_homepage() -> HTMLResponse:
     </footer>
   </div>
 
+  <div class="donut-tooltip" id="donut-tooltip">
+    <span class="donut-tooltip-dot" id="donut-tooltip-dot"></span>
+    <span id="donut-tooltip-name"></span>
+    <span class="donut-tooltip-value" id="donut-tooltip-value"></span>
+  </div>
+
   <script>
     const ASSET_COLORS = {
       us_equity: "#0F4C81",
@@ -1058,7 +1097,12 @@ def render_homepage() -> HTMLResponse:
         const largeArc = angle > Math.PI ? 1 : 0;
         const color = ASSET_COLORS[item.asset_code] || "#64748B";
 
-        paths += '<path class="donut-slice" d="';
+        const pctLabel = (fraction * 100).toFixed(1) + "%";
+        paths += '<path class="donut-slice"';
+        paths += ' data-name="' + (item.asset_name || item.asset_code) + '"';
+        paths += ' data-value="' + pctLabel + '"';
+        paths += ' data-color="' + color + '"';
+        paths += ' d="';
         paths += "M " + x1.toFixed(2) + " " + y1.toFixed(2) + " ";
         paths += "A " + outerR + " " + outerR + " 0 " + largeArc + " 1 " + x2.toFixed(2) + " " + y2.toFixed(2) + " ";
         paths += "L " + x3.toFixed(2) + " " + y3.toFixed(2) + " ";
@@ -1281,6 +1325,42 @@ def render_homepage() -> HTMLResponse:
         const isDark = html.classList.toggle("dark");
         localStorage.setItem("theme", isDark ? "dark" : "light");
         rerenderChart();
+      });
+    })();
+
+    // ── Donut Tooltip ──
+    (function() {
+      const tip = document.getElementById("donut-tooltip");
+      const tipDot = document.getElementById("donut-tooltip-dot");
+      const tipName = document.getElementById("donut-tooltip-name");
+      const tipValue = document.getElementById("donut-tooltip-value");
+
+      document.addEventListener("mouseover", function(e) {
+        const slice = e.target.closest(".donut-slice");
+        if (!slice) return;
+        tipDot.style.background = slice.dataset.color;
+        tipName.textContent = slice.dataset.name;
+        tipValue.textContent = slice.dataset.value;
+        tip.classList.add("visible");
+      });
+
+      document.addEventListener("mousemove", function(e) {
+        if (!tip.classList.contains("visible")) return;
+        const offsetX = 14;
+        const offsetY = 14;
+        let x = e.clientX + offsetX;
+        let y = e.clientY + offsetY;
+        const rect = tip.getBoundingClientRect();
+        if (x + rect.width > window.innerWidth - 8) x = e.clientX - rect.width - offsetX;
+        if (y + rect.height > window.innerHeight - 8) y = e.clientY - rect.height - offsetY;
+        tip.style.left = x + "px";
+        tip.style.top = y + "px";
+      });
+
+      document.addEventListener("mouseout", function(e) {
+        const slice = e.target.closest(".donut-slice");
+        if (!slice) return;
+        tip.classList.remove("visible");
       });
     })();
 

@@ -16,6 +16,27 @@ class ConstraintSet:
     initial_weights: np.ndarray
 
 
+def average_pairwise_correlation(weights: np.ndarray, correlation_matrix: np.ndarray) -> float:
+    squared_weight_sum = float(np.sum(np.square(weights)))
+    denominator = 1.0 - squared_weight_sum
+    if denominator <= 1e-12:
+        return 1.0
+    numerator = float(weights.T @ correlation_matrix @ weights) - squared_weight_sum
+    return numerator / denominator
+
+
+def build_average_correlation_constraint(
+    correlation_matrix: np.ndarray,
+    max_average_correlation: float,
+) -> dict[str, Any]:
+    return {
+        "type": "ineq",
+        "fun": lambda weights, correlation_matrix=correlation_matrix, max_average_correlation=max_average_correlation: (
+            max_average_correlation - average_pairwise_correlation(weights, correlation_matrix)
+        ),
+    }
+
+
 class ConstraintEngine:
     def build(self, assets: list[AssetClass]) -> ConstraintSet:
         asset_codes = [asset.code for asset in assets]
@@ -29,6 +50,7 @@ class ConstraintEngine:
         *,
         lower_bounds: np.ndarray | None = None,
         upper_bounds: np.ndarray | None = None,
+        extra_constraints: tuple[dict[str, Any], ...] = (),
     ) -> ConstraintSet:
         if lower_bounds is None:
             lower_bounds = np.zeros(len(asset_codes), dtype=float)
@@ -48,7 +70,7 @@ class ConstraintEngine:
             initial_weights += (headroom / headroom.sum()) * remaining
 
         bounds = tuple((float(lower), float(upper)) for lower, upper in zip(lower_bounds, upper_bounds))
-        scipy_constraints = ({"type": "eq", "fun": lambda weights: np.sum(weights) - 1.0},)
+        scipy_constraints = ({"type": "eq", "fun": lambda weights: np.sum(weights) - 1.0},) + extra_constraints
         return ConstraintSet(
             asset_codes=asset_codes,
             bounds=bounds,

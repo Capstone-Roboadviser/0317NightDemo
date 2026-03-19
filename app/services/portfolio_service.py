@@ -9,6 +9,7 @@ from app.core.config import (
     DEMO_STOCK_UNIVERSE_PATH,
     FALLBACK_WEIGHTS,
     FRONTIER_POINT_COUNT,
+    MAX_PORTFOLIO_AVERAGE_CORRELATION,
     MINIMUM_HISTORY_ROWS,
     RANDOM_PORTFOLIO_COUNT,
     RISK_FREE_RATE,
@@ -29,7 +30,11 @@ from app.domain.models import (
     StockInstrument,
     UserProfile,
 )
-from app.engine.constraints import ConstraintEngine
+from app.engine.constraints import (
+    ConstraintEngine,
+    average_pairwise_correlation,
+    build_average_correlation_constraint,
+)
 from app.engine.covariance import ShrinkageCovarianceModel
 from app.engine.frontier import build_frontier_options, select_frontier_point_index
 from app.engine.math import portfolio_metrics_from_weights, risk_contributions
@@ -250,6 +255,19 @@ class PortfolioSimulationService:
                 f" 현재 적용된 유니버스 ID는 '{context.selected_combination.combination_id}'이며, "
                 "개별 종목 수익률을 직접 사용해 효율적 투자선을 계산한 뒤, 화면에서는 이를 섹터 기준으로 다시 묶어 보여주고 있습니다."
             )
+            selected_average_correlation = self._estimate_selected_average_correlation(
+                selected_point.weights,
+                context.covariance,
+            )
+            if selected_average_correlation is not None:
+                summary += (
+                    f" 또한 평균 종목 상관관계가 약 {selected_average_correlation:.2f} 수준이 되도록 "
+                    f"상관관계 상한({MAX_PORTFOLIO_AVERAGE_CORRELATION:.2f}) 제약을 함께 적용했습니다."
+                )
+                explanation_body += (
+                    f" 종목 간 평균 상관관계가 {MAX_PORTFOLIO_AVERAGE_CORRELATION:.2f}를 넘지 않도록 제약을 두어, "
+                    "Sharpe Ratio를 추구하면서도 지나치게 비슷하게 움직이는 종목 쏠림을 줄였습니다."
+                )
 
         return PortfolioSimulationResult(
             portfolio_id=portfolio_id,
@@ -409,9 +427,19 @@ class PortfolioSimulationService:
     ) -> tuple[pd.Series, pd.DataFrame, list[FrontierPoint], list[tuple[float, float, dict[str, float]]]]:
         optimized_returns = self._prepare_stock_returns_for_optimization(instruments, prices)
         instrument_codes = list(optimized_returns.columns)
+        correlation = optimized_returns.corr().reindex(index=instrument_codes, columns=instrument_codes)
+        correlation = correlation.fillna(0.0).astype(float)
+        for code in instrument_codes:
+            correlation.loc[code, code] = 1.0
         constraints = self.constraint_engine.build_for_codes(
             instrument_codes,
             upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=instrument_codes, dtype=float).values,
+            extra_constraints=(
+                build_average_correlation_constraint(
+                    correlation.values,
+                    MAX_PORTFOLIO_AVERAGE_CORRELATION,
+                ),
+            ),
         )
         expected_returns = self._build_stock_expected_returns(optimized_returns)
         covariance = self.covariance_model.calculate(optimized_returns)
@@ -565,6 +593,28 @@ class PortfolioSimulationService:
             )
             for asset in assets
         ]
+
+    def _estimate_selected_average_correlation(
+        self,
+        stock_weights: dict[str, float],
+        covariance: pd.DataFrame,
+    ) -> float | None:
+        if covariance.empty or len(covariance.index) < 2:
+            return None
+
+        variances = pd.Series(covariance.values.diagonal(), index=covariance.index, dtype=float)
+        standard_deviations = variances.clip(lower=0.0).pow(0.5)
+        denominator = standard_deviations.values[:, None] * standard_deviations.values[None, :]
+        if (denominator <= 0).all():
+            return None
+
+        correlation = covariance.divide(standard_deviations, axis=0).divide(standard_deviations, axis=1)
+        correlation = correlation.replace([float("inf"), float("-inf")], 0.0).fillna(0.0)
+        for code in correlation.index:
+            correlation.loc[code, code] = 1.0
+
+        ordered_weights = pd.Series(stock_weights, dtype=float).reindex(correlation.index).fillna(0.0).values
+        return float(average_pairwise_correlation(ordered_weights, correlation.values))
 
     def _fallback_frontier(self, expected_returns: pd.Series, covariance: pd.DataFrame) -> list[FrontierPoint]:
         fallback_points: list[FrontierPoint] = []

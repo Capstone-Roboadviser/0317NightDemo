@@ -104,6 +104,8 @@ class EfficientFrontierOptimizer:
             if np.any(weights > upper_bounds + 1e-9):
                 continue
             weights = weights / weights.sum()
+            if not self._satisfies_constraints(weights, constraints):
+                continue
             expected_return, volatility = portfolio_performance(weights, ordered_returns, ordered_covariance)
             weight_dict = {code: float(w) for code, w in zip(constraints.asset_codes, weights)}
             points.append((float(volatility), float(expected_return), weight_dict))
@@ -113,6 +115,15 @@ class EfficientFrontierOptimizer:
     def _validate_covariance(self, covariance: pd.DataFrame) -> None:
         if covariance.isna().any().any():
             raise RuntimeError("공분산 행렬에 결측치가 포함되어 있습니다.")
+
+    def _satisfies_constraints(self, weights: np.ndarray, constraints: ConstraintSet) -> bool:
+        for constraint in constraints.scipy_constraints:
+            value = float(constraint["fun"](weights))
+            if constraint["type"] == "eq" and abs(value) > 1e-6:
+                return False
+            if constraint["type"] == "ineq" and value < -1e-6:
+                return False
+        return True
 
     def _clean_frontier(self, frontier_points: list[FrontierPoint]) -> list[FrontierPoint]:
         """Drop numerically unstable points that fall below the upper frontier."""

@@ -12,6 +12,7 @@ from app.core.config import (
     MINIMUM_HISTORY_ROWS,
     RANDOM_PORTFOLIO_COUNT,
     RISK_FREE_RATE,
+    STOCK_MAX_WEIGHT,
 )
 from app.data.repository import StaticDataRepository
 from app.data.stock_repository import StockDataRepository
@@ -408,7 +409,10 @@ class PortfolioSimulationService:
     ) -> tuple[pd.Series, pd.DataFrame, list[FrontierPoint], list[tuple[float, float, dict[str, float]]]]:
         optimized_returns = self._prepare_stock_returns_for_optimization(instruments, prices)
         instrument_codes = list(optimized_returns.columns)
-        constraints = self.constraint_engine.build_for_codes(instrument_codes)
+        constraints = self.constraint_engine.build_for_codes(
+            instrument_codes,
+            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=instrument_codes, dtype=float).values,
+        )
         expected_returns = self._build_stock_expected_returns(optimized_returns)
         covariance = self.covariance_model.calculate(optimized_returns)
         frontier_points = self.optimizer.build_frontier(

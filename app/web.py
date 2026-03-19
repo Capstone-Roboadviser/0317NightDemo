@@ -1577,6 +1577,7 @@ def render_homepage() -> HTMLResponse:
     let allocView = "pie"; // "pie" or "list"
     let chartXScale = null; // stored after renderChart
     let chartYScale = null;
+    let chartBounds = null;
     let debounceTimer = null;
     const activeAnimations = {};
 
@@ -1968,11 +1969,13 @@ def render_homepage() -> HTMLResponse:
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
-      const allPoints = randomPortfolios.concat(frontier).concat([selectedPoint]);
-      const volMin = Math.min(...allPoints.map((p) => p.volatility)) * 0.9;
-      const volMax = Math.max(...allPoints.map((p) => p.volatility)) * 1.1;
-      const retMin = Math.min(...allPoints.map((p) => p.expected_return)) * 0.9;
-      const retMax = Math.max(...allPoints.map((p) => p.expected_return)) * 1.1;
+      const visiblePoints = randomPortfolios.length
+        ? randomPortfolios.concat([selectedPoint])
+        : frontier.concat([selectedPoint]);
+      const volMin = Math.min(...visiblePoints.map((p) => p.volatility)) * 0.9;
+      const volMax = Math.max(...visiblePoints.map((p) => p.volatility)) * 1.1;
+      const retMin = Math.min(...visiblePoints.map((p) => p.expected_return)) * 0.9;
+      const retMax = Math.max(...visiblePoints.map((p) => p.expected_return)) * 1.1;
 
       function xScale(value) {
         return margin.left + ((value - volMin) / (volMax - volMin || 1)) * innerWidth;
@@ -2037,6 +2040,7 @@ def render_homepage() -> HTMLResponse:
       // Store scale functions for slider animation
       chartXScale = xScale;
       chartYScale = yScale;
+      chartBounds = { volMin, volMax, retMin, retMax };
     }
 
     // Animate the selected portfolio dot to a new frontier point
@@ -2124,6 +2128,19 @@ def render_homepage() -> HTMLResponse:
 
       // Update options highlight
       renderOptions(lastData.frontier_options || [], point);
+
+      if (
+        chartBounds
+        && (
+          point.volatility < chartBounds.volMin
+          || point.volatility > chartBounds.volMax
+          || point.expected_return < chartBounds.retMin
+          || point.expected_return > chartBounds.retMax
+        )
+      ) {
+        renderChart(lastData);
+        return;
+      }
 
       // Animate selected dot to new position (no full chart re-render)
       const allocArr = groupStockWeightsBySector(point.weights || {})

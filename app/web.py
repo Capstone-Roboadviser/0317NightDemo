@@ -1361,7 +1361,7 @@ def render_homepage() -> HTMLResponse:
               <div class="field-group">
                 <label class="field-label">계산 기준</label>
                 <input type="hidden" id="data_source" name="data_source" value="managed_universe" />
-                <span class="field-hint">기본값은 관리자 종목 유니버스이며, 아직 설정되지 않았으면 내장 데모 조합으로 자동 대체됩니다.</span>
+                <span class="field-hint">기본값은 관리자 종목 유니버스이며, 아직 설정되지 않았으면 내장 데모 종목 유니버스로 자동 대체됩니다.</span>
               </div>
 
               <div class="field-group">
@@ -1472,7 +1472,7 @@ def render_homepage() -> HTMLResponse:
               <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
               <div class="summary-text fade-content" id="summary"></div>
               <div class="combination-panel fade-content" id="combination-panel" hidden>
-                <div class="combination-panel-title">현재 적용된 개별 종목 조합</div>
+                <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
                 <div class="combination-panel-meta" id="combination-meta"></div>
                 <div class="combination-members" id="combination-members"></div>
               </div>
@@ -1657,23 +1657,103 @@ def render_homepage() -> HTMLResponse:
       }
 
       combinationPanelEl.hidden = false;
-      if (selection.total_combinations_tested === 1 && selection.successful_combinations === 1) {
-        combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 각 섹터에 등록된 전 종목을 모두 사용했습니다. 현재 적용된 구성 ID는 ${selection.combination_id} 입니다.`;
-      } else {
-        combinationMetaEl.textContent = `${sourceLabel || "개별주식 조합"} 기준으로 ${selection.total_combinations_tested}개 조합을 탐색했고, ${selection.successful_combinations}개를 실제 평가했습니다. 현재 적용된 조합 ID는 ${selection.combination_id} 입니다.`;
-      }
+      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 등록된 전 종목을 직접 최적화에 사용했습니다. 현재 적용된 유니버스 ID는 ${selection.combination_id} 입니다.`;
       combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
         .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
         .join("");
     }
 
+    function buildTickerLookup() {
+      const lookup = new Map();
+      Object.entries(stocksBySector || {}).forEach(([sectorCode, items]) => {
+        (items || []).forEach((item) => {
+          lookup.set(item.ticker, {
+            ticker: item.ticker,
+            name: item.name || item.ticker,
+            sector_code: item.sector_code || sectorCode,
+            sector_name: item.sector_name || sectorCode,
+          });
+        });
+      });
+
+      const fallbackSelection = lastData?.selected_combination?.members_by_sector || {};
+      Object.entries(fallbackSelection).forEach(([sectorCode, tickers]) => {
+        (tickers || []).forEach((ticker) => {
+          if (!lookup.has(ticker)) {
+            lookup.set(ticker, {
+              ticker,
+              name: ticker,
+              sector_code: sectorCode,
+              sector_name: sectorCode,
+            });
+          }
+        });
+      });
+
+      return lookup;
+    }
+
+    function groupStockWeightsBySector(stockWeights) {
+      const lookup = buildTickerLookup();
+      const allocationLookup = new Map((lastData?.allocations || []).map((item) => [item.asset_code, item.asset_name]));
+      const grouped = new Map();
+
+      Object.entries(stockWeights || {}).forEach(([ticker, weight]) => {
+        const numericWeight = Number(weight || 0);
+        if (numericWeight <= 0) return;
+
+        const meta = lookup.get(ticker) || (
+          allocationLookup.has(ticker)
+            ? {
+                ticker,
+                name: allocationLookup.get(ticker) || ticker,
+                sector_code: ticker,
+                sector_name: allocationLookup.get(ticker) || ticker,
+              }
+            : {
+                ticker,
+                name: ticker,
+                sector_code: "unknown",
+                sector_name: "기타",
+              }
+        );
+        const sectorCode = meta.sector_code || "unknown";
+        const current = grouped.get(sectorCode) || {
+          asset_code: sectorCode,
+          asset_name: meta.sector_name || sectorCode,
+          weight: 0,
+          instruments: [],
+        };
+        current.weight += numericWeight;
+        current.instruments.push({
+          ticker,
+          name: meta.name || ticker,
+          weight: numericWeight,
+        });
+        grouped.set(sectorCode, current);
+      });
+
+      return Array.from(grouped.values())
+        .map((item) => {
+          item.instruments.sort((a, b) => b.weight - a.weight);
+          return item;
+        })
+        .sort((a, b) => b.weight - a.weight);
+    }
+
     function selectedStocksForSector(code) {
+      const grouped = groupStockWeightsBySector(lastData?.selected_point?.weights || {});
+      const sector = grouped.find((item) => item.asset_code === code);
+      if (sector && sector.instruments?.length) {
+        return sector.instruments;
+      }
+
       const selection = lastData?.selected_combination?.members_by_sector || {};
       const selectedTickers = selection[code] || [];
       if (!selectedTickers.length) return [];
 
       const stockLookup = new Map((stocksBySector[code] || []).map((item) => [item.ticker, item]));
-      return selectedTickers.map((ticker) => stockLookup.get(ticker) || { ticker, name: ticker });
+      return selectedTickers.map((ticker) => stockLookup.get(ticker) || { ticker, name: ticker, weight: 0 });
     }
 
     function buildDonutSVG(items, valueKey, centerText) {
@@ -1807,9 +1887,8 @@ def render_homepage() -> HTMLResponse:
 
         // Child rows (hidden by default)
         if (hasChildren) {
-          const perStock = (item.weight || 0) / stocks.length;
           stocks.forEach(function(s) {
-            const sw = (perStock * 100).toFixed(1);
+            const sw = ((s.weight || 0) * 100).toFixed(1);
             html += '<tr class="alloc-child-row alloc-children-hidden" data-parent="' + code + '">' +
               '<td><span class="alloc-child-ticker">' + s.ticker + '</span><span class="alloc-child-name">' + s.name + '</span></td>' +
               '<td>' + sw + '%</td>' +
@@ -1921,24 +2000,15 @@ def render_homepage() -> HTMLResponse:
         svg += `<text x="18" y="${y + 4}" fill="${c.label}" font-size="11" font-family="Inter, Noto Sans KR, sans-serif">${(val * 100).toFixed(1)}%</text>`;
       }
 
-      // Build asset name map from allocations
-      const allocations = data.allocations || [];
-      const assetNameMap = {};
-      allocations.forEach(a => { assetNameMap[a.asset_code] = a.asset_name; });
-
       function weightsToAllocJSON(weights) {
         if (!weights) return "";
-        const arr = Object.entries(weights)
-          .filter(([, w]) => w > 0.001)
-          .sort(([, a], [, b]) => b - a)
-          .map(([code, w]) => ({ name: assetNameMap[code] || code, code: code, weight: w }));
+        const arr = groupStockWeightsBySector(weights)
+          .map((item) => ({ name: item.asset_name, code: item.asset_code, weight: item.weight }));
         return JSON.stringify(arr).replace(/"/g, '&quot;');
       }
 
       // Build allocation JSON for the selected portfolio
-      const selectedAllocJSON = weightsToAllocJSON(
-        Object.fromEntries(allocations.map(a => [a.asset_code, a.weight]))
-      );
+      const selectedAllocJSON = weightsToAllocJSON(selectedPoint.weights || {});
 
       // Random portfolio scatter points with hover hit areas
       randomPortfolios.forEach((point) => {
@@ -2033,9 +2103,16 @@ def render_homepage() -> HTMLResponse:
 
       // Update allocations from frontier point weights
       if (point.weights) {
-        const assets = lastData.allocations || [];
-        const updatedAllocs = assets.map(function(a) {
-          return Object.assign({}, a, { weight: point.weights[a.asset_code] || 0 });
+        const currentRiskMap = Object.fromEntries((lastData.allocations || []).map(function(a) {
+          return [a.asset_code, a.risk_contribution || 0];
+        }));
+        const updatedAllocs = groupStockWeightsBySector(point.weights).map(function(item) {
+          return {
+            asset_code: item.asset_code,
+            asset_name: item.asset_name,
+            weight: item.weight,
+            risk_contribution: currentRiskMap[item.asset_code] || 0,
+          };
         });
         lastData.allocations = updatedAllocs;
         lastAllocations = updatedAllocs;
@@ -2049,13 +2126,8 @@ def render_homepage() -> HTMLResponse:
       renderOptions(lastData.frontier_options || [], point);
 
       // Animate selected dot to new position (no full chart re-render)
-      const allocations = lastData.allocations || [];
-      const assetNameMap = {};
-      allocations.forEach(a => { assetNameMap[a.asset_code] = a.asset_name; });
-      const allocArr = Object.entries(point.weights || {})
-        .filter(([, w]) => w > 0.001)
-        .sort(([, a], [, b]) => b - a)
-        .map(([code, w]) => ({ name: assetNameMap[code] || code, code: code, weight: w }));
+      const allocArr = groupStockWeightsBySector(point.weights || {})
+        .map((item) => ({ name: item.asset_name, code: item.asset_code, weight: item.weight }));
       const allocJSON = JSON.stringify(allocArr).replace(/"/g, '&quot;');
       animateSelectedDot(point, allocJSON);
     }
@@ -2346,14 +2418,13 @@ def render_homepage() -> HTMLResponse:
 
         const stocks = selectedStocksForSector(code);
         if (stocks && stocks.length > 0) {
-          const totalPct = parseFloat(value) || 0;
-          const perStockPct = (totalPct / stocks.length).toFixed(1);
           html += '<div class="donut-tooltip-stocks">';
           stocks.forEach(function(s) {
+            const stockPct = ((s.weight || 0) * 100).toFixed(1);
             html += '<div class="donut-tooltip-stock">';
             html += '<span class="donut-tooltip-stock-ticker">' + s.ticker + '</span>';
             html += '<span>' + s.name + '</span>';
-            html += '<span class="donut-tooltip-stock-pct">' + perStockPct + '%</span>';
+            html += '<span class="donut-tooltip-stock-pct">' + stockPct + '%</span>';
             html += '</div>';
           });
           html += '</div>';

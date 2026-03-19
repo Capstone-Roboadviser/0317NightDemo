@@ -21,6 +21,19 @@ class ConstraintEngine:
         asset_codes = [asset.code for asset in assets]
         lower_bounds = np.array([asset.min_weight for asset in assets], dtype=float)
         upper_bounds = np.array([asset.max_weight for asset in assets], dtype=float)
+        return self.build_for_codes(asset_codes, lower_bounds=lower_bounds, upper_bounds=upper_bounds)
+
+    def build_for_codes(
+        self,
+        asset_codes: list[str],
+        *,
+        lower_bounds: np.ndarray | None = None,
+        upper_bounds: np.ndarray | None = None,
+    ) -> ConstraintSet:
+        if lower_bounds is None:
+            lower_bounds = np.zeros(len(asset_codes), dtype=float)
+        if upper_bounds is None:
+            upper_bounds = np.ones(len(asset_codes), dtype=float)
 
         if lower_bounds.sum() > 1 + 1e-9:
             raise RuntimeError("최소 비중 합이 1을 초과해 제약조건이 성립하지 않습니다.")
@@ -34,7 +47,7 @@ class ConstraintEngine:
         if remaining > 0 and headroom.sum() > 0:
             initial_weights += (headroom / headroom.sum()) * remaining
 
-        bounds = tuple((asset.min_weight, asset.max_weight) for asset in assets)
+        bounds = tuple((float(lower), float(upper)) for lower, upper in zip(lower_bounds, upper_bounds))
         scipy_constraints = ({"type": "eq", "fun": lambda weights: np.sum(weights) - 1.0},)
         return ConstraintSet(
             asset_codes=asset_codes,

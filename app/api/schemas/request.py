@@ -9,7 +9,7 @@ class PortfolioSimulationRequest(BaseModel):
     investment_horizon: InvestmentHorizon = Field(..., description="투자 기간")
     data_source: SimulationDataSource = Field(
         default=SimulationDataSource.MANAGED_UNIVERSE,
-        description="계산에 사용할 데이터 소스. 기본값은 관리자 유니버스이며, 미설정 시 데모 조합으로 대체됩니다.",
+        description="계산에 사용할 데이터 소스. 기본값은 관리자 유니버스이며, 미설정 시 데모 종목 유니버스로 대체됩니다.",
     )
     target_volatility: float | None = Field(
         default=None,

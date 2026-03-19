@@ -808,7 +808,7 @@ def render_admin_page() -> HTMLResponse:
 
         <section class="card">
           <h2>시뮬레이션 준비 상태</h2>
-          <p class="card-copy">가격 적재와는 별도로, 현재 active 유니버스가 실제 조합 탐색과 Efficient Frontier 계산까지 가능한지 점검합니다.</p>
+          <p class="card-copy">가격 적재와는 별도로, 현재 active 유니버스가 종목 단위 Efficient Frontier 계산까지 가능한지 점검합니다.</p>
           <div class="toolbar" style="margin-bottom: 14px;">
             <button class="ghost-btn" id="reload-readiness-btn">준비 상태 점검</button>
           </div>
@@ -822,7 +822,7 @@ def render_admin_page() -> HTMLResponse:
               <div class="status-value" id="readiness-version-name">-</div>
             </div>
             <div class="readiness-tile">
-              <div class="status-label">가격 티커 수</div>
+              <div class="status-label">최적화 티커 수</div>
               <div class="status-value" id="readiness-priced-ticker-count">0</div>
             </div>
             <div class="readiness-tile">
@@ -837,7 +837,7 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
           <div class="readiness-section">
-            <div class="readiness-title">섹터별 준비 상태</div>
+            <div class="readiness-title">섹터 분포</div>
             <div class="sector-check-list" id="readiness-sector-checks">
               <div class="empty">섹터별 진단 결과가 없습니다.</div>
             </div>
@@ -1324,7 +1324,7 @@ def render_admin_page() -> HTMLResponse:
               <div class="sector-check-meta">${item.sector_code}</div>
             </div>
             <span class="pill ${item.ready ? "success" : "danger"}">
-              필요 ${item.required_count} / 현재 ${item.actual_count}
+              ${item.required_count > 0 ? `필요 ${item.required_count} / 현재 ${item.actual_count}` : `현재 ${item.actual_count}개`}
             </span>
           </div>
         `).join("");

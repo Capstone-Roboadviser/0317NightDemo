@@ -5,10 +5,6 @@ from dataclasses import dataclass
 import pandas as pd
 
 from app.core.config import (
-    DEMO_COMBINATION_SAMPLE_COUNT,
-    DEMO_COMBINATION_SELECTION_SIZES,
-    DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
-    DEMO_COMBINATION_WEIGHTING,
     DEMO_STOCK_PRICES_PATH,
     DEMO_STOCK_UNIVERSE_PATH,
     FALLBACK_WEIGHTS,
@@ -29,6 +25,7 @@ from app.domain.models import (
     ManagedUniverseReadiness,
     ManagedUniverseSectorReadiness,
     PortfolioSimulationResult,
+    StockInstrument,
     UserProfile,
 )
 from app.engine.constraints import ConstraintEngine
@@ -36,8 +33,7 @@ from app.engine.covariance import ShrinkageCovarianceModel
 from app.engine.frontier import build_frontier_options, select_frontier_point_index
 from app.engine.math import portfolio_metrics_from_weights, risk_contributions
 from app.engine.optimizer import EfficientFrontierOptimizer
-from app.engine.returns import AssumptionReturnModel, ExpectedReturnModel
-from app.services.combination_search_service import CombinationSearchConfig, CombinationSearchService
+from app.engine.returns import AssumptionReturnModel, ExpectedReturnModel, HistoricalMeanReturnModel
 from app.services.explanation_service import ExplanationService
 from app.services.managed_universe_service import ManagedUniverseService
 from app.services.mapping_service import ProfileMappingService
@@ -46,6 +42,7 @@ from app.services.mapping_service import ProfileMappingService
 @dataclass
 class EngineContext:
     assets: list[AssetClass]
+    instruments: list[StockInstrument]
     expected_returns: pd.Series
     covariance: pd.DataFrame
     frontier_points: list[FrontierPoint]
@@ -61,7 +58,7 @@ class PortfolioSimulationService:
         self.mapping_service = ProfileMappingService()
         self.explanation_service = ExplanationService()
         self.return_model = return_model or AssumptionReturnModel()
-        self.combination_service = CombinationSearchService()
+        self.stock_return_model = HistoricalMeanReturnModel(shrinkage=0.25)
         self.managed_universe_service = ManagedUniverseService()
         self.covariance_model = ShrinkageCovarianceModel()
         self.constraint_engine = ConstraintEngine()
@@ -152,11 +149,11 @@ class PortfolioSimulationService:
                 sector_checks=sector_checks,
             )
 
+        priced_ticker_count = int(prices["ticker"].astype(str).str.upper().nunique())
         stock_returns = StockDataRepository().build_stock_returns(prices)
-        priced_ticker_count = int(prices["ticker"].nunique())
         stock_return_rows = int(len(stock_returns))
 
-        if stock_returns.empty:
+        if stock_return_rows == 0:
             issues.append("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
             return ManagedUniverseReadiness(
                 ready=False,
@@ -172,21 +169,12 @@ class PortfolioSimulationService:
             )
 
         try:
-            engine_data = self.combination_service.build_engine_data_from_market_data(
-                instruments=instruments,
-                prices=prices,
-                config=CombinationSearchConfig(
-                    selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
-                    sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
-                    per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
-                    use_all_instruments_per_sector=DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
-                ),
-            )
+            optimized_returns = self._prepare_stock_returns_for_optimization(instruments, prices)
         except (RuntimeError, ValueError) as exc:
             issues.append(str(exc))
             return ManagedUniverseReadiness(
                 ready=False,
-                summary="가격 적재는 완료됐지만 조합 탐색 또는 frontier 계산에서 막혔습니다.",
+                summary="가격 적재는 완료됐지만 종목 단위 최적화 입력을 만들지 못했습니다.",
                 issues=issues,
                 active_version_name=active_version.version_name,
                 instrument_count=len(instruments),
@@ -197,31 +185,22 @@ class PortfolioSimulationService:
                 sector_checks=sector_checks,
             )
 
-        search_result = engine_data.search_result
-        selected_combination = CombinationSelectionView(
-            combination_id=search_result.best_evaluation.combination_id,
-            members_by_sector=search_result.best_evaluation.members_by_sector,
-            total_combinations_tested=search_result.total_combinations_tested,
-            successful_combinations=search_result.successful_combinations,
-            discard_reasons=search_result.discard_reasons,
-        )
-        effective_history_rows = int(search_result.best_evaluation.sector_returns_shape[0])
+        effective_history_rows = int(optimized_returns.count().min()) if not optimized_returns.empty else 0
         return ManagedUniverseReadiness(
             ready=True,
-            summary=(
-                f"시뮬레이션 준비 완료 · 등록된 전 종목을 사용했고 유효 공통 히스토리는 {effective_history_rows}행입니다."
-                if DEMO_COMBINATION_USE_ALL_INSTRUMENTS
-                else f"시뮬레이션 준비 완료 · {search_result.successful_combinations}개 조합을 평가했고 유효 공통 히스토리는 {effective_history_rows}행입니다."
-            ),
+            summary=f"시뮬레이션 준비 완료 · 등록된 종목 {optimized_returns.shape[1]}개로 직접 Efficient Frontier를 계산할 수 있습니다.",
             issues=[],
             active_version_name=active_version.version_name,
             instrument_count=len(instruments),
-            priced_ticker_count=priced_ticker_count,
+            priced_ticker_count=int(optimized_returns.shape[1]),
             stock_return_rows=stock_return_rows,
             effective_history_rows=effective_history_rows,
             minimum_history_rows=MINIMUM_HISTORY_ROWS,
             sector_checks=sector_checks,
-            selected_combination=selected_combination,
+            selected_combination=self._build_universe_selection(
+                combination_id=active_version.version_name,
+                instruments=instruments,
+            ),
         )
 
     def simulate(self, user_profile: UserProfile) -> PortfolioSimulationResult:
@@ -240,19 +219,16 @@ class PortfolioSimulationService:
             RISK_FREE_RATE,
         )
         contribution_map = risk_contributions(selected_point.weights, context.covariance)
-        asset_names = {asset.code: asset.name for asset in context.assets}
-        allocations = [
-            AllocationView(
-                asset_code=code,
-                asset_name=asset_names[code],
-                weight=weight,
-                risk_contribution=contribution_map[code],
-            )
-            for code, weight in selected_point.weights.items()
-        ]
+        allocations = self._build_sector_allocations(
+            stock_weights=selected_point.weights,
+            stock_risk_contributions=contribution_map,
+            assets=context.assets,
+            instruments=context.instruments,
+        )
+        display_selected_point = self._to_sector_frontier_point(selected_point, context.instruments)
 
         summary = self.explanation_service.build_summary(
-            selected_point=selected_point,
+            selected_point=display_selected_point,
             target_volatility=target_volatility,
             assets=context.assets,
             used_fallback=context.used_fallback,
@@ -266,18 +242,12 @@ class PortfolioSimulationService:
             mode_label = (
                 "관리자 유니버스 모드"
                 if context.data_source == SimulationDataSource.MANAGED_UNIVERSE
-                else "개별 종목 조합 모드"
+                else "개별 종목 유니버스 모드"
             )
-            if DEMO_COMBINATION_USE_ALL_INSTRUMENTS:
-                summary += f" {mode_label}에서는 각 섹터에 등록된 전 종목을 모두 사용해 자산군 수익률을 구성했습니다."
-            else:
-                summary += (
-                    f" {mode_label}에서는 {context.selected_combination.total_combinations_tested}개 조합 중 "
-                    f"{context.selected_combination.successful_combinations}개를 평가해 가장 효율적인 조합을 자산군 입력값으로 사용했습니다."
-                )
+            summary += f" {mode_label}에서는 등록된 전 종목을 직접 최적화 유니버스로 사용했습니다."
             explanation_body += (
-                f" 현재 적용된 조합 ID는 '{context.selected_combination.combination_id}'이며, "
-                "섹터별로 선택된 종목 묶음의 수익률 시계열을 집계해 효율적 투자선을 다시 계산했습니다."
+                f" 현재 적용된 유니버스 ID는 '{context.selected_combination.combination_id}'이며, "
+                "개별 종목 수익률을 직접 사용해 효율적 투자선을 계산한 뒤, 화면에서는 이를 섹터 기준으로 다시 묶어 보여주고 있습니다."
             )
 
         return PortfolioSimulationResult(
@@ -290,7 +260,7 @@ class PortfolioSimulationService:
             data_source_label=context.data_source_label,
             target_volatility=target_volatility,
             metrics=metrics,
-            weights=selected_point.weights,
+            weights=display_selected_point.weights,
             allocations=allocations,
             frontier_points=context.frontier_points,
             frontier_options=build_frontier_options(context.frontier_points),
@@ -305,12 +275,12 @@ class PortfolioSimulationService:
             managed_context = self._prepare_managed_universe_context(allow_fallback=True)
             if managed_context is not None:
                 return managed_context
-            return self._prepare_stock_combination_context(
+            return self._prepare_demo_stock_universe_context(
                 source=SimulationDataSource.STOCK_COMBINATION_DEMO,
-                label="관리자 유니버스 미설정 - 데모 조합 사용",
+                label="관리자 유니버스 미설정 - 데모 종목 사용",
             )
         if user_profile.data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
-            return self._prepare_stock_combination_context()
+            return self._prepare_demo_stock_universe_context()
         return self._prepare_assumption_context()
 
     def _prepare_assumption_context(self) -> EngineContext:
@@ -352,6 +322,7 @@ class PortfolioSimulationService:
 
         return EngineContext(
             assets=assets,
+            instruments=[],
             expected_returns=expected_returns.reindex([asset.code for asset in assets]),
             covariance=covariance.reindex(index=[asset.code for asset in assets], columns=[asset.code for asset in assets]),
             frontier_points=sorted(frontier_points, key=lambda point: point.volatility),
@@ -376,79 +347,200 @@ class PortfolioSimulationService:
                 "활성 관리자 유니버스의 가격 데이터가 없습니다. /admin 에서 가격 갱신을 먼저 실행해주세요."
             )
 
-        try:
-            engine_data = self.combination_service.build_engine_data_from_market_data(
-                instruments=instruments,
-                prices=prices,
-                config=CombinationSearchConfig(
-                    selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
-                    sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
-                    per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
-                    use_all_instruments_per_sector=DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
-                ),
-            )
-        except ValueError as exc:
-            raise RuntimeError(
-                f"관리자 유니버스 기반 시뮬레이션 계산 중 데이터 형식 오류가 발생했습니다: {exc}"
-            ) from exc
-        search_result = engine_data.search_result
-        selected_combination = CombinationSelectionView(
-            combination_id=search_result.best_evaluation.combination_id,
-            members_by_sector=search_result.best_evaluation.members_by_sector,
-            total_combinations_tested=search_result.total_combinations_tested,
-            successful_combinations=search_result.successful_combinations,
-            discard_reasons=search_result.discard_reasons,
+        selection = self._build_universe_selection(
+            combination_id=active_version.version_name,
+            instruments=instruments,
+        )
+        expected_returns, covariance, frontier_points, random_portfolios = self._build_stock_frontier_context(
+            instruments=instruments,
+            prices=prices,
         )
         return EngineContext(
-            assets=engine_data.assets,
-            expected_returns=engine_data.expected_returns,
-            covariance=engine_data.covariance,
-            frontier_points=engine_data.frontier_points,
-            random_portfolios=engine_data.random_portfolios,
+            assets=self.list_assets(),
+            instruments=instruments,
+            expected_returns=expected_returns,
+            covariance=covariance,
+            frontier_points=frontier_points,
+            random_portfolios=random_portfolios,
             used_fallback=False,
             data_source=SimulationDataSource.MANAGED_UNIVERSE,
             data_source_label=f"관리자 종목 유니버스 ({active_version.version_name})",
-            selected_combination=selected_combination,
+            selected_combination=selection,
         )
 
-    def _prepare_stock_combination_context(
+    def _prepare_demo_stock_universe_context(
         self,
         *,
         source: SimulationDataSource = SimulationDataSource.STOCK_COMBINATION_DEMO,
-        label: str = "개별주식 조합 데모",
+        label: str = "개별 종목 데모 유니버스",
     ) -> EngineContext:
-        engine_data = self.combination_service.build_engine_data(
-            stock_universe_path=str(DEMO_STOCK_UNIVERSE_PATH),
-            stock_prices_path=str(DEMO_STOCK_PRICES_PATH),
-            config=CombinationSearchConfig(
-                selection_sizes=DEMO_COMBINATION_SELECTION_SIZES,
-                sample_count=DEMO_COMBINATION_SAMPLE_COUNT,
-                per_sector_weighting=DEMO_COMBINATION_WEIGHTING,
-                use_all_instruments_per_sector=DEMO_COMBINATION_USE_ALL_INSTRUMENTS,
-            ),
+        instruments = self._load_demo_instruments()
+        prices = StockDataRepository().load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
+        selection = self._build_universe_selection(
+            combination_id="demo-stock-universe",
+            instruments=instruments,
         )
-        search_result = engine_data.search_result
-        selected_combination = CombinationSelectionView(
-            combination_id=search_result.best_evaluation.combination_id,
-            members_by_sector=search_result.best_evaluation.members_by_sector,
-            total_combinations_tested=search_result.total_combinations_tested,
-            successful_combinations=search_result.successful_combinations,
-            discard_reasons=search_result.discard_reasons,
+        expected_returns, covariance, frontier_points, random_portfolios = self._build_stock_frontier_context(
+            instruments=instruments,
+            prices=prices,
         )
         return EngineContext(
-            assets=engine_data.assets,
-            expected_returns=engine_data.expected_returns,
-            covariance=engine_data.covariance,
-            frontier_points=engine_data.frontier_points,
-            random_portfolios=engine_data.random_portfolios,
+            assets=self.list_assets(),
+            instruments=instruments,
+            expected_returns=expected_returns,
+            covariance=covariance,
+            frontier_points=frontier_points,
+            random_portfolios=random_portfolios,
             used_fallback=False,
             data_source=source,
             data_source_label=label,
-            selected_combination=selected_combination,
+            selected_combination=selection,
         )
 
     def _load_demo_instruments(self):
         return StockDataRepository().load_stock_universe(str(DEMO_STOCK_UNIVERSE_PATH))
+
+    def _build_stock_frontier_context(
+        self,
+        *,
+        instruments: list[StockInstrument],
+        prices: pd.DataFrame,
+    ) -> tuple[pd.Series, pd.DataFrame, list[FrontierPoint], list[tuple[float, float, dict[str, float]]]]:
+        optimized_returns = self._prepare_stock_returns_for_optimization(instruments, prices)
+        instrument_codes = list(optimized_returns.columns)
+        constraints = self.constraint_engine.build_for_codes(instrument_codes)
+        expected_returns = self._build_stock_expected_returns(optimized_returns)
+        covariance = self.covariance_model.calculate(optimized_returns)
+        frontier_points = self.optimizer.build_frontier(
+            expected_returns=expected_returns.reindex(constraints.asset_codes),
+            covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
+            constraints=constraints,
+            point_count=FRONTIER_POINT_COUNT,
+        )
+        random_portfolios = self.optimizer.sample_random_portfolios(
+            expected_returns=expected_returns.reindex(constraints.asset_codes),
+            covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
+            constraints=constraints,
+            sample_count=RANDOM_PORTFOLIO_COUNT,
+        )
+        return (
+            expected_returns.reindex(instrument_codes).astype(float),
+            covariance.reindex(index=instrument_codes, columns=instrument_codes).astype(float),
+            sorted(frontier_points, key=lambda point: point.volatility),
+            random_portfolios,
+        )
+
+    def _prepare_stock_returns_for_optimization(
+        self,
+        instruments: list[StockInstrument],
+        prices: pd.DataFrame,
+    ) -> pd.DataFrame:
+        stock_returns = StockDataRepository().build_stock_returns(prices)
+        if stock_returns.empty:
+            raise RuntimeError("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
+
+        instrument_codes = [instrument.ticker.upper() for instrument in instruments]
+        stock_returns = stock_returns.reindex(columns=instrument_codes)
+        non_empty_returns = stock_returns.dropna(axis=1, how="all")
+        if non_empty_returns.empty:
+            raise RuntimeError("활성 유니버스 종목의 수익률 시계열을 생성하지 못했습니다.")
+
+        valid_counts = non_empty_returns.count()
+        eligible_codes = sorted(valid_counts[valid_counts >= MINIMUM_HISTORY_ROWS].index.tolist())
+        if len(eligible_codes) < 2:
+            available_text = ", ".join(
+                f"{code}({int(valid_counts.get(code, 0))}행)"
+                for code in valid_counts.sort_values(ascending=False).index[:8]
+            )
+            raise RuntimeError(
+                "최소 252영업일 이상의 수익률 이력이 있는 종목이 2개 이상 필요합니다. "
+                f"현재 유효 후보: {available_text or '없음'}"
+            )
+
+        eligible_returns = non_empty_returns[eligible_codes].copy()
+        if eligible_returns.isna().all(axis=1).all():
+            raise RuntimeError("유효 종목들의 공통 수익률 구간을 만들지 못했습니다.")
+        return eligible_returns
+
+    def _build_stock_expected_returns(self, stock_returns: pd.DataFrame) -> pd.Series:
+        instrument_codes = list(stock_returns.columns)
+        return self.stock_return_model.calculate(
+            ExpectedReturnModelInput(
+                asset_codes=instrument_codes,
+                returns=stock_returns,
+            )
+        )
+
+    def _build_universe_selection(
+        self,
+        *,
+        combination_id: str,
+        instruments: list[StockInstrument],
+    ) -> CombinationSelectionView:
+        members_by_sector: dict[str, list[str]] = {}
+        by_sector: dict[str, list[str]] = {}
+        for instrument in instruments:
+            by_sector.setdefault(instrument.sector_code, []).append(instrument.ticker)
+        for sector_code, tickers in by_sector.items():
+            members_by_sector[sector_code] = sorted(set(tickers))
+        return CombinationSelectionView(
+            combination_id=combination_id,
+            members_by_sector=members_by_sector,
+            total_combinations_tested=1,
+            successful_combinations=1,
+            discard_reasons={},
+        )
+
+    def _aggregate_sector_weights(
+        self,
+        stock_weights: dict[str, float],
+        instruments: list[StockInstrument],
+    ) -> dict[str, float]:
+        sector_by_ticker = {instrument.ticker.upper(): instrument.sector_code for instrument in instruments}
+        aggregated: dict[str, float] = {}
+        for ticker, weight in stock_weights.items():
+            sector_code = sector_by_ticker.get(str(ticker).upper())
+            if sector_code is None:
+                continue
+            aggregated[sector_code] = aggregated.get(sector_code, 0.0) + float(weight)
+        return aggregated
+
+    def _build_sector_allocations(
+        self,
+        *,
+        stock_weights: dict[str, float],
+        stock_risk_contributions: dict[str, float],
+        assets: list[AssetClass],
+        instruments: list[StockInstrument],
+    ) -> list[AllocationView]:
+        sector_weights = self._aggregate_sector_weights(stock_weights, instruments)
+        sector_risk_contributions = self._aggregate_sector_weights(stock_risk_contributions, instruments)
+        asset_by_code = {asset.code: asset for asset in assets}
+        allocations: list[AllocationView] = []
+        for sector_code, weight in sorted(sector_weights.items(), key=lambda item: item[1], reverse=True):
+            asset = asset_by_code.get(sector_code)
+            if asset is None:
+                continue
+            allocations.append(
+                AllocationView(
+                    asset_code=asset.code,
+                    asset_name=asset.name,
+                    weight=float(weight),
+                    risk_contribution=float(sector_risk_contributions.get(sector_code, 0.0)),
+                )
+            )
+        return allocations
+
+    def _to_sector_frontier_point(
+        self,
+        point: FrontierPoint,
+        instruments: list[StockInstrument],
+    ) -> FrontierPoint:
+        return FrontierPoint(
+            volatility=point.volatility,
+            expected_return=point.expected_return,
+            weights=self._aggregate_sector_weights(point.weights, instruments),
+        )
 
     def _build_sector_checks(
         self,
@@ -463,11 +555,9 @@ class PortfolioSimulationService:
             ManagedUniverseSectorReadiness(
                 sector_code=asset.code,
                 sector_name=asset.name,
-                required_count=1 if DEMO_COMBINATION_USE_ALL_INSTRUMENTS else int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0)),
+                required_count=0,
                 actual_count=int(counts_by_sector.get(asset.code, 0)),
-                ready=int(counts_by_sector.get(asset.code, 0)) >= (
-                    1 if DEMO_COMBINATION_USE_ALL_INSTRUMENTS else int(DEMO_COMBINATION_SELECTION_SIZES.get(asset.code, 0))
-                ),
+                ready=True,
             )
             for asset in assets
         ]

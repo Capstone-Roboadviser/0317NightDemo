@@ -64,6 +64,16 @@ class ManagedUniverseVersionCreateRequest(BaseModel):
         return [item.to_domain() for item in self.instruments]
 
 
+class ManagedUniverseVersionUpdateRequest(BaseModel):
+    version_name: str = Field(..., description="수정할 관리자 유니버스 버전명")
+    notes: str | None = Field(default=None, description="버전 메모")
+    activate: bool = Field(default=False, description="수정 후 활성화 여부. false면 현재 active 상태를 유지합니다.")
+    instruments: list[ManagedUniverseItemRequest] = Field(..., min_length=1, description="수정된 종목 유니버스 목록")
+
+    def to_domain_instruments(self) -> list[StockInstrument]:
+        return [item.to_domain() for item in self.instruments]
+
+
 class PriceRefreshRequest(BaseModel):
     version_id: int | None = Field(default=None, description="가격 갱신 대상 유니버스 버전. 없으면 active 버전 사용")
     refresh_mode: PriceRefreshMode = Field(default=PriceRefreshMode.INCREMENTAL, description="증분 갱신 또는 전체 백필")

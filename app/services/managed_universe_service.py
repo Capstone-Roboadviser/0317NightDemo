@@ -81,3 +81,47 @@ class ManagedUniverseService:
     def activate_version(self, version_id: int) -> ManagedUniverseVersion:
         self.initialize_storage()
         return self.repository.activate_version(version_id)
+
+    def get_version(self, version_id: int) -> ManagedUniverseVersion | None:
+        return self.repository.get_version(version_id)
+
+    def get_version_instruments(self, version_id: int) -> list[StockInstrument]:
+        return self.repository.get_instruments_for_version(version_id)
+
+    def update_version(
+        self,
+        *,
+        version_id: int,
+        version_name: str,
+        instruments: list[StockInstrument],
+        notes: str | None = None,
+        activate: bool = False,
+    ) -> ManagedUniverseVersion:
+        self.initialize_storage()
+        validated = self.stock_repository.parse_stock_universe_frame(
+            pd.DataFrame(
+                [
+                    {
+                        "ticker": item.ticker,
+                        "name": item.name,
+                        "sector_code": item.sector_code,
+                        "sector_name": item.sector_name,
+                        "market": item.market,
+                        "currency": item.currency,
+                        "base_weight": item.base_weight,
+                    }
+                    for item in instruments
+                ]
+            )
+        )
+        return self.repository.update_universe_version(
+            version_id=version_id,
+            version_name=version_name,
+            instruments=validated,
+            notes=notes,
+            activate=activate,
+        )
+
+    def delete_version(self, version_id: int) -> None:
+        self.initialize_storage()
+        self.repository.delete_universe_version(version_id)

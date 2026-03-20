@@ -261,6 +261,77 @@ class ManagedUniverseRepository:
             raise RuntimeError("활성화한 유니버스 버전을 다시 읽지 못했습니다.")
         return activated
 
+    def update_universe_version(
+        self,
+        *,
+        version_id: int,
+        version_name: str,
+        instruments: list[StockInstrument],
+        notes: str | None = None,
+        activate: bool = False,
+    ) -> ManagedUniverseVersion:
+        self._ensure_ready()
+        current = self.get_version(version_id)
+        if current is None:
+            raise RuntimeError(f"유니버스 버전 {version_id}를 찾을 수 없습니다.")
+        if not instruments:
+            raise RuntimeError("비어 있는 종목 유니버스는 저장할 수 없습니다.")
+
+        should_activate = activate or current.is_active
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                if should_activate:
+                    cursor.execute("UPDATE universe_versions SET is_active = FALSE")
+                cursor.execute(
+                    """
+                    UPDATE universe_versions
+                    SET version_name = %s,
+                        notes = %s,
+                        is_active = %s
+                    WHERE id = %s
+                    """,
+                    (version_name, notes, should_activate, version_id),
+                )
+                cursor.execute("DELETE FROM universe_items WHERE version_id = %s", (version_id,))
+                cursor.executemany(
+                    """
+                    INSERT INTO universe_items (
+                        version_id, ticker, name, sector_code, sector_name, market, currency, base_weight
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (
+                            version_id,
+                            item.ticker,
+                            item.name,
+                            item.sector_code,
+                            item.sector_name,
+                            item.market,
+                            item.currency,
+                            item.base_weight,
+                        )
+                        for item in instruments
+                    ],
+                )
+            connection.commit()
+
+        updated = self.get_version(version_id)
+        if updated is None:
+            raise RuntimeError("수정한 유니버스 버전을 다시 읽지 못했습니다.")
+        return updated
+
+    def delete_universe_version(self, version_id: int) -> None:
+        self._ensure_ready()
+        current = self.get_version(version_id)
+        if current is None:
+            raise RuntimeError(f"유니버스 버전 {version_id}를 찾을 수 없습니다.")
+
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM universe_versions WHERE id = %s", (version_id,))
+            connection.commit()
+
     def get_active_instruments(self) -> list[StockInstrument]:
         active = self.get_active_version()
         if active is None:

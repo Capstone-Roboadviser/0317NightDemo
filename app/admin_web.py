@@ -847,10 +847,10 @@ def render_admin_page() -> HTMLResponse:
         <section class="card">
           <div class="builder-head">
             <div>
-              <h2>수기 유니버스 생성</h2>
-              <p class="card-copy">관리자는 섹터 탭을 눌러 각 섹터의 종목 후보군을 관리합니다. 티커를 직접 입력한 뒤 자동채움을 누르거나, 검색 결과에서 바로 추가할 수 있습니다.</p>
+              <h2>유니버스 편집기</h2>
+              <p class="card-copy">신규 유니버스를 만들거나, 저장된 버전을 불러와 그대로 수정할 수 있습니다. 섹터 탭을 눌러 종목을 관리하고, 티커 자동채움이나 검색 결과 추가를 함께 사용할 수 있습니다.</p>
             </div>
-            <span class="pill warn">섹터 탭 관리</span>
+            <span class="pill warn" id="editor-mode-pill">신규 생성</span>
           </div>
 
           <div class="form-grid">
@@ -865,12 +865,17 @@ def render_admin_page() -> HTMLResponse:
           </div>
 
           <div class="builder-summary">
+            <div class="summary-pill">편집 상태 <span id="editor-mode-summary">새 유니버스</span></div>
             <div class="summary-pill">총 섹터 수 <span id="sector-count-summary">8</span></div>
             <div class="summary-pill">입력 종목 수 <span id="instrument-count-summary">0</span></div>
           </div>
           <div class="sector-tabs" id="sector-tabs"></div>
           <div class="sector-panel-wrap" id="builder-rows"></div>
+          <p class="card-copy" id="editor-status-copy" style="margin-top: 14px; margin-bottom: 0;">
+            현재는 새 버전 생성 모드입니다. 기존 버전을 수정하려면 오른쪽 목록에서 `수정`을 누르세요.
+          </p>
           <div class="toolbar" style="margin-top: 14px;">
+            <button class="ghost-btn" id="reset-builder-btn">새 유니버스 작성</button>
             <button class="primary-btn" id="create-version-btn">버전 생성 및 활성화</button>
           </div>
         </section>
@@ -913,7 +918,7 @@ def render_admin_page() -> HTMLResponse:
 
         <section class="card">
           <h2>유니버스 버전 목록</h2>
-          <p class="card-copy">현재 저장된 버전과 active 여부를 확인하고, 필요한 버전을 바로 활성화할 수 있습니다.</p>
+          <p class="card-copy">현재 저장된 버전의 active 여부를 확인하고, 필요하면 바로 활성화하거나 편집기에서 수정/삭제할 수 있습니다.</p>
           <div id="version-table-wrap" class="table-wrap">
             <table>
               <thead>
@@ -937,10 +942,10 @@ def render_admin_page() -> HTMLResponse:
         <section class="card">
           <h2>빠른 가이드</h2>
           <div class="empty">
-            1. DATABASE_URL 연결<br/>
-            2. 수기 유니버스 생성<br/>
+            1. 섹터별 종목을 입력해 버전을 생성하거나 기존 버전을 수정<br/>
+            2. 필요한 버전을 active 로 전환<br/>
             3. 가격 갱신 실행<br/>
-            4. 메인 시뮬레이터(`/`)에서 결과 확인
+            4. 시뮬레이션 준비 상태를 확인한 뒤 메인 시뮬레이터(`/`)에서 결과 확인
           </div>
         </section>
       </div>
@@ -965,6 +970,11 @@ def render_admin_page() -> HTMLResponse:
     const versionsBodyEl = document.getElementById("versions-body");
     const instrumentCountSummaryEl = document.getElementById("instrument-count-summary");
     const sectorCountSummaryEl = document.getElementById("sector-count-summary");
+    const editorModePillEl = document.getElementById("editor-mode-pill");
+    const editorModeSummaryEl = document.getElementById("editor-mode-summary");
+    const editorStatusCopyEl = document.getElementById("editor-status-copy");
+    const manualVersionNameEl = document.getElementById("manual-version-name");
+    const manualNotesEl = document.getElementById("manual-notes");
     const jobDetailListEl = document.getElementById("job-detail-list");
     const jobDetailSummaryEl = document.getElementById("job-detail-summary");
     const readinessPillEl = document.getElementById("readiness-pill");
@@ -977,7 +987,12 @@ def render_admin_page() -> HTMLResponse:
     const reloadReadinessBtn = document.getElementById("reload-readiness-btn");
     const refreshPricesBtn = document.getElementById("refresh-prices-btn");
     const checkPriceStatusBtn = document.getElementById("check-price-status-btn");
+    const resetBuilderBtn = document.getElementById("reset-builder-btn");
+    const createVersionBtn = document.getElementById("create-version-btn");
     let activeSectorCode = sectorOptions[0].code;
+    let editingVersionId = null;
+    let editingVersionName = null;
+    let editingVersionIsActive = false;
 
     function logMessage(message, payload) {
       const lines = [message];
@@ -985,6 +1000,40 @@ def render_admin_page() -> HTMLResponse:
         lines.push(typeof payload === "string" ? payload : JSON.stringify(payload, null, 2));
       }
       adminLogEl.textContent = lines.join("\\n\\n");
+    }
+
+    function setEditorMode({ editing = false, versionId = null, versionName = null, isActive = false } = {}) {
+      editingVersionId = editing ? versionId : null;
+      editingVersionName = editing ? versionName : null;
+      editingVersionIsActive = Boolean(editing && isActive);
+
+      if (editing) {
+        editorModePillEl.className = "pill success";
+        editorModePillEl.textContent = "버전 수정";
+        editorModeSummaryEl.textContent = `버전 #${versionId}`;
+        editorStatusCopyEl.textContent = `현재 '${versionName}' 버전을 편집 중입니다. 저장하면 기존 버전이 갱신되고, 삭제도 할 수 있습니다.`;
+        createVersionBtn.textContent = "버전 수정 저장";
+      } else {
+        editorModePillEl.className = "pill warn";
+        editorModePillEl.textContent = "신규 생성";
+        editorModeSummaryEl.textContent = "새 유니버스";
+        editorStatusCopyEl.textContent = "현재는 새 버전 생성 모드입니다. 기존 버전을 수정하려면 오른쪽 목록에서 `수정`을 누르세요.";
+        createVersionBtn.textContent = "버전 생성 및 활성화";
+      }
+    }
+
+    function clearBuilderRows() {
+      renderSectorPanels();
+      manualVersionNameEl.value = "";
+      manualNotesEl.value = "";
+      setActiveSector(sectorOptions[0].code);
+      updateSectorSummary();
+    }
+
+    function resetBuilderForm() {
+      clearBuilderRows();
+      setEditorMode();
+      logMessage("편집기 초기화", "새 유니버스 생성 모드로 전환했습니다.");
     }
 
     function updateSectorSummary() {
@@ -1264,6 +1313,40 @@ def render_admin_page() -> HTMLResponse:
       }).filter((item) => item.ticker || item.name || item.market || item.currency || item.base_weight !== null);
     }
 
+    async function loadVersionIntoBuilder(versionId) {
+      const data = await apiRequest(`/admin/universe/versions/${versionId}`);
+      clearBuilderRows();
+      manualVersionNameEl.value = data.version_name || "";
+      manualNotesEl.value = data.notes || "";
+      (data.instruments || []).forEach((item) => addBuilderRow(item));
+      setEditorMode({
+        editing: true,
+        versionId: data.version_id,
+        versionName: data.version_name,
+        isActive: data.is_active,
+      });
+      logMessage("유니버스 버전 불러오기 완료", {
+        version_id: data.version_id,
+        version_name: data.version_name,
+        instrument_count: (data.instruments || []).length,
+      });
+    }
+
+    async function deleteVersion(versionId) {
+      const versionText = String(versionId);
+      if (!window.confirm(`버전 #${versionText}를 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.`)) {
+        return;
+      }
+      const data = await apiRequest(`/admin/universe/versions/${versionId}`, {
+        method: "DELETE",
+      });
+      if (editingVersionId === versionId) {
+        resetBuilderForm();
+      }
+      logMessage("유니버스 버전 삭제 완료", data);
+      await reloadAll();
+    }
+
     async function apiRequest(path, options = {}) {
       const response = await fetch(path, {
         headers: { "Content-Type": "application/json" },
@@ -1392,6 +1475,8 @@ def render_admin_page() -> HTMLResponse:
               <button class="mini-btn ${item.is_active ? '' : 'primary'}" data-activate="${item.version_id}">
                 ${item.is_active ? '활성중' : '활성화'}
               </button>
+              <button class="mini-btn" data-edit="${item.version_id}">수정</button>
+              <button class="mini-btn" data-delete="${item.version_id}">삭제</button>
             </div>
           </td>
         </tr>
@@ -1406,6 +1491,28 @@ def render_admin_page() -> HTMLResponse:
             await reloadAll();
           } catch (error) {
             logMessage("버전 활성화 실패", error.message);
+          }
+        });
+      });
+
+      Array.from(document.querySelectorAll("[data-edit]")).forEach((button) => {
+        button.addEventListener("click", async () => {
+          const versionId = Number(button.getAttribute("data-edit"));
+          try {
+            await loadVersionIntoBuilder(versionId);
+          } catch (error) {
+            logMessage("버전 불러오기 실패", error.message);
+          }
+        });
+      });
+
+      Array.from(document.querySelectorAll("[data-delete]")).forEach((button) => {
+        button.addEventListener("click", async () => {
+          const versionId = Number(button.getAttribute("data-delete"));
+          try {
+            await deleteVersion(versionId);
+          } catch (error) {
+            logMessage("버전 삭제 실패", error.message);
           }
         });
       });
@@ -1477,46 +1584,51 @@ def render_admin_page() -> HTMLResponse:
     document.getElementById("reload-status-btn").addEventListener("click", reloadAll);
     checkPriceStatusBtn.addEventListener("click", reloadAll);
     reloadReadinessBtn.addEventListener("click", reloadReadiness);
+    resetBuilderBtn.addEventListener("click", resetBuilderForm);
 
-    document.getElementById("create-version-btn").addEventListener("click", async () => {
+    createVersionBtn.addEventListener("click", async () => {
       const instruments = collectBuilderRows();
       if (!instruments.length) {
-        logMessage("수기 버전 생성 실패", "최소 1개 종목을 입력해주세요.");
+        logMessage(editingVersionId ? "유니버스 수정 실패" : "수기 버전 생성 실패", "최소 1개 종목을 입력해주세요.");
         return;
       }
       const missingTicker = instruments.find((item) => !item.ticker);
       if (missingTicker) {
-        logMessage("수기 버전 생성 실패", "비어 있는 티커 행이 있습니다. 빈 행을 지우거나 티커를 입력해주세요.");
+        logMessage(editingVersionId ? "유니버스 수정 실패" : "수기 버전 생성 실패", "비어 있는 티커 행이 있습니다. 빈 행을 지우거나 티커를 입력해주세요.");
         return;
       }
       const invalidRows = instruments.filter((item) => !item.name || !item.market || !item.currency);
       if (invalidRows.length) {
-        logMessage("수기 버전 생성 실패", "자동채움이 완료되지 않은 종목이 있습니다. 각 행의 티커를 검증해주세요.");
+        logMessage(editingVersionId ? "유니버스 수정 실패" : "수기 버전 생성 실패", "자동채움이 완료되지 않은 종목이 있습니다. 각 행의 티커를 검증해주세요.");
         return;
       }
       const seenTickers = new Set();
       for (const item of instruments) {
         if (seenTickers.has(item.ticker)) {
-          logMessage("수기 버전 생성 실패", `중복 ticker가 있습니다: ${item.ticker}`);
+          logMessage(editingVersionId ? "유니버스 수정 실패" : "수기 버전 생성 실패", `중복 ticker가 있습니다: ${item.ticker}`);
           return;
         }
         seenTickers.add(item.ticker);
       }
       const payload = {
-        version_name: document.getElementById("manual-version-name").value.trim() || `manual-${Date.now()}`,
-        notes: document.getElementById("manual-notes").value.trim() || null,
-        activate: true,
+        version_name: manualVersionNameEl.value.trim() || `manual-${Date.now()}`,
+        notes: manualNotesEl.value.trim() || null,
+        activate: editingVersionId ? editingVersionIsActive : true,
         instruments
       };
       try {
-        const data = await apiRequest("/admin/universe/versions", {
-          method: "POST",
+        const isEditing = Boolean(editingVersionId);
+        const path = isEditing ? `/admin/universe/versions/${editingVersionId}` : "/admin/universe/versions";
+        const method = isEditing ? "PUT" : "POST";
+        const data = await apiRequest(path, {
+          method,
           body: JSON.stringify(payload)
         });
-        logMessage("수기 유니버스 생성 완료", data);
+        logMessage(isEditing ? "유니버스 수정 완료" : "수기 유니버스 생성 완료", data);
         await reloadAll();
+        await loadVersionIntoBuilder(data.version_id);
       } catch (error) {
-        logMessage("수기 유니버스 생성 실패", error.message);
+        logMessage(editingVersionId ? "유니버스 수정 실패" : "수기 유니버스 생성 실패", error.message);
       }
     });
 
@@ -1551,9 +1663,7 @@ def render_admin_page() -> HTMLResponse:
 
     renderSectorTabs();
     renderSectorPanels();
-    addBuilderRow({ ticker: "SPY", name: "SPDR S&P 500 ETF Trust", sector_code: "etf" });
-    addBuilderRow({ ticker: "NVDA", name: "NVIDIA Corp", sector_code: "ai_semiconductor_social" });
-    addBuilderRow({ ticker: "JPM", name: "JPMorgan Chase", sector_code: "financials" });
+    setEditorMode();
     reloadAll();
   </script>
 </body>

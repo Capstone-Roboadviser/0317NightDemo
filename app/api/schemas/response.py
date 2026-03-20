@@ -68,6 +68,20 @@ class ManagedUniverseVersionResponse(BaseModel):
     instrument_count: int
 
 
+class ManagedUniverseItemResponse(BaseModel):
+    ticker: str
+    name: str
+    sector_code: str
+    sector_name: str
+    market: str
+    currency: str
+    base_weight: float | None = None
+
+
+class ManagedUniverseVersionDetailResponse(ManagedUniverseVersionResponse):
+    instruments: list[ManagedUniverseItemResponse]
+
+
 class ManagedPriceStatsResponse(BaseModel):
     total_rows: int
     ticker_count: int

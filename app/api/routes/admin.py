@@ -2,10 +2,12 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.schemas.request import (
     ManagedUniverseVersionCreateRequest,
+    ManagedUniverseVersionUpdateRequest,
     PriceRefreshRequest,
 )
 from app.api.schemas.response import (
     CombinationSelectionResponse,
+    ManagedUniverseItemResponse,
     ManagedPriceRefreshJobResponse,
     ManagedPriceRefreshJobItemResponse,
     ManagedPriceRefreshResponse,
@@ -13,6 +15,7 @@ from app.api.schemas.response import (
     ManagedUniverseSectorReadinessResponse,
     ManagedPriceStatsResponse,
     ManagedUniverseStatusResponse,
+    ManagedUniverseVersionDetailResponse,
     ManagedUniverseVersionResponse,
     TickerLookupResponse,
     TickerSearchResponse,
@@ -77,6 +80,18 @@ def get_active_universe_version() -> ManagedUniverseVersionResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@router.get("/universe/versions/{version_id}", response_model=ManagedUniverseVersionDetailResponse)
+def get_universe_version_detail(version_id: int) -> ManagedUniverseVersionDetailResponse:
+    try:
+        version = managed_universe_service.get_version(version_id)
+        if version is None:
+            raise HTTPException(status_code=404, detail=f"유니버스 버전 {version_id}를 찾을 수 없습니다.")
+        instruments = managed_universe_service.get_version_instruments(version_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _version_detail_response(version, instruments)
+
+
 @router.post("/universe/versions", response_model=ManagedUniverseVersionResponse)
 def create_universe_version(payload: ManagedUniverseVersionCreateRequest) -> ManagedUniverseVersionResponse:
     try:
@@ -89,6 +104,37 @@ def create_universe_version(payload: ManagedUniverseVersionCreateRequest) -> Man
     except RuntimeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _version_response(version)
+
+
+@router.put("/universe/versions/{version_id}", response_model=ManagedUniverseVersionResponse)
+def update_universe_version(version_id: int, payload: ManagedUniverseVersionUpdateRequest) -> ManagedUniverseVersionResponse:
+    try:
+        version = managed_universe_service.update_version(
+            version_id=version_id,
+            version_name=payload.version_name,
+            notes=payload.notes,
+            activate=payload.activate,
+            instruments=payload.to_domain_instruments(),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _version_response(version)
+
+
+@router.delete("/universe/versions/{version_id}")
+def delete_universe_version(version_id: int) -> dict[str, object]:
+    try:
+        version = managed_universe_service.get_version(version_id)
+        if version is None:
+            raise HTTPException(status_code=404, detail=f"유니버스 버전 {version_id}를 찾을 수 없습니다.")
+        managed_universe_service.delete_version(version_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "deleted": True,
+        "version_id": version_id,
+        "version_name": version.version_name,
+    }
 
 
 @router.post("/universe/versions/{version_id}/activate", response_model=ManagedUniverseVersionResponse)
@@ -229,6 +275,24 @@ def _version_response(version: ManagedUniverseVersion) -> ManagedUniverseVersion
         is_active=version.is_active,
         created_at=version.created_at,
         instrument_count=version.instrument_count,
+    )
+
+
+def _version_detail_response(version: ManagedUniverseVersion, instruments) -> ManagedUniverseVersionDetailResponse:
+    return ManagedUniverseVersionDetailResponse(
+        **_version_response(version).model_dump(),
+        instruments=[
+            ManagedUniverseItemResponse(
+                ticker=item.ticker,
+                name=item.name,
+                sector_code=item.sector_code,
+                sector_name=item.sector_name,
+                market=item.market,
+                currency=item.currency,
+                base_weight=item.base_weight,
+            )
+            for item in instruments
+        ],
     )
 
 

@@ -144,15 +144,22 @@ def render_admin_page() -> HTMLResponse:
       box-shadow: none;
     }
 
-    .grid {
+    .page-stack {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
       gap: 20px;
     }
 
-    .stack {
+    .hero-grid,
+    .lower-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .compact-stack {
       display: grid;
       gap: 20px;
+      align-content: start;
     }
 
     .card {
@@ -164,10 +171,18 @@ def render_admin_page() -> HTMLResponse:
       backdrop-filter: blur(14px);
     }
 
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
     .card h2 {
       font-size: 20px;
       font-weight: 800;
-      margin-bottom: 10px;
     }
 
     .card p.card-copy {
@@ -710,7 +725,6 @@ def render_admin_page() -> HTMLResponse:
     }
 
     .log-box {
-      margin-top: 14px;
       border-radius: 16px;
       padding: 14px 16px;
       background: #0f172a;
@@ -720,6 +734,8 @@ def render_admin_page() -> HTMLResponse:
       line-height: 1.7;
       white-space: pre-wrap;
       min-height: 82px;
+      max-height: 360px;
+      overflow: auto;
     }
 
     .empty {
@@ -731,8 +747,44 @@ def render_admin_page() -> HTMLResponse:
       background: #fff;
     }
 
+    .details-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .details-card summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 18px 22px;
+      font-size: 15px;
+      font-weight: 800;
+      user-select: none;
+    }
+
+    .details-card summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .details-card-body {
+      padding: 0 22px 22px;
+    }
+
+    .guide-list {
+      display: grid;
+      gap: 10px;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    .guide-list li strong {
+      color: var(--text);
+    }
+
     @media (max-width: 1080px) {
-      .grid,
+      .hero-grid,
+      .lower-grid,
       .status-grid,
       .form-grid {
         grid-template-columns: 1fr;
@@ -775,12 +827,18 @@ def render_admin_page() -> HTMLResponse:
         <a href="/docs">Swagger</a>
       </div>
     </div>
-
-    <div class="grid">
-      <div class="stack">
+    <div class="page-stack">
+      <div class="hero-grid">
         <section class="card">
-          <h2>현재 상태</h2>
-          <p class="card-copy">Postgres 연결 여부, active 버전, 저장된 가격 이력 범위, 마지막 갱신 잡 상태를 보여줍니다.</p>
+          <div class="section-head">
+            <div>
+              <h2>현재 상태</h2>
+              <p class="card-copy">Postgres 연결, active 버전, 가격 적재 범위, 마지막 갱신 상태를 한 번에 확인합니다.</p>
+            </div>
+            <div class="toolbar">
+              <button class="ghost-btn" id="reload-status-btn">상태 새로고침</button>
+            </div>
+          </div>
           <div class="status-grid">
             <div class="status-tile">
               <div class="status-label">DB 연결</div>
@@ -800,17 +858,116 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
           <div id="status-pill"></div>
-          <div class="toolbar" style="margin: 14px 0 12px;">
-            <button class="ghost-btn" id="reload-status-btn">상태 새로고침</button>
-          </div>
-          <div class="log-box" id="admin-log">콘솔 준비 완료</div>
         </section>
 
         <section class="card">
-          <h2>시뮬레이션 준비 상태</h2>
-          <p class="card-copy">가격 적재와는 별도로, 현재 active 유니버스가 종목 단위 Efficient Frontier 계산까지 가능한지 점검합니다.</p>
-          <div class="toolbar" style="margin-bottom: 14px;">
-            <button class="ghost-btn" id="reload-readiness-btn">준비 상태 점검</button>
+          <div class="section-head">
+            <div>
+              <h2>가격 데이터 갱신</h2>
+              <p class="card-copy">active 유니버스 티커를 기준으로 `yfinance`에서 가격을 가져와 Postgres에 누적 저장합니다.</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="refresh-mode">갱신 모드</label>
+              <select id="refresh-mode">
+                <option value="incremental">incremental</option>
+                <option value="full">full</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="lookback-years">full 모드 백필 연수</label>
+              <input id="lookback-years" type="number" min="1" max="20" value="5" />
+            </div>
+          </div>
+          <div class="toolbar">
+            <button class="primary-btn" id="refresh-prices-btn">가격 갱신 실행</button>
+            <button class="ghost-btn" id="check-price-status-btn">최근 갱신 상태 보기</button>
+          </div>
+          <p class="card-copy" style="margin-top: 14px; margin-bottom: 0;">
+            `full` 모드는 active 종목 수에 따라 시간이 걸릴 수 있습니다. 실행 중에는 버튼이 잠시 비활성화됩니다.
+          </p>
+          <div class="job-detail">
+            <div class="job-detail-head">
+              <div class="job-detail-title">최근 갱신 상세</div>
+              <div id="job-detail-summary" class="pill warn">아직 갱신 기록 없음</div>
+            </div>
+            <div id="job-detail-list" class="job-detail-list">
+              <div class="empty">최근 갱신 잡이 없어서 상세 내역을 표시할 수 없습니다.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="builder-head">
+          <div>
+            <h2>유니버스 편집기</h2>
+            <p class="card-copy">신규 유니버스를 만들거나 저장된 버전을 불러와 그대로 수정할 수 있습니다. 섹터별 탭에서 종목을 관리하고, 티커 자동채움과 검색 결과 추가를 함께 사용할 수 있습니다.</p>
+          </div>
+          <span class="pill warn" id="editor-mode-pill">신규 생성</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="manual-version-name">버전명</label>
+            <input id="manual-version-name" placeholder="manual-20260318-v1" />
+          </div>
+          <div class="field">
+            <label for="manual-notes">버전 메모</label>
+            <input id="manual-notes" placeholder="관리자 수기 입력 버전" />
+          </div>
+        </div>
+
+        <div class="builder-summary">
+          <div class="summary-pill">편집 상태 <span id="editor-mode-summary">새 유니버스</span></div>
+          <div class="summary-pill">총 섹터 수 <span id="sector-count-summary">8</span></div>
+          <div class="summary-pill">입력 종목 수 <span id="instrument-count-summary">0</span></div>
+        </div>
+        <div class="sector-tabs" id="sector-tabs"></div>
+        <div class="sector-panel-wrap" id="builder-rows"></div>
+        <p class="card-copy" id="editor-status-copy" style="margin-top: 14px; margin-bottom: 0;">
+          현재는 새 버전 생성 모드입니다. 기존 버전을 수정하려면 아래 목록에서 `수정`을 누르세요.
+        </p>
+        <div class="toolbar" style="margin-top: 14px;">
+          <button class="ghost-btn" id="reset-builder-btn">새 유니버스 작성</button>
+          <button class="primary-btn" id="create-version-btn">버전 생성 및 활성화</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>유니버스 버전 목록</h2>
+        <p class="card-copy">저장된 버전의 active 여부를 확인하고, 필요하면 바로 활성화하거나 편집기에서 수정/삭제할 수 있습니다.</p>
+        <div id="version-table-wrap" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>버전명</th>
+                <th>Source</th>
+                <th>종목 수</th>
+                <th>상태</th>
+                <th>생성 시각</th>
+                <th>작업</th>
+              </tr>
+            </thead>
+            <tbody id="versions-body">
+              <tr><td colspan="7">로딩 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="lower-grid">
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>시뮬레이션 준비 상태</h2>
+              <p class="card-copy">active 유니버스가 종목 단위 Efficient Frontier 계산까지 가능한지 바로 점검합니다.</p>
+            </div>
+            <div class="toolbar">
+              <button class="ghost-btn" id="reload-readiness-btn">준비 상태 점검</button>
+            </div>
           </div>
           <div id="readiness-pill"><span class="pill warn">점검 전</span></div>
           <p class="card-copy" id="readiness-summary-copy" style="margin-top: 12px; margin-bottom: 14px;">
@@ -844,110 +1001,24 @@ def render_admin_page() -> HTMLResponse:
           </div>
         </section>
 
-        <section class="card">
-          <div class="builder-head">
-            <div>
-              <h2>유니버스 편집기</h2>
-              <p class="card-copy">신규 유니버스를 만들거나, 저장된 버전을 불러와 그대로 수정할 수 있습니다. 섹터 탭을 눌러 종목을 관리하고, 티커 자동채움이나 검색 결과 추가를 함께 사용할 수 있습니다.</p>
-            </div>
-            <span class="pill warn" id="editor-mode-pill">신규 생성</span>
-          </div>
+        <div class="compact-stack">
+          <section class="card">
+            <h2>빠른 가이드</h2>
+            <ol class="guide-list">
+              <li><strong>유니버스 작성</strong>: 섹터별로 티커를 추가하고 버전을 생성하거나 기존 버전을 수정합니다.</li>
+              <li><strong>버전 활성화</strong>: 적용할 버전을 active 상태로 전환합니다.</li>
+              <li><strong>가격 갱신</strong>: active 유니버스 기준으로 가격 이력을 적재합니다.</li>
+              <li><strong>준비 상태 확인</strong>: 시뮬레이터 계산이 가능한지 확인한 뒤 메인 화면에서 결과를 봅니다.</li>
+            </ol>
+          </section>
 
-          <div class="form-grid">
-            <div class="field">
-              <label for="manual-version-name">버전명</label>
-              <input id="manual-version-name" placeholder="manual-20260318-v1" />
+          <details class="card details-card">
+            <summary>상태 로그 / 원본 응답 보기</summary>
+            <div class="details-card-body">
+              <div class="log-box" id="admin-log">콘솔 준비 완료</div>
             </div>
-            <div class="field">
-              <label for="manual-notes">버전 메모</label>
-              <input id="manual-notes" placeholder="관리자 수기 입력 버전" />
-            </div>
-          </div>
-
-          <div class="builder-summary">
-            <div class="summary-pill">편집 상태 <span id="editor-mode-summary">새 유니버스</span></div>
-            <div class="summary-pill">총 섹터 수 <span id="sector-count-summary">8</span></div>
-            <div class="summary-pill">입력 종목 수 <span id="instrument-count-summary">0</span></div>
-          </div>
-          <div class="sector-tabs" id="sector-tabs"></div>
-          <div class="sector-panel-wrap" id="builder-rows"></div>
-          <p class="card-copy" id="editor-status-copy" style="margin-top: 14px; margin-bottom: 0;">
-            현재는 새 버전 생성 모드입니다. 기존 버전을 수정하려면 오른쪽 목록에서 `수정`을 누르세요.
-          </p>
-          <div class="toolbar" style="margin-top: 14px;">
-            <button class="ghost-btn" id="reset-builder-btn">새 유니버스 작성</button>
-            <button class="primary-btn" id="create-version-btn">버전 생성 및 활성화</button>
-          </div>
-        </section>
-      </div>
-
-      <div class="stack">
-        <section class="card">
-          <h2>가격 데이터 갱신</h2>
-          <p class="card-copy">active 유니버스의 티커를 기준으로 `yfinance`에서 가격을 가져와 Postgres에 누적 저장합니다.</p>
-          <div class="form-grid">
-            <div class="field">
-              <label for="refresh-mode">갱신 모드</label>
-              <select id="refresh-mode">
-                <option value="incremental">incremental</option>
-                <option value="full">full</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="lookback-years">full 모드 백필 연수</label>
-              <input id="lookback-years" type="number" min="1" max="20" value="5" />
-            </div>
-          </div>
-          <div class="toolbar">
-            <button class="primary-btn" id="refresh-prices-btn">가격 갱신 실행</button>
-            <button class="ghost-btn" id="check-price-status-btn">최근 갱신 상태 보기</button>
-          </div>
-          <p class="card-copy" style="margin-top: 14px; margin-bottom: 0;">
-            `full` 모드에서는 active 종목 수와 조회 상태에 따라 1~2분 이상 걸릴 수 있습니다. 실행 중에는 버튼이 잠시 비활성화됩니다.
-          </p>
-          <div class="job-detail">
-            <div class="job-detail-head">
-              <div class="job-detail-title">최근 갱신 상세</div>
-              <div id="job-detail-summary" class="pill warn">아직 갱신 기록 없음</div>
-            </div>
-            <div id="job-detail-list" class="job-detail-list">
-              <div class="empty">최근 갱신 잡이 없어서 상세 내역을 표시할 수 없습니다.</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>유니버스 버전 목록</h2>
-          <p class="card-copy">현재 저장된 버전의 active 여부를 확인하고, 필요하면 바로 활성화하거나 편집기에서 수정/삭제할 수 있습니다.</p>
-          <div id="version-table-wrap" class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>버전명</th>
-                  <th>Source</th>
-                  <th>종목 수</th>
-                  <th>상태</th>
-                  <th>생성 시각</th>
-                  <th>작업</th>
-                </tr>
-              </thead>
-              <tbody id="versions-body">
-                <tr><td colspan="7">로딩 중...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>빠른 가이드</h2>
-          <div class="empty">
-            1. 섹터별 종목을 입력해 버전을 생성하거나 기존 버전을 수정<br/>
-            2. 필요한 버전을 active 로 전환<br/>
-            3. 가격 갱신 실행<br/>
-            4. 시뮬레이션 준비 상태를 확인한 뒤 메인 시뮬레이터(`/`)에서 결과 확인
-          </div>
-        </section>
+          </details>
+        </div>
       </div>
     </div>
   </div>

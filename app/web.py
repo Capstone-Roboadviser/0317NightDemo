@@ -2073,6 +2073,9 @@ def render_homepage() -> HTMLResponse:
 
       const frontierPath = frontier.map((point, index) => `${index === 0 ? "M" : "L"} ${xScale(point.volatility)} ${yScale(point.expected_return)}`).join(" ");
       svg += `<path d="${frontierPath}" fill="none" stroke="${c.line}" stroke-width="2.5" stroke-linecap="round" />`;
+      frontier.forEach((point) => {
+        svg += `<circle cx="${xScale(point.volatility)}" cy="${yScale(point.expected_return)}" r="2.2" fill="${c.line}" opacity="0.9" pointer-events="none" />`;
+      });
       // Invisible wider path for hover hit area on frontier line
       svg += `<path class="frontier-hit" d="${frontierPath}" fill="none" stroke="transparent" stroke-width="16" stroke-linecap="round" />`;
 

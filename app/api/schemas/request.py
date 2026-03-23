@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.config import TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
 from app.domain.enums import InvestmentHorizon, PriceRefreshMode, RiskProfile, SimulationDataSource
 from app.domain.models import StockInstrument, UserProfile
 
@@ -13,13 +14,17 @@ class PortfolioSimulationRequest(BaseModel):
     )
     target_volatility: float | None = Field(
         default=None,
-        ge=0.03,
-        le=0.25,
-        description="선택 입력값. 없으면 위험성향과 투자기간으로 기본 목표 변동성을 계산합니다.",
+        ge=TARGET_VOLATILITY_MIN,
+        le=TARGET_VOLATILITY_MAX,
+        description="선택 입력값. 없으면 위험성향과 투자기간으로 기본 목표 변동성을 계산합니다. 2%p 단위로 입력합니다.",
     )
 
     @model_validator(mode="after")
     def validate_profile_and_target(self) -> "PortfolioSimulationRequest":
+        if self.target_volatility is not None:
+            snapped = TARGET_VOLATILITY_MIN + round((self.target_volatility - TARGET_VOLATILITY_MIN) / TARGET_VOLATILITY_STEP) * TARGET_VOLATILITY_STEP
+            if abs(self.target_volatility - snapped) > 1e-9:
+                raise ValueError("목표 변동성은 4%부터 22%까지 2%p 단위로 입력해야 합니다.")
         if self.risk_profile == RiskProfile.CONSERVATIVE and self.target_volatility and self.target_volatility > 0.12:
             raise ValueError("안정형 성향은 목표 변동성을 12% 초과로 설정할 수 없습니다.")
         return self

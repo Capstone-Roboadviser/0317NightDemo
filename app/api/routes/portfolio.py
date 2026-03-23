@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
+from app.core.config import TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
 from app.api.schemas.request import PortfolioSimulationRequest
 from app.api.schemas.response import (
     AssetClassResponse,
@@ -62,8 +63,9 @@ def get_frontier(
     risk_profile: RiskProfile = Query(default=RiskProfile.BALANCED),
     investment_horizon: InvestmentHorizon = Query(default=InvestmentHorizon.MEDIUM),
     data_source: SimulationDataSource = Query(default=SimulationDataSource.MANAGED_UNIVERSE),
-    target_volatility: float | None = Query(default=None, ge=0.03, le=0.25),
+    target_volatility: float | None = Query(default=None, ge=TARGET_VOLATILITY_MIN, le=TARGET_VOLATILITY_MAX),
 ) -> FrontierPreviewResponse:
+    _validate_target_volatility_step(target_volatility)
     result = _simulate(
         UserProfile(
             risk_profile=risk_profile,
@@ -137,6 +139,14 @@ def _simulate(user_profile: UserProfile) -> PortfolioSimulationResult:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _validate_target_volatility_step(target_volatility: float | None) -> None:
+    if target_volatility is None:
+        return
+    snapped = TARGET_VOLATILITY_MIN + round((target_volatility - TARGET_VOLATILITY_MIN) / TARGET_VOLATILITY_STEP) * TARGET_VOLATILITY_STEP
+    if abs(target_volatility - snapped) > 1e-9:
+        raise HTTPException(status_code=400, detail="목표 변동성은 4%부터 22%까지 2%p 단위로 입력해야 합니다.")
 
 
 def _frontier_point_response(point, label: str | None = None) -> FrontierPointResponse:

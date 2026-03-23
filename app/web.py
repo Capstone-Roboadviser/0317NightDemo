@@ -1368,9 +1368,9 @@ def render_homepage() -> HTMLResponse:
                 <div class="slider-card">
                   <div class="slider-header">
                     <span class="slider-profile" id="risk-label">균형형</span>
-                    <span class="slider-target" id="slider-target">11.0% 목표</span>
+                    <span class="slider-target" id="slider-target">12.0% 목표</span>
                   </div>
-                  <input id="risk_slider" type="range" min="0" max="100" step="1" value="50" />
+                  <input id="risk_slider" type="range" min="0" max="9" step="1" value="4" />
                   <div class="slider-labels">
                     <span>안정형</span>
                     <span>공격형</span>
@@ -1396,8 +1396,8 @@ def render_homepage() -> HTMLResponse:
 
               <div class="field-group">
                 <label class="field-label" for="target_volatility">목표 변동성 직접 입력</label>
-                <input id="target_volatility" name="target_volatility" type="number" step="0.001" min="0.01" max="0.50" placeholder="예: 0.04" />
-                <span class="field-hint">비워두면 슬라이더 기준 목표 변동성을 사용합니다.</span>
+                <input id="target_volatility" name="target_volatility" type="number" step="0.02" min="0.04" max="0.22" placeholder="예: 0.12" />
+                <span class="field-hint">비워두면 슬라이더 기준 목표 변동성을 사용합니다. 4%부터 22%까지 2%p 단위입니다.</span>
               </div>
 
               <button type="submit" class="btn btn-primary">포트폴리오 계산하기</button>
@@ -1618,20 +1618,27 @@ def render_homepage() -> HTMLResponse:
       return `${(value * 100).toFixed(1)}%`;
     }
 
-    // Frontier volatility bounds (updated after first API call)
-    let frontierVolMin = 0.04;
-    let frontierVolMax = 0.22;
+    const VOLATILITY_OPTIONS = [0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22];
 
     function sliderProfile(value) {
-      if (value < 34) return { risk_profile: "conservative", label: "안정형" };
-      if (value < 67) return { risk_profile: "balanced", label: "균형형" };
+      if (value <= 0.10) return { risk_profile: "conservative", label: "안정형" };
+      if (value <= 0.14) return { risk_profile: "balanced", label: "균형형" };
       return { risk_profile: "growth", label: "성장형" };
     }
 
+    function normalizeTargetVolatility(value) {
+      if (!Number.isFinite(value)) {
+        return VOLATILITY_OPTIONS[Math.max(0, Math.min(VOLATILITY_OPTIONS.length - 1, Number(slider.value)))];
+      }
+      const clamped = Math.min(0.22, Math.max(0.04, value));
+      const snapped = 0.04 + Math.round((clamped - 0.04) / 0.02) * 0.02;
+      return Number(snapped.toFixed(2));
+    }
+
     function suggestedVolatility() {
-      const profile = sliderProfile(Number(slider.value));
-      const t = Number(slider.value) / 100; // 0..1
-      const target = frontierVolMin + t * (frontierVolMax - frontierVolMin);
+      const index = Math.max(0, Math.min(VOLATILITY_OPTIONS.length - 1, Number(slider.value)));
+      const target = VOLATILITY_OPTIONS[index];
+      const profile = sliderProfile(target);
       riskLabel.textContent = profile.label;
       sliderTarget.textContent = `${percent(target)} 목표`;
       return { profile, target };
@@ -1645,9 +1652,15 @@ def render_homepage() -> HTMLResponse:
         data_source: dataSourceEl.value,
       };
       const manualTarget = targetVolInput.value.trim();
-      payload.target_volatility = manualTarget ? Number(manualTarget) : target;
+      payload.target_volatility = manualTarget ? normalizeTargetVolatility(Number(manualTarget)) : target;
       return payload;
     }
+
+    targetVolInput.addEventListener("blur", function() {
+      const value = targetVolInput.value.trim();
+      if (!value) return;
+      targetVolInput.value = normalizeTargetVolatility(Number(value)).toFixed(2);
+    });
 
     function renderCombinationSelection(selection, sourceLabel) {
       if (!selection) {
@@ -2203,12 +2216,7 @@ def render_homepage() -> HTMLResponse:
         lastData = data;
         lastAllocations = data.allocations || [];
 
-        // Update frontier volatility bounds for slider mapping
-        if (data.frontier_vol_min && data.frontier_vol_max) {
-          frontierVolMin = data.frontier_vol_min;
-          frontierVolMax = data.frontier_vol_max;
-          suggestedVolatility(); // refresh label with new bounds
-        }
+        suggestedVolatility();
 
         // Animate metric numbers
         const metricReturnEl = document.getElementById("metric-return");

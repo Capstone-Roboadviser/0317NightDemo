@@ -1986,8 +1986,20 @@ def render_homepage() -> HTMLResponse:
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
-      const visiblePoints = randomPortfolios.length
-        ? randomPortfolios.concat([selectedPoint])
+      function guideReturnAt(volatility) {
+        if (frontier.length < 2) return -Infinity;
+        const firstFrontier = frontier[0];
+        const lastFrontier = frontier[frontier.length - 1];
+        const dx = lastFrontier.volatility - firstFrontier.volatility;
+        if (Math.abs(dx) < 1e-9) return Math.min(firstFrontier.expected_return, lastFrontier.expected_return);
+        const slope = (lastFrontier.expected_return - firstFrontier.expected_return) / dx;
+        return firstFrontier.expected_return + slope * (volatility - firstFrontier.volatility);
+      }
+
+      const visibleRandomPortfolios = randomPortfolios.filter((point) => point.expected_return >= guideReturnAt(point.volatility) - 1e-9);
+
+      const visiblePoints = visibleRandomPortfolios.length
+        ? visibleRandomPortfolios.concat([selectedPoint])
         : frontier.concat([selectedPoint]);
       const volMin = Math.min(...visiblePoints.map((p) => p.volatility)) * 0.9;
       const volMax = Math.max(...visiblePoints.map((p) => p.volatility)) * 1.1;
@@ -2031,7 +2043,7 @@ def render_homepage() -> HTMLResponse:
       const selectedAllocJSON = weightsToAllocJSON(selectedPoint.weights || {});
 
       // Random portfolio scatter points with hover hit areas
-      randomPortfolios.forEach((point) => {
+      visibleRandomPortfolios.forEach((point) => {
         const px = xScale(point.volatility);
         const py = yScale(point.expected_return);
         const allocAttr = point.weights ? ' data-alloc="' + weightsToAllocJSON(point.weights) + '"' : '';

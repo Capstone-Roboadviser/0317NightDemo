@@ -1472,7 +1472,7 @@ def render_homepage() -> HTMLResponse:
                 </div>
               </div>
 
-              <button type="submit" class="btn btn-primary">포트폴리오 계산하기</button>
+              <span class="field-hint">슬라이더를 움직이면 현재 포트폴리오가 프론티어 위에서 바로 갱신됩니다.</span>
               <div id="status" class="status-text"></div>
             </form>
           </div>
@@ -2253,9 +2253,7 @@ def render_homepage() -> HTMLResponse:
       if (!lastData || !lastData.frontier_points || !lastData.frontier_points.length) return;
 
       const { target } = suggestedVolatility();
-      const manualTarget = targetVolInput.value.trim();
-      const effectiveTarget = manualTarget ? Number(manualTarget) : target;
-      const idx = findClosestFrontierIndex(lastData.frontier_points, effectiveTarget);
+      const idx = findClosestFrontierIndex(lastData.frontier_points, target);
       const point = lastData.frontier_points[idx];
 
       const expectedReturn = point.expected_return;
@@ -2448,13 +2446,11 @@ def render_homepage() -> HTMLResponse:
       updateSliderTrack();
       suggestedVolatility();
       clearTimeout(debounceTimer);
-      if (!targetVolInput.value.trim()) {
-        // Use cached data if available, otherwise call API
-        if (lastData && lastData.frontier_points) {
-          debounceTimer = setTimeout(updateFromCache, 30);
-        } else {
-          debounceTimer = setTimeout(loadPortfolio, 150);
-        }
+      // Use cached frontier if available, otherwise fetch the initial portfolio
+      if (lastData && lastData.frontier_points) {
+        debounceTimer = setTimeout(updateFromCache, 30);
+      } else {
+        debounceTimer = setTimeout(loadPortfolio, 150);
       }
     });
 

@@ -36,6 +36,9 @@ class ManagedUniverseService:
     def load_prices_for_instruments(self, instruments: list[StockInstrument]) -> pd.DataFrame:
         return self.repository.load_prices_for_tickers([instrument.ticker for instrument in instruments])
 
+    def load_prices_for_tickers(self, tickers: list[str]) -> pd.DataFrame:
+        return self.repository.load_prices_for_tickers(tickers)
+
     def get_price_stats_for_instruments(self, instruments: list[StockInstrument]) -> dict[str, object]:
         stats = self.repository.get_price_stats([instrument.ticker for instrument in instruments])
         return {

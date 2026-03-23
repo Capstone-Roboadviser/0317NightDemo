@@ -167,24 +167,50 @@ def _frontier_point_response(point, label: str | None = None) -> FrontierPointRe
     )
 
 
+def _load_history_prices(
+    *,
+    tickers: list[str],
+    data_source: SimulationDataSource,
+) -> pd.DataFrame:
+    normalized_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
+    if not normalized_tickers:
+        raise HTTPException(status_code=400, detail="비중 정보가 비어 있습니다.")
+
+    if data_source == SimulationDataSource.MANAGED_UNIVERSE:
+        if not portfolio_service.managed_universe_service.is_configured():
+            raise HTTPException(status_code=400, detail="관리자 유니버스 DB가 설정되지 않았습니다.")
+        prices = portfolio_service.managed_universe_service.load_prices_for_tickers(normalized_tickers)
+    elif data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
+        repo = StockDataRepository()
+        prices = repo.load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
+        prices["ticker"] = prices["ticker"].astype(str).str.upper()
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="종목 히스토리 조회는 관리자 유니버스 또는 데모 종목 유니버스에서만 지원합니다.",
+        )
+
+    if prices.empty:
+        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
+
+    prices = prices.copy()
+    prices["ticker"] = prices["ticker"].astype(str).str.upper()
+    available_tickers = set(prices["ticker"].unique())
+    matched = [ticker for ticker in normalized_tickers if ticker in available_tickers]
+    if not matched:
+        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
+
+    filtered = prices[prices["ticker"].isin(matched)].copy()
+    if filtered.empty:
+        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
+    return filtered
+
+
 @router.post("/volatility-history", response_model=VolatilityHistoryResponse)
 def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryResponse:
     tickers = [t.upper() for t in payload.weights.keys()]
     weights_upper = {t.upper(): w for t, w in payload.weights.items()}
-
-    if not tickers:
-        raise HTTPException(status_code=400, detail="비중 정보가 비어 있습니다.")
-
-    repo = StockDataRepository()
-    prices = repo.load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
-    prices["ticker"] = prices["ticker"].str.upper()
-
-    available_tickers = set(prices["ticker"].unique())
-    missing = [t for t in tickers if t not in available_tickers]
-    if len(missing) == len(tickers):
-        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
-
-    prices = prices[prices["ticker"].isin(tickers)]
+    prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
     pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
     returns = pivoted.pct_change().dropna(how="all")
 
@@ -215,20 +241,7 @@ def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryRe
 def return_history(payload: VolatilityHistoryRequest) -> ReturnHistoryResponse:
     tickers = [t.upper() for t in payload.weights.keys()]
     weights_upper = {t.upper(): w for t, w in payload.weights.items()}
-
-    if not tickers:
-        raise HTTPException(status_code=400, detail="비중 정보가 비어 있습니다.")
-
-    repo = StockDataRepository()
-    prices = repo.load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
-    prices["ticker"] = prices["ticker"].str.upper()
-
-    available_tickers = set(prices["ticker"].unique())
-    missing = [t for t in tickers if t not in available_tickers]
-    if len(missing) == len(tickers):
-        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
-
-    prices = prices[prices["ticker"].isin(tickers)]
+    prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
     pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
     returns = pivoted.pct_change().dropna(how="all")
 

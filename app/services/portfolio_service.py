@@ -20,6 +20,7 @@ from app.core.config import (
     REPRESENTATIVE_MAX_EXHAUSTIVE_COMBINATIONS,
     RISK_FREE_RATE,
     SECTOR_MINIMUM_INSTRUMENTS,
+    STOCK_MIN_WEIGHT,
     STOCK_MAX_WEIGHT,
 )
 from app.data.repository import StaticDataRepository
@@ -447,6 +448,7 @@ class PortfolioSimulationService:
             correlation.loc[code, code] = 1.0
         constraints = self.constraint_engine.build_for_codes(
             instrument_codes,
+            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=instrument_codes, dtype=float).values,
             upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=instrument_codes, dtype=float).values,
             extra_constraints=(
                 build_average_correlation_constraint(
@@ -651,6 +653,7 @@ class PortfolioSimulationService:
 
         constraints = self.constraint_engine.build_for_codes(
             instrument_codes,
+            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=instrument_codes, dtype=float).values,
             upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=instrument_codes, dtype=float).values,
             extra_constraints=(
                 build_average_correlation_constraint(

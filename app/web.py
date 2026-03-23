@@ -1077,6 +1077,13 @@ def render_homepage() -> HTMLResponse:
     #sel-glow {
       animation: sel-pulse 2.5s ease-in-out infinite;
     }
+    @keyframes sharpe-pulse {
+      0%, 100% { r: 12; opacity: 0.35; }
+      50% { r: 20; opacity: 0.08; }
+    }
+    #sharpe-glow {
+      animation: sharpe-pulse 2.8s ease-in-out infinite;
+    }
     .frontier-hit {
       cursor: pointer;
     }
@@ -1425,6 +1432,7 @@ def render_homepage() -> HTMLResponse:
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-guide);"></i>비교 기준선</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-line);"></i>효율적 투자선</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-selected);"></i>현재 포트폴리오</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #ef4444;"></i>최대 샤프</span>
               </div>
             </div>
           </div>
@@ -2067,6 +2075,23 @@ def render_homepage() -> HTMLResponse:
       svg += `<path d="${frontierPath}" fill="none" stroke="${c.line}" stroke-width="2.5" stroke-linecap="round" />`;
       // Invisible wider path for hover hit area on frontier line
       svg += `<path class="frontier-hit" d="${frontierPath}" fill="none" stroke="transparent" stroke-width="16" stroke-linecap="round" />`;
+
+      // Max Sharpe ratio portfolio (red glowing dot)
+      const riskFreeRate = 0.02;
+      let maxSharpe = -Infinity;
+      let maxSharpePoint = null;
+      frontier.forEach((point) => {
+        const sharpe = point.volatility > 0 ? (point.expected_return - riskFreeRate) / point.volatility : 0;
+        if (sharpe > maxSharpe) { maxSharpe = sharpe; maxSharpePoint = point; }
+      });
+      if (maxSharpePoint) {
+        const sx = xScale(maxSharpePoint.volatility);
+        const sy = yScale(maxSharpePoint.expected_return);
+        const sharpeAllocJSON = weightsToAllocJSON(maxSharpePoint.weights || {});
+        svg += `<circle id="sharpe-glow" cx="${sx}" cy="${sy}" r="12" fill="rgba(239, 68, 68, 0.18)" />`;
+        svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" />`;
+        svg += `<circle id="sharpe-dot" cx="${sx}" cy="${sy}" r="6" fill="#ef4444" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
+      }
 
       const cx = xScale(selectedPoint.volatility);
       const cy = yScale(selectedPoint.expected_return);

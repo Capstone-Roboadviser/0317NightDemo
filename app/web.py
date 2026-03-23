@@ -1464,7 +1464,7 @@ def render_homepage() -> HTMLResponse:
                     <span class="slider-profile" id="risk-label">균형형</span>
                     <span class="slider-target" id="slider-target">목표 변동성 12.0%</span>
                   </div>
-                  <input id="risk_slider" type="range" min="0" max="9" step="1" value="4" />
+                  <input id="risk_slider" type="range" min="4" max="22" step="0.1" value="12" />
                   <div class="slider-labels">
                     <span>안정형</span>
                     <span>공격형</span>
@@ -1742,30 +1742,41 @@ def render_homepage() -> HTMLResponse:
       return `${(value * 100).toFixed(1)}%`;
     }
 
-    const VOLATILITY_OPTIONS = [0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22];
-
     function sliderProfile(value) {
       if (value <= 0.10) return { risk_profile: "conservative", label: "안정형" };
       if (value <= 0.14) return { risk_profile: "balanced", label: "균형형" };
       return { risk_profile: "growth", label: "성장형" };
     }
 
+    function currentSliderTarget() {
+      const raw = Number(slider.value);
+      if (!Number.isFinite(raw)) return 0.12;
+      return Math.min(0.22, Math.max(0.04, raw / 100));
+    }
+
     function normalizeTargetVolatility(value) {
-      if (!Number.isFinite(value)) {
-        return VOLATILITY_OPTIONS[Math.max(0, Math.min(VOLATILITY_OPTIONS.length - 1, Number(slider.value)))];
-      }
+      if (!Number.isFinite(value)) return 0.12;
       const clamped = Math.min(0.22, Math.max(0.04, value));
       const snapped = 0.04 + Math.round((clamped - 0.04) / 0.02) * 0.02;
       return Number(snapped.toFixed(2));
     }
 
     function suggestedVolatility() {
-      const index = Math.max(0, Math.min(VOLATILITY_OPTIONS.length - 1, Number(slider.value)));
-      const target = VOLATILITY_OPTIONS[index];
+      const target = currentSliderTarget();
       const profile = sliderProfile(target);
       riskLabel.textContent = profile.label;
       sliderTarget.textContent = `목표 변동성 ${percent(target)}`;
       return { profile, target };
+    }
+
+    function setSliderTargetVolatility(target, options) {
+      const next = Math.min(0.22, Math.max(0.04, Number(target || 0.12)));
+      slider.value = (next * 100).toFixed(1);
+      updateSliderTrack();
+      suggestedVolatility();
+      if (options && options.updateFromCache && lastData && lastData.frontier_points) {
+        updateFromCache();
+      }
     }
 
     function payloadFromInputs() {
@@ -1774,7 +1785,7 @@ def render_homepage() -> HTMLResponse:
         risk_profile: profile.risk_profile,
         investment_horizon: horizonEl.value,
         data_source: dataSourceEl.value,
-        target_volatility: target,
+        target_volatility: normalizeTargetVolatility(target),
       };
     }
 
@@ -2194,7 +2205,7 @@ def render_homepage() -> HTMLResponse:
         const sy = yScale(maxSharpePoint.expected_return);
         const sharpeAllocJSON = weightsToAllocJSON(maxSharpePoint.weights || {});
         svg += `<circle id="sharpe-glow" cx="${sx}" cy="${sy}" r="12" fill="rgba(239, 68, 68, 0.18)" />`;
-        svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" />`;
+        svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" data-role="max-sharpe" data-target-vol="${maxSharpePoint.volatility.toFixed(6)}" />`;
         svg += `<circle id="sharpe-dot" cx="${sx}" cy="${sy}" r="6" fill="#ef4444" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
       }
 
@@ -2438,7 +2449,11 @@ def render_homepage() -> HTMLResponse:
     }
 
     function updateSliderTrack() {
-      slider.style.setProperty("--slider-pct", slider.value + "%");
+      const min = Number(slider.min || 0);
+      const max = Number(slider.max || 100);
+      const value = Number(slider.value || min);
+      const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+      slider.style.setProperty("--slider-pct", pct + "%");
     }
     updateSliderTrack();
 
@@ -3282,6 +3297,14 @@ def render_homepage() -> HTMLResponse:
         var pt = e.target.closest(".scatter-point");
         if (!pt) return;
         tip.classList.remove("visible");
+      });
+
+      document.addEventListener("click", function(e) {
+        const pt = e.target.closest('.scatter-point[data-role="max-sharpe"]');
+        if (!pt) return;
+        const targetVol = Number(pt.dataset.targetVol || "NaN");
+        if (!Number.isFinite(targetVol)) return;
+        setSliderTargetVolatility(targetVol, { updateFromCache: true });
       });
     })();
 

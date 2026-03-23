@@ -1998,8 +1998,11 @@ def render_homepage() -> HTMLResponse:
 
       const visibleRandomPortfolios = randomPortfolios.filter((point) => point.expected_return >= guideReturnAt(point.volatility) - 1e-9);
 
+      const frontierExtents = frontier.length
+        ? [frontier[0], frontier[frontier.length - 1]]
+        : [];
       const visiblePoints = visibleRandomPortfolios.length
-        ? visibleRandomPortfolios.concat([selectedPoint])
+        ? visibleRandomPortfolios.concat(frontierExtents, [selectedPoint])
         : frontier.concat([selectedPoint]);
       const volMin = Math.min(...visiblePoints.map((p) => p.volatility)) * 0.9;
       const volMax = Math.max(...visiblePoints.map((p) => p.volatility)) * 1.1;
@@ -2016,6 +2019,7 @@ def render_homepage() -> HTMLResponse:
 
       let svg = "";
 
+      svg += `<defs><clipPath id="chart-clip"><rect x="${margin.left}" y="${margin.top}" width="${innerWidth}" height="${innerHeight}" rx="6" /></clipPath></defs>`;
       svg += `<rect x="${margin.left}" y="${margin.top}" width="${innerWidth}" height="${innerHeight}" fill="${c.bg}" rx="6" />`;
 
       for (let i = 0; i <= 5; i++) {
@@ -2042,6 +2046,8 @@ def render_homepage() -> HTMLResponse:
       // Build allocation JSON for the selected portfolio
       const selectedAllocJSON = weightsToAllocJSON(selectedPoint.weights || {});
 
+      svg += `<g clip-path="url(#chart-clip)">`;
+
       // Random portfolio scatter points with hover hit areas
       visibleRandomPortfolios.forEach((point) => {
         const px = xScale(point.volatility);
@@ -2067,6 +2073,7 @@ def render_homepage() -> HTMLResponse:
       svg += `<circle id="sel-glow" cx="${cx}" cy="${cy}" r="12" fill="rgba(249, 115, 22, 0.15)" />`;
       svg += `<circle id="sel-hit" class="scatter-point" cx="${cx}" cy="${cy}" r="10" fill="transparent" data-vol="${(selectedPoint.volatility * 100).toFixed(1)}" data-ret="${(selectedPoint.expected_return * 100).toFixed(1)}" data-alloc="${selectedAllocJSON}" data-label="현재 포트폴리오" />`;
       svg += `<circle id="sel-dot" cx="${cx}" cy="${cy}" r="6" fill="${c.selected}" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
+      svg += `</g>`;
       svg += `<text x="${width / 2}" y="${height - 2}" text-anchor="middle" fill="${c.label}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif">위험 (변동성)</text>`;
       svg += `<text x="14" y="${height / 2}" text-anchor="middle" fill="${c.label}" font-size="12" font-family="Inter, Noto Sans KR, sans-serif" transform="rotate(-90 14 ${height / 2})">예상 수익률</text>`;
 

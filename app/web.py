@@ -1432,7 +1432,7 @@ def render_homepage() -> HTMLResponse:
       <span class="badge">Efficient Frontier Demo</span>
       <h1>효율적 투자선 기반<br />자산배분 시뮬레이터</h1>
       <p>
-        고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자 기간에 따라
+        고정된 8개 자산군을 기준으로, 사용자의 위험 성향에 따라
         효율적 투자선 위의 포트폴리오 예시를 계산하고 설명합니다.
       </p>
       <div class="hero-note">
@@ -1447,13 +1447,14 @@ def render_homepage() -> HTMLResponse:
           <div class="card-header">
             <div class="step-badge"><span class="step-num">1</span> 위험 설정</div>
             <div class="card-title">투자 위험 수준 선택</div>
-            <div class="card-description">슬라이더와 투자 기간으로 현재 포트폴리오가 프론티어 어디에 놓일지 정합니다.</div>
+            <div class="card-description">슬라이더로 현재 포트폴리오가 프론티어 어디에 놓일지 정합니다.</div>
           </div>
           <div class="card-content">
             <form id="portfolio-form">
               <div class="field-group">
                 <label class="field-label">계산 기준</label>
                 <input type="hidden" id="data_source" name="data_source" value="managed_universe" />
+                <input type="hidden" id="investment_horizon" name="investment_horizon" value="medium" />
                 <span class="field-hint">기본값은 관리자 종목 유니버스이며, 아직 설정되지 않았으면 내장 데모 종목 유니버스로 자동 대체됩니다.</span>
               </div>
 
@@ -1461,7 +1462,7 @@ def render_homepage() -> HTMLResponse:
                 <div class="slider-card">
                   <div class="slider-header">
                     <span class="slider-profile" id="risk-label">균형형</span>
-                    <span class="slider-target" id="slider-target">12.0% 목표</span>
+                    <span class="slider-target" id="slider-target">목표 변동성 12.0%</span>
                   </div>
                   <input id="risk_slider" type="range" min="0" max="9" step="1" value="4" />
                   <div class="slider-labels">
@@ -1469,28 +1470,6 @@ def render_homepage() -> HTMLResponse:
                     <span>공격형</span>
                   </div>
                 </div>
-              </div>
-
-              <div class="field-group">
-                <label class="field-label">투자 기간</label>
-                <input type="hidden" id="investment_horizon" name="investment_horizon" value="medium" />
-                <div class="custom-select" id="horizon-select">
-                  <button type="button" class="custom-select-trigger" role="combobox" aria-expanded="false" aria-haspopup="listbox" tabindex="0" data-state="closed">
-                    <span class="custom-select-trigger-text">중기 (3~5년)</span>
-                    <svg class="custom-select-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                  </button>
-                  <div class="custom-select-content" role="listbox" data-state="closed">
-                    <div class="custom-select-item" role="option" data-value="short">단기 (1~2년)</div>
-                    <div class="custom-select-item" role="option" data-value="medium" data-selected>중기 (3~5년)</div>
-                    <div class="custom-select-item" role="option" data-value="long">장기 (5년 이상)</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="field-group">
-                <label class="field-label" for="target_volatility">목표 변동성 직접 입력</label>
-                <input id="target_volatility" name="target_volatility" type="number" step="0.02" min="0.04" max="0.22" placeholder="예: 0.12" />
-                <span class="field-hint">비워두면 슬라이더 기준 목표 변동성을 사용합니다. 4%부터 22%까지 2%p 단위입니다.</span>
               </div>
 
               <button type="submit" class="btn btn-primary">포트폴리오 계산하기</button>
@@ -1703,7 +1682,6 @@ def render_homepage() -> HTMLResponse:
     const sliderTarget = document.getElementById("slider-target");
     const horizonEl = document.getElementById("investment_horizon");
     const dataSourceEl = document.getElementById("data_source");
-    const targetVolInput = document.getElementById("target_volatility");
     const statusEl = document.getElementById("status");
     const summaryEl = document.getElementById("summary");
     const explanationTitleEl = document.getElementById("explanation-title");
@@ -1786,27 +1764,19 @@ def render_homepage() -> HTMLResponse:
       const target = VOLATILITY_OPTIONS[index];
       const profile = sliderProfile(target);
       riskLabel.textContent = profile.label;
-      sliderTarget.textContent = `${percent(target)} 목표`;
+      sliderTarget.textContent = `목표 변동성 ${percent(target)}`;
       return { profile, target };
     }
 
     function payloadFromInputs() {
       const { profile, target } = suggestedVolatility();
-      const payload = {
+      return {
         risk_profile: profile.risk_profile,
         investment_horizon: horizonEl.value,
         data_source: dataSourceEl.value,
+        target_volatility: target,
       };
-      const manualTarget = targetVolInput.value.trim();
-      payload.target_volatility = manualTarget ? normalizeTargetVolatility(Number(manualTarget)) : target;
-      return payload;
     }
-
-    targetVolInput.addEventListener("blur", function() {
-      const value = targetVolInput.value.trim();
-      if (!value) return;
-      targetVolInput.value = normalizeTargetVolatility(Number(value)).toFixed(2);
-    });
 
     function renderCombinationSelection(selection, sourceLabel) {
       if (!selection) {
@@ -2511,6 +2481,7 @@ def render_homepage() -> HTMLResponse:
     // ── Custom Select Component ──
     (function() {
       const selectRoot = document.getElementById("horizon-select");
+      if (!selectRoot) return;
       const trigger = selectRoot.querySelector(".custom-select-trigger");
       const content = selectRoot.querySelector(".custom-select-content");
       const triggerText = selectRoot.querySelector(".custom-select-trigger-text");

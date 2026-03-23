@@ -7,11 +7,11 @@
 사용자는 메인 화면에서:
 
 1. 위험 성향을 고릅니다.
-2. 투자기간을 고릅니다.
-3. 필요하면 목표 변동성을 직접 입력합니다.
-4. 시스템은 active 유니버스의 섹터 후보군에서 대표 종목 1개씩을 선택합니다.
-5. 선택된 대표 종목 유니버스로 Efficient Frontier를 계산합니다.
-6. 화면은 결과를 섹터 비중/리스크 기여도/설명 카드로 보여줍니다.
+2. 시스템은 active 유니버스의 섹터 후보군에서 대표 종목 1개씩을 선택합니다.
+3. 선택된 대표 종목 유니버스로 Efficient Frontier를 계산합니다.
+4. 화면은 결과를 섹터 비중/리스크 기여도/설명 카드로 보여줍니다.
+
+현재 메인 화면은 `위험 슬라이더`만 노출하며, 투자 기간과 직접 목표 변동성 입력은 숨겨져 있습니다.
 
 ## 발표할 때 핵심 메시지
 
@@ -48,7 +48,7 @@
 ```json
 {
   "risk_profile": "conservative",
-  "investment_horizon": "short"
+  "investment_horizon": "medium"
 }
 ```
 
@@ -66,7 +66,7 @@
 ```json
 {
   "risk_profile": "growth",
-  "investment_horizon": "long"
+  "investment_horizon": "medium"
 }
 ```
 

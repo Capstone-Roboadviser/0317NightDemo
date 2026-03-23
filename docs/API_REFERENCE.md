@@ -52,6 +52,11 @@
 - `data_source`: `managed_universe` | `asset_assumptions` | `stock_combination_demo`
 - `target_volatility`: 선택 입력
 
+참고:
+
+- 현재 메인 웹 UI는 `risk_profile` 슬라이더만 노출합니다.
+- `investment_horizon`과 `target_volatility`는 API 호환성을 위해 남아 있으며, 웹에서는 내부 기본값으로 처리합니다.
+
 예시:
 
 ```text
@@ -75,7 +80,12 @@ GET /portfolio/frontier?risk_profile=balanced&investment_horizon=medium&data_sou
 
 ### `POST /portfolio/simulate`
 
-위험 성향, 투자기간, 목표 변동성을 입력받아 포트폴리오 예시를 계산합니다.
+위험 성향을 기준으로 포트폴리오 예시를 계산합니다.
+
+참고:
+
+- API는 여전히 `investment_horizon`, `target_volatility`를 받을 수 있습니다.
+- 현재 메인 웹 UI는 `risk_profile`만 직접 입력받고, 나머지는 내부 기본값으로 처리합니다.
 
 요청 예시:
 

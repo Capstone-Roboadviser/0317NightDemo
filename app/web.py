@@ -35,6 +35,7 @@ def render_homepage() -> HTMLResponse:
       --chart-grid: #E2E8F0;
       --chart-label: #94A3B8;
       --chart-line: #0F172A;
+      --chart-guide: rgba(100, 116, 139, 0.75);
       --chart-scatter: rgba(15, 76, 129, 0.2);
       --chart-text: #0F172A;
       --chart-selected: #F97316;
@@ -61,6 +62,7 @@ def render_homepage() -> HTMLResponse:
       --chart-grid: #334155;
       --chart-label: #64748B;
       --chart-line: #F8FAFC;
+      --chart-guide: rgba(148, 163, 184, 0.72);
       --chart-scatter: rgba(96, 165, 250, 0.28);
       --chart-text: #F8FAFC;
       --chart-selected: #FB923C;
@@ -1415,11 +1417,12 @@ def render_homepage() -> HTMLResponse:
               <div>
                 <div class="card-title">효율적 투자선 차트</div>
                 <div class="card-description" id="chart-copy">
-                  가능한 포트폴리오 점 구름 위로 효율적 투자선이 그려지고, 현재 선택된 포트폴리오가 그 위의 지점으로 강조됩니다.
+                  가능한 포트폴리오 점 구름 위로 효율적 투자선이 그려지고, 비교용 기준 직선보다 위쪽 경계가 효율적 구간임을 보여줍니다.
                 </div>
               </div>
               <div class="legend">
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-scatter);"></i>가능한 포트폴리오</span>
+                <span class="legend-item"><i class="legend-dot" style="background: var(--chart-guide);"></i>비교 기준선</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-line);"></i>효율적 투자선</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-selected);"></i>현재 포트폴리오</span>
               </div>
@@ -1959,6 +1962,7 @@ def render_homepage() -> HTMLResponse:
         grid: style.getPropertyValue("--chart-grid").trim(),
         label: style.getPropertyValue("--chart-label").trim(),
         line: style.getPropertyValue("--chart-line").trim(),
+        guide: style.getPropertyValue("--chart-guide").trim(),
         scatter: style.getPropertyValue("--chart-scatter").trim(),
         text: style.getPropertyValue("--chart-text").trim(),
         selected: style.getPropertyValue("--chart-selected").trim(),
@@ -2034,6 +2038,12 @@ def render_homepage() -> HTMLResponse:
         svg += `<circle cx="${px}" cy="${py}" r="3" fill="${c.scatter}" />`;
         svg += `<circle class="scatter-point" cx="${px}" cy="${py}" r="8" fill="transparent" data-vol="${(point.volatility * 100).toFixed(1)}" data-ret="${(point.expected_return * 100).toFixed(1)}"${allocAttr} />`;
       });
+
+      if (frontier.length >= 2) {
+        const firstFrontier = frontier[0];
+        const lastFrontier = frontier[frontier.length - 1];
+        svg += `<line x1="${xScale(firstFrontier.volatility)}" y1="${yScale(firstFrontier.expected_return)}" x2="${xScale(lastFrontier.volatility)}" y2="${yScale(lastFrontier.expected_return)}" stroke="${c.guide}" stroke-width="1.5" stroke-dasharray="8 6" stroke-linecap="round" />`;
+      }
 
       const frontierPath = frontier.map((point, index) => `${index === 0 ? "M" : "L"} ${xScale(point.volatility)} ${yScale(point.expected_return)}`).join(" ");
       svg += `<path d="${frontierPath}" fill="none" stroke="${c.line}" stroke-width="2.5" stroke-linecap="round" />`;

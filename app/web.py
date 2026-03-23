@@ -1658,7 +1658,7 @@ def render_homepage() -> HTMLResponse:
       }
 
       combinationPanelEl.hidden = false;
-      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 등록된 전 종목을 직접 최적화에 사용했습니다. 현재 적용된 유니버스 ID는 ${selection.combination_id} 입니다.`;
+      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 섹터별 후보군에서 대표 종목 1개씩을 선택해 최적화했습니다. 현재 적용된 유니버스 ID는 ${selection.combination_id} 입니다.`;
       combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
         .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
         .join("");

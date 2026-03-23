@@ -81,6 +81,34 @@ class EfficientFrontierOptimizer:
             raise RuntimeError("효율적 투자선 포인트를 생성하지 못했습니다.")
         return self._clean_frontier(frontier_points)
 
+    def maximize_sharpe(
+        self,
+        expected_returns: pd.Series,
+        covariance: pd.DataFrame,
+        constraints: ConstraintSet,
+        risk_free_rate: float,
+    ) -> FrontierPoint:
+        ordered_returns = expected_returns.reindex(constraints.asset_codes)
+        ordered_covariance = covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes)
+        self._validate_covariance(ordered_covariance)
+
+        result = minimize(
+            lambda weights: self._negative_sharpe(weights, ordered_returns, ordered_covariance, risk_free_rate),
+            constraints.initial_weights,
+            method="SLSQP",
+            bounds=constraints.bounds,
+            constraints=constraints.scipy_constraints,
+        )
+        if not result.success:
+            raise RuntimeError("최대 Sharpe 포트폴리오 계산에 실패했습니다.")
+
+        expected_return, volatility = portfolio_performance(result.x, ordered_returns, ordered_covariance)
+        return FrontierPoint(
+            volatility=float(volatility),
+            expected_return=float(expected_return),
+            weights={code: float(weight) for code, weight in zip(constraints.asset_codes, result.x)},
+        )
+
     def sample_random_portfolios(
         self,
         expected_returns: pd.Series,
@@ -138,3 +166,15 @@ class EfficientFrontierOptimizer:
             best_return = max(best_return, point.expected_return)
 
         return cleaned_points
+
+    def _negative_sharpe(
+        self,
+        weights: np.ndarray,
+        expected_returns: pd.Series,
+        covariance: pd.DataFrame,
+        risk_free_rate: float,
+    ) -> float:
+        expected_return, volatility = portfolio_performance(weights, expected_returns, covariance)
+        if volatility <= 0:
+            return 1e6
+        return -((expected_return - risk_free_rate) / volatility)

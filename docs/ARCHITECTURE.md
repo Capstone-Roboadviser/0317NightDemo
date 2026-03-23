@@ -2,177 +2,243 @@
 
 ## 시스템 목표
 
-이 데모의 목표는 아래 문장으로 고정합니다.
+현재 시스템 목표는 아래 문장으로 설명하는 것이 가장 정확합니다.
 
-> 고정된 8개 자산군을 기준으로, 사용자의 위험 성향과 투자기간에 따라 Efficient Frontier 상의 포트폴리오 예시를 계산하고 설명해주는 시뮬레이션 서비스
+> 관리자 유니버스에 등록된 섹터별 후보 종목군을 기준으로, 각 섹터에서 대표 종목 1개씩을 선택한 조합 중 Sharpe Ratio가 가장 우수한 구조를 찾고, 그 대표 종목 유니버스로 Efficient Frontier 상의 포트폴리오를 계산하고 설명하는 시뮬레이션 서비스
 
 즉 이 시스템은:
 
 - 실거래 시스템이 아닙니다.
-- 투자 예측 AI가 아닙니다.
-- 종목 추천 시스템이 아닙니다.
-- 자산배분 엔진 데모입니다.
+- 투자 추천 AI가 아닙니다.
+- 종목 리서치 보고서를 자동 생성하는 시스템이 아닙니다.
+- **대표 종목 선택 + 포트폴리오 최적화**를 설명하는 데모입니다.
 
-## 최상위 계층
+## 최상위 구조
 
-시스템은 6계층으로 나뉩니다.
+현재 구조는 아래 6개 경계로 이해하면 됩니다.
 
 ### 1. Presentation Layer
 
-사용자가 직접 보는 화면입니다.
+- `app/web.py`
+- `app/admin_web.py`
 
-- 메인 소개 문구
-- 입력 폼
-- Efficient Frontier 그래프
-- 결과 카드
-- 자산배분 비중
-- 설명 문장
-- 디스클레이머
+역할:
 
-관련 파일:
-
-- [web.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/web.py)
+- 메인 시뮬레이터 UI
+- 관리자 콘솔 UI
+- 결과 카드/차트 렌더링
+- 관리자 입력/가격 갱신 실행
 
 ### 2. API Layer
 
-FastAPI 엔드포인트와 요청/응답 검증을 담당합니다.
+- `app/api/router.py`
+- `app/api/routes/portfolio.py`
+- `app/api/routes/admin.py`
+- `app/api/routes/health.py`
+- `app/api/schemas/request.py`
+- `app/api/schemas/response.py`
 
-관련 파일:
+역할:
 
-- [router.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/api/router.py)
-- [portfolio.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/api/routes/portfolio.py)
-- [health.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/api/routes/health.py)
-- [request.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/api/schemas/request.py)
-- [response.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/api/schemas/response.py)
+- 입력 검증
+- 응답 모델 직렬화
+- 관리자/시뮬레이터 엔드포인트 분리
 
-### 3. Application Layer
+### 3. Application / Service Layer
 
-비즈니스 흐름을 담당합니다.
+- `app/services/portfolio_service.py`
+- `app/services/managed_universe_service.py`
+- `app/services/price_refresh_service.py`
+- `app/services/ticker_discovery_service.py`
+- `app/services/mapping_service.py`
+- `app/services/explanation_service.py`
 
-- 위험 성향과 투자기간을 내부 목표 변동성으로 매핑
-- 포트폴리오 ID 생성
-- 계산 결과를 설명 문장과 함께 조합
-- 프론트에서 바로 쓰기 쉬운 구조로 결과 정리
+역할:
 
-관련 파일:
+- active 유니버스 조회
+- 가격 적재 orchestration
+- 준비 상태 점검
+- 대표 종목 조합 탐색
+- 선택된 조합을 기반으로 최종 frontier 계산
+- 응답용 설명/요약 생성
 
-- [portfolio_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/portfolio_service.py)
-- [mapping_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/mapping_service.py)
-- [explanation_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/explanation_service.py)
-- [combination_search_service.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/services/combination_search_service.py)
+### 4. Engine Layer
 
-### 4. Portfolio Engine Layer
+- `app/engine/constraints.py`
+- `app/engine/covariance.py`
+- `app/engine/returns.py`
+- `app/engine/optimizer.py`
+- `app/engine/math.py`
+- `app/engine/frontier.py`
 
-핵심 계산 엔진입니다.
+역할:
 
 - 기대수익률 계산
 - 공분산 계산
-- 포트폴리오 수학
-- 제약조건 구성
+- 최대 Sharpe 포인트 계산
 - Efficient Frontier 계산
-- 현재 선택 포인트 선정
-
-관련 파일:
-
-- [returns.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/engine/returns.py)
-- [covariance.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/engine/covariance.py)
-- [math.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/engine/math.py)
-- [constraints.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/engine/constraints.py)
-- [optimizer.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/engine/optimizer.py)
-- [frontier.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/engine/frontier.py)
+- 리스크 기여도 계산
 
 ### 5. Data Layer
 
-데모용 정적 데이터와 로딩 책임을 담당합니다.
+- `app/data/managed_universe_repository.py`
+- `app/data/stock_repository.py`
+- `app/data/asset_universe.json`
+- `app/data/demo/*`
 
-- 자산군 정의
-- 샘플 시장 가정
-- 고정 시드 기반 샘플 수익률 생성
+역할:
 
-관련 파일:
+- 관리자 유니버스 버전 저장
+- 가격 이력 저장
+- 종목 수익률 생성
+- 데모 fallback 데이터 제공
 
-- [asset_universe.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/asset_universe.json)
-- [sample_market_assumptions.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/sample_market_assumptions.json)
-- [repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/repository.py)
-- [stock_repository.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/data/stock_repository.py)
+### 6. Config / Infra Layer
 
-### 6. Config / Ops Layer
+- `app/core/config.py`
+- `railway.json`
+- `requirements.txt`
 
-배포와 설정을 담당합니다.
+역할:
 
-- 앱 이름/설명
-- 기본 목표 변동성
-- fallback 비중
-- Railway 설정
+- 환경 변수
+- 제약 파라미터
+- 배포 설정
 
-관련 파일:
+## 현재 핵심 계산 구조
 
-- [config.py](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/app/core/config.py)
-- [railway.json](/Users/yoonseungjae/Documents/code/RoboAdviser/fastapi-demo/railway.json)
+현재 계산은 “전 종목 직접 최적화”가 아니라 아래 구조입니다.
 
-## 도메인 객체
+1. 섹터별 후보 종목군 확보
+2. 각 섹터에서 대표 종목 1개 선택
+3. 선택된 대표 종목 조합마다 최대 Sharpe 포인트 계산
+4. 가장 좋은 조합 선택
+5. 선택된 대표 종목 조합으로 Efficient Frontier 전체 계산
+6. 화면에서는 결과를 섹터 비중으로 다시 묶어 표시
 
-핵심 도메인 모델은 아래와 같습니다.
+즉 계산 단위와 화면 표시 단위는 다릅니다.
 
-### `AssetClass`
+- 계산 단위: 대표 종목
+- 화면 표시 단위: 섹터
 
-- 자산군 코드
-- 표시 이름
-- 카테고리
-- 설명
-- 최소/최대 비중
+## 관리자 유니버스 흐름
 
-### `UserProfile`
+현재 관리자 유니버스는 아래 흐름으로 운용됩니다.
 
-- 위험 성향
-- 투자기간
-- 목표 변동성
+1. `/admin`에서 섹터별 후보 종목 입력
+2. 유니버스 버전 저장
+3. 특정 버전을 `active`로 전환
+4. `yfinance`에서 가격 적재
+5. readiness 점검
+6. 메인 시뮬레이터에서 active 버전 사용
 
-### `FrontierPoint`
+이때 유니버스는 Postgres에 버전 단위로 저장되므로, 입력값 변경과 계산 기준을 분리할 수 있습니다.
 
-- 변동성
-- 기대수익률
-- 비중 벡터
+## 대표 종목 선택 로직
 
-### `PortfolioSimulationResult`
+`portfolio_service.py`가 active 유니버스 기준으로 대표 종목 조합을 탐색합니다.
 
-- 포트폴리오 ID
-- 기대수익률
-- 변동성
-- 샤프 지수
-- 자산 비중
-- frontier 포인트
-- 설명 문장
+현재 규칙:
 
-## 요청 흐름
+- 각 섹터에서 대표 종목 `1개`
+- 섹터별 최소 후보 종목 수 `1개`
+- 전수 탐색 가능 조합 수 `<= 5000`이면 전체 조합 탐색
+- 그보다 크면 `1000`개 샘플링
+- 샘플링은 고정 seed 기반
 
-전체 흐름은 아래와 같습니다.
+즉 후보군이 작을 때는 가능한 모든 대표 종목 조합을 보고, 커지면 계산량을 제어하기 위해 샘플링합니다.
 
-사용자 입력
-→ FastAPI Request Schema 검증
-→ Application Service에서 내부 파라미터 변환
-→ Portfolio Engine에서 frontier 계산
-→ 목표 변동성에 맞는 포인트 선택
-→ explanation 생성
-→ Response Schema 직렬화
-→ 프론트 렌더링
+## 조합 평가 방식
 
-## 데이터 전략
+각 대표 종목 조합은 아래 방식으로 평가합니다.
 
-이 프로젝트는 실시간 외부 시세를 직접 읽지 않습니다.
+1. 선택된 종목들의 일간 수익률 시계열 생성
+2. 기대수익률 계산
+3. 공분산 계산
+4. 제약조건 하에서 최대 Sharpe 포인트 계산
+5. 최고 Sharpe가 가장 큰 조합을 선택
 
-이유:
+이 단계는 전체 frontier를 먼저 다 그리지 않고, **조합 비교용으로는 최대 Sharpe 포인트만 먼저 계산**합니다.
 
-- 데모에서는 재현성이 더 중요함
-- 발표 중 결과가 흔들리면 설명이 어려워짐
-- 네트워크 실패가 UX를 해칠 수 있음
+선택된 최적 조합이 정해진 뒤에만, 그 조합으로 frontier 전체를 계산합니다.
 
-따라서 현재는 JSON 기반의 정적 데이터와 고정 시드 샘플 수익률을 사용합니다.
+## 현재 제약조건
 
-## 설계 원칙
+현재 기본 제약은 아래와 같습니다.
 
-- 노트북 셀 실행 순서 의존성을 제거합니다.
-- 전역변수보다 명시적 입력/출력을 우선합니다.
-- 계산 실패 시 fallback 전략을 제공합니다.
-- NumPy/Pandas 객체는 API 응답 전에 JSON 직렬화 가능한 형태로 변환합니다.
-- "예측", "추천", "수익 보장" 표현은 피하고 "시뮬레이션", "예시", "샘플 데이터 기반" 표현을 사용합니다.
+- long-only
+- 종목 최대 비중 `35%`
+- 평균 종목 상관관계 상한 `0.25`
+- 최소 유효 수익률 이력 `252` 영업일
+
+### 왜 평균 상관관계 상한을 두는가
+
+Sharpe Ratio를 기본 목표로 유지하되, 지나치게 비슷하게 움직이는 종목들로만 포트폴리오가 구성되는 것을 줄이기 위해서입니다.
+
+즉 현재 구조는:
+
+- 기본 목표: Sharpe 최대화
+- 보조 제약: 평균 상관관계 상한
+
+입니다.
+
+## 상관관계는 어떻게 반영되나
+
+이 서비스는 상관관계를 별도 입력받지 않습니다.
+
+흐름:
+
+1. 가격 이력 적재
+2. 가격 -> 일간 수익률
+3. 수익률 -> 공분산 / 상관관계 계산
+4. `w^T Σ w`로 포트폴리오 변동성 계산
+
+즉 상관관계는 실제 가격 이력에서 통계적으로 추정해 Efficient Frontier 안에 반영됩니다.
+
+## 응답 구조 설계
+
+현재 응답에서 중요한 구분은 아래입니다.
+
+- `weights`: 화면 표시용 섹터 합산 비중
+- `allocations`: 섹터별 비중 / 리스크 기여도
+- `frontier_points[*].weights`: 선택된 대표 종목 유니버스 기준 종목 가중치
+- `selected_combination`: 섹터별로 어떤 대표 종목이 선택됐는지
+
+즉 한 응답 안에:
+
+- 계산에 쓰인 종목 레벨 정보
+- 화면에 보여줄 섹터 레벨 정보
+
+가 함께 들어 있습니다.
+
+## 현재 설계의 장점
+
+- 관리자 입력과 계산 기준이 버전으로 분리됨
+- 가격 적재와 시뮬레이션이 분리됨
+- 대표 종목 선택 단계와 frontier 계산 단계가 분리됨
+- API / 서비스 / 엔진 / 저장소 경계가 비교적 명확함
+
+## 현재 설계의 한계
+
+- 대표 종목 선택은 아직 heuristic + sampling 중심
+- 기대수익률 모델은 단순 historical mean 기반
+- 관리자 화면은 로그인 없이 열리는 데모용 UI
+- 가격 갱신은 아직 수동 실행 중심
+
+## 방향성
+
+다음 단계에서 가장 자연스러운 확장은 아래입니다.
+
+1. 기대수익률 모델 플러그인화
+2. 가격 갱신 배치 자동화
+3. 관리자 보호장치 추가
+4. 대표 종목 선택 기준 고도화
+5. 필요 시 soft-penalty 기반 상관관계 제약 도입
+
+## 현재 문서와의 관계
+
+- `README.md`: 현재 시스템 개요
+- `API_REFERENCE.md`: 엔드포인트와 응답 형식
+- `DEMO_GUIDE.md`: 시연용 운영 가이드
+- `STOCK_DATA_GUIDE.md`: 종목 데이터 요구사항
+- `COMBINATION_SEARCH_GUIDE.md`: 대표 종목 조합 탐색의 배경과 참고 설명

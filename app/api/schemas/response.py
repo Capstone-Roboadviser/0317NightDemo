@@ -184,6 +184,28 @@ class FrontierPreviewResponse(BaseModel):
     selected_combination: CombinationSelectionResponse | None = None
 
 
+class VolatilityPointResponse(BaseModel):
+    date: str
+    volatility: float
+
+
+class VolatilityHistoryResponse(BaseModel):
+    points: list[VolatilityPointResponse]
+    earliest_data_date: str
+    latest_data_date: str
+
+
+class ReturnPointResponse(BaseModel):
+    date: str
+    expected_return: float
+
+
+class ReturnHistoryResponse(BaseModel):
+    points: list[ReturnPointResponse]
+    earliest_data_date: str
+    latest_data_date: str
+
+
 class PortfolioSimulationResponse(BaseModel):
     portfolio_id: str
     disclaimer: str

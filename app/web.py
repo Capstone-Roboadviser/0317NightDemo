@@ -1088,6 +1088,88 @@ def render_homepage() -> HTMLResponse:
       cursor: pointer;
     }
 
+    .vol-chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+
+    .vol-time-toggles {
+      display: flex;
+      gap: 4px;
+    }
+
+    .vol-time-btn {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--background);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .vol-time-btn:hover {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+
+    .vol-time-btn.active {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .vol-chart-wrap {
+      margin-top: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--muted);
+      padding: 12px;
+      position: relative;
+    }
+
+    .vol-hover-info {
+      position: absolute;
+      top: 20px;
+      left: 72px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .vol-hover-info.visible {
+      opacity: 1;
+    }
+
+    .vol-hover-date {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-weight: 400;
+    }
+
+    .vol-hover-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--foreground);
+      line-height: 1.2;
+    }
+
+    .vol-chart-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--muted-foreground);
+      font-size: 13px;
+    }
+
     .options-list {
       display: flex;
       flex-direction: column;
@@ -1236,6 +1318,8 @@ def render_homepage() -> HTMLResponse:
     .footer,
     .slider-card,
     .chart-wrap,
+    .vol-chart-wrap,
+    .vol-time-btn,
     .option-item,
     .hero-note,
     .badge,
@@ -1469,6 +1553,57 @@ def render_homepage() -> HTMLResponse:
               <div class="metric-label">샤프 지수</div>
               <div class="metric-value" id="metric-sharpe">-</div>
               <div class="metric-desc">위험 대비 효율성을 비교하는 지표</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-content" style="padding-top:16px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+              <div>
+                <div class="card-title" id="history-chart-title">포트폴리오 변동성 추이</div>
+                <div class="card-description" id="history-chart-desc">선택된 포트폴리오의 과거 실현 변동성 (20일 롤링, 연율화) 추이입니다.</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <div class="alloc-tabs">
+                  <button class="alloc-tab history-mode-tab active" data-mode="vol">변동성</button>
+                  <button class="alloc-tab history-mode-tab" data-mode="ret">기대수익률</button>
+                </div>
+                <div class="vol-time-toggles" id="vol-time-toggles">
+                  <button class="vol-time-btn" data-range="1w">1주</button>
+                  <button class="vol-time-btn" data-range="3m">3달</button>
+                  <button class="vol-time-btn active" data-range="1y">1년</button>
+                  <button class="vol-time-btn" data-range="5y">5년</button>
+                  <button class="vol-time-btn" data-range="all">전체</button>
+                </div>
+                <div class="vol-time-toggles" id="ret-time-toggles" style="display:none">
+                  <button class="ret-time-btn vol-time-btn" data-range="1w">1주</button>
+                  <button class="ret-time-btn vol-time-btn" data-range="3m">3달</button>
+                  <button class="ret-time-btn vol-time-btn active" data-range="1y">1년</button>
+                  <button class="ret-time-btn vol-time-btn" data-range="5y">5년</button>
+                  <button class="ret-time-btn vol-time-btn" data-range="all">전체</button>
+                </div>
+              </div>
+            </div>
+            <div id="vol-panel">
+              <div class="vol-chart-wrap">
+                <div class="vol-hover-info" id="vol-hover-info">
+                  <div class="vol-hover-date" id="vol-hover-date"></div>
+                  <div class="vol-hover-value" id="vol-hover-value"></div>
+                </div>
+                <div class="vol-chart-empty" id="vol-chart-empty">포트폴리오를 먼저 계산해주세요.</div>
+                <svg id="vol-chart" viewBox="0 0 900 280" aria-label="변동성 추이 차트" style="display:none"></svg>
+              </div>
+            </div>
+            <div id="ret-panel" style="display:none">
+              <div class="vol-chart-wrap">
+                <div class="vol-hover-info" id="ret-hover-info">
+                  <div class="vol-hover-date" id="ret-hover-date"></div>
+                  <div class="vol-hover-value" id="ret-hover-value"></div>
+                </div>
+                <div class="vol-chart-empty" id="ret-chart-empty">포트폴리오를 먼저 계산해주세요.</div>
+                <svg id="ret-chart" viewBox="0 0 900 280" aria-label="기대수익률 추이 차트" style="display:none"></svg>
+              </div>
             </div>
           </div>
         </div>
@@ -2214,6 +2349,16 @@ def render_homepage() -> HTMLResponse:
         .map((item) => ({ name: item.asset_name, code: item.asset_code, weight: item.weight }));
       const allocJSON = JSON.stringify(allocArr).replace(/"/g, '&quot;');
       animateSelectedDot(point, allocJSON);
+
+      // Update volatility & return history with new weights
+      if (point.weights) {
+        if (typeof window.loadVolatilityHistory === "function") {
+          window.loadVolatilityHistory(point.weights, lastData.data_source);
+        }
+        if (typeof window.loadReturnHistory === "function") {
+          window.loadReturnHistory(point.weights, lastData.data_source);
+        }
+      }
     }
 
     let progressTimer = null;
@@ -2298,6 +2443,15 @@ def render_homepage() -> HTMLResponse:
         });
 
         renderChart(data);
+        // Load volatility & return history charts
+        if (data.selected_point?.weights) {
+          if (typeof window.loadVolatilityHistory === "function") {
+            window.loadVolatilityHistory(data.selected_point.weights, data.data_source);
+          }
+          if (typeof window.loadReturnHistory === "function") {
+            window.loadReturnHistory(data.selected_point.weights, data.data_source);
+          }
+        }
         // Brief pause to show 100%, then reveal chart with blur fade
         setTimeout(function() {
           chartLoadingEl.style.display = "none";
@@ -2457,6 +2611,557 @@ def render_homepage() -> HTMLResponse:
       loadPortfolio();
     });
 
+    // ── Volatility History Chart ──
+    (function() {
+      const volChartEl = document.getElementById("vol-chart");
+      const volEmptyEl = document.getElementById("vol-chart-empty");
+      const volHoverInfo = document.getElementById("vol-hover-info");
+      const volHoverDate = document.getElementById("vol-hover-date");
+      const volHoverValue = document.getElementById("vol-hover-value");
+      const volTimeBtns = document.querySelectorAll(".vol-time-btn");
+
+      let volData = null;       // full points array from API
+      let volRange = "1y";      // active time range
+      let volCurrentWeights = null;
+
+      function getThemeColorsVol() {
+        const s = getComputedStyle(document.documentElement);
+        return {
+          bg: s.getPropertyValue("--chart-bg").trim() || "#F8FAFC",
+          grid: s.getPropertyValue("--chart-grid").trim() || "#E2E8F0",
+          label: s.getPropertyValue("--chart-label").trim() || "#94A3B8",
+          line: s.getPropertyValue("--chart-line").trim() || "#0F172A",
+          text: s.getPropertyValue("--chart-text").trim() || "#0F172A",
+          muted: s.getPropertyValue("--muted-foreground").trim() || "#64748B",
+          selected: s.getPropertyValue("--chart-selected").trim() || "#F97316",
+          border: s.getPropertyValue("--border").trim() || "#E2E8F0",
+        };
+      }
+
+      function rangeToDays(range) {
+        switch (range) {
+          case "1w": return 7;
+          case "3m": return 90;
+          case "1y": return 365;
+          case "5y": return 365 * 5;
+          case "all": return Infinity;
+          default: return 365;
+        }
+      }
+
+      function filterByRange(points, range) {
+        if (!points || !points.length) return [];
+        const days = rangeToDays(range);
+        if (days === Infinity) return points;
+        const lastDate = new Date(points[points.length - 1].date);
+        const cutoff = new Date(lastDate);
+        cutoff.setDate(cutoff.getDate() - days);
+        return points.filter(function(p) { return new Date(p.date) >= cutoff; });
+      }
+
+      function renderVolChart(points) {
+        if (!points || points.length < 2) {
+          volChartEl.style.display = "none";
+          volEmptyEl.style.display = "";
+          volEmptyEl.textContent = volData ? "선택 기간에 데이터가 부족합니다." : "포트폴리오를 먼저 계산해주세요.";
+          volHoverInfo.classList.remove("visible");
+          return;
+        }
+
+        volEmptyEl.style.display = "none";
+        volChartEl.style.display = "block";
+
+        const c = getThemeColorsVol();
+        const width = 900;
+        const height = 280;
+        const margin = { top: 48, right: 24, bottom: 36, left: 56 };
+        const innerW = width - margin.left - margin.right;
+        const innerH = height - margin.top - margin.bottom;
+
+        const dates = points.map(function(p) { return new Date(p.date); });
+        const vols = points.map(function(p) { return p.volatility; });
+        const minDate = dates[0].getTime();
+        const maxDate = dates[dates.length - 1].getTime();
+        const dateSpan = maxDate - minDate || 1;
+        const volMin = Math.max(0, Math.min(...vols) * 0.85);
+        const volMax = Math.max(...vols) * 1.1;
+        const volSpan = volMax - volMin || 0.01;
+
+        function xScale(d) { return margin.left + ((d.getTime() - minDate) / dateSpan) * innerW; }
+        function yScale(v) { return margin.top + innerH - ((v - volMin) / volSpan) * innerH; }
+
+        let svg = "";
+
+        // Background
+        svg += '<rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" fill="' + c.bg + '" rx="6" />';
+
+        // Y-axis grid lines and labels
+        const yTicks = 5;
+        for (let i = 0; i <= yTicks; i++) {
+          const val = volMin + (volSpan * i) / yTicks;
+          const y = yScale(val);
+          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" />';
+          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="11" font-family="Inter, Noto Sans KR, sans-serif" text-anchor="end">' + (val * 100).toFixed(1) + '%</text>';
+        }
+
+        // X-axis date labels
+        const xTickCount = Math.min(6, points.length);
+        for (let i = 0; i < xTickCount; i++) {
+          const idx = Math.round((i / (xTickCount - 1)) * (points.length - 1));
+          const d = dates[idx];
+          const x = xScale(d);
+          const label = d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
+          svg += '<text x="' + x + '" y="' + (height - 10) + '" fill="' + c.label + '" font-size="10" font-family="Inter, Noto Sans KR, sans-serif" text-anchor="middle">' + label + '</text>';
+        }
+
+        // Clip path
+        svg += '<defs><clipPath id="vol-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath></defs>';
+
+        // Current portfolio volatility dotted horizontal line
+        const currentVol = lastData ? (lastData.volatility || 0) : 0;
+        if (currentVol > volMin && currentVol < volMax) {
+          const refY = yScale(currentVol);
+          svg += '<g clip-path="url(#vol-clip)">';
+          svg += '<line x1="' + margin.left + '" y1="' + refY + '" x2="' + (margin.left + innerW) + '" y2="' + refY + '" stroke="' + c.selected + '" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7" />';
+          svg += '<text x="' + (margin.left + innerW - 4) + '" y="' + (refY - 6) + '" fill="' + c.selected + '" font-size="10" font-family="Inter, Noto Sans KR, sans-serif" text-anchor="end" font-weight="600">현재 ' + (currentVol * 100).toFixed(1) + '%</text>';
+          svg += '</g>';
+        }
+
+        // Area fill under the line
+        svg += '<g clip-path="url(#vol-clip)">';
+        let areaPath = "M" + xScale(dates[0]) + "," + (margin.top + innerH);
+        for (let i = 0; i < points.length; i++) {
+          areaPath += " L" + xScale(dates[i]) + "," + yScale(vols[i]);
+        }
+        areaPath += " L" + xScale(dates[dates.length - 1]) + "," + (margin.top + innerH) + " Z";
+        svg += '<path d="' + areaPath + '" fill="' + c.line + '" opacity="0.06" />';
+
+        // Volatility line
+        let linePath = "M" + xScale(dates[0]) + "," + yScale(vols[0]);
+        for (let i = 1; i < points.length; i++) {
+          linePath += " L" + xScale(dates[i]) + "," + yScale(vols[i]);
+        }
+        svg += '<path d="' + linePath + '" fill="none" stroke="' + c.line + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />';
+
+        // End dot (TODAY)
+        const lastX = xScale(dates[dates.length - 1]);
+        const lastY = yScale(vols[vols.length - 1]);
+        svg += '<circle cx="' + lastX + '" cy="' + lastY + '" r="4" fill="' + c.line + '" />';
+        svg += '<circle cx="' + lastX + '" cy="' + lastY + '" r="7" fill="' + c.line + '" opacity="0.15" />';
+        svg += '</g>';
+
+        // Invisible hit areas for hover
+        svg += '<g clip-path="url(#vol-clip)">';
+        for (let i = 0; i < points.length; i++) {
+          const x = xScale(dates[i]);
+          svg += '<line class="vol-hit" x1="' + x + '" y1="' + margin.top + '" x2="' + x + '" y2="' + (margin.top + innerH) + '" stroke="transparent" stroke-width="' + Math.max(2, innerW / points.length) + '" data-idx="' + i + '" />';
+        }
+        svg += '</g>';
+
+        volChartEl.innerHTML = svg;
+
+        // Hover crosshair handling
+        const crosshairLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        crosshairLine.setAttribute("y1", margin.top);
+        crosshairLine.setAttribute("y2", margin.top + innerH);
+        crosshairLine.setAttribute("stroke", c.muted);
+        crosshairLine.setAttribute("stroke-width", "1");
+        crosshairLine.setAttribute("stroke-dasharray", "3,3");
+        crosshairLine.setAttribute("pointer-events", "none");
+        crosshairLine.style.display = "none";
+        volChartEl.appendChild(crosshairLine);
+
+        const crosshairDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        crosshairDot.setAttribute("r", "5");
+        crosshairDot.setAttribute("fill", c.line);
+        crosshairDot.setAttribute("stroke", c.bg);
+        crosshairDot.setAttribute("stroke-width", "2");
+        crosshairDot.setAttribute("pointer-events", "none");
+        crosshairDot.style.display = "none";
+        volChartEl.appendChild(crosshairDot);
+
+        volChartEl.addEventListener("mousemove", function(e) {
+          const rect = volChartEl.getBoundingClientRect();
+          const scaleX = width / rect.width;
+          const mouseX = (e.clientX - rect.left) * scaleX;
+
+          if (mouseX < margin.left || mouseX > margin.left + innerW) {
+            crosshairLine.style.display = "none";
+            crosshairDot.style.display = "none";
+            volHoverInfo.classList.remove("visible");
+            return;
+          }
+
+          // Find closest point
+          let closest = 0;
+          let closestDist = Infinity;
+          for (let i = 0; i < points.length; i++) {
+            const px = xScale(dates[i]);
+            const dist = Math.abs(px - mouseX);
+            if (dist < closestDist) {
+              closestDist = dist;
+              closest = i;
+            }
+          }
+
+          const px = xScale(dates[closest]);
+          const py = yScale(vols[closest]);
+          crosshairLine.setAttribute("x1", px);
+          crosshairLine.setAttribute("x2", px);
+          crosshairLine.style.display = "";
+          crosshairDot.setAttribute("cx", px);
+          crosshairDot.setAttribute("cy", py);
+          crosshairDot.style.display = "";
+
+          const d = dates[closest];
+          volHoverDate.textContent = d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
+          volHoverValue.textContent = (vols[closest] * 100).toFixed(1) + "%";
+          volHoverInfo.classList.add("visible");
+        });
+
+        volChartEl.addEventListener("mouseleave", function() {
+          crosshairLine.style.display = "none";
+          crosshairDot.style.display = "none";
+          volHoverInfo.classList.remove("visible");
+        });
+      }
+
+      // Time range toggle buttons
+      volTimeBtns.forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          volTimeBtns.forEach(function(b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          volRange = btn.dataset.range;
+          if (volData) {
+            renderVolChart(filterByRange(volData, volRange));
+          }
+        });
+      });
+
+      // Fetch volatility data after portfolio simulation
+      let volLastKey = "";
+      window.loadVolatilityHistory = async function(weights, dataSource) {
+        if (!weights || Object.keys(weights).length === 0) return;
+        const key = JSON.stringify(weights);
+        if (key === volLastKey) return; // skip if weights unchanged
+        volLastKey = key;
+        volCurrentWeights = weights;
+        try {
+          const res = await fetch("/portfolio/volatility-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ weights: weights, data_source: dataSource || "stock_combination_demo" }),
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          volData = data.points || [];
+          renderVolChart(filterByRange(volData, volRange));
+        } catch (_) {
+          volData = null;
+          renderVolChart(null);
+        }
+      };
+
+      // Re-render on theme toggle
+      window.rerenderVolChart = function() {
+        if (volData) {
+          renderVolChart(filterByRange(volData, volRange));
+        }
+      };
+    })();
+
+    // ── Return History Chart ──
+    (function() {
+      const retChartEl = document.getElementById("ret-chart");
+      const retEmptyEl = document.getElementById("ret-chart-empty");
+      const retHoverInfo = document.getElementById("ret-hover-info");
+      const retHoverDate = document.getElementById("ret-hover-date");
+      const retHoverValue = document.getElementById("ret-hover-value");
+      const retTimeBtns = document.querySelectorAll(".ret-time-btn");
+
+      let retData = null;
+      let retRange = "1y";
+
+      function getThemeColorsRet() {
+        const s = getComputedStyle(document.documentElement);
+        return {
+          bg: s.getPropertyValue("--chart-bg").trim() || "#F8FAFC",
+          grid: s.getPropertyValue("--chart-grid").trim() || "#E2E8F0",
+          label: s.getPropertyValue("--chart-label").trim() || "#94A3B8",
+          line: "#10b981",
+          text: s.getPropertyValue("--chart-text").trim() || "#0F172A",
+          muted: s.getPropertyValue("--muted-foreground").trim() || "#64748B",
+          selected: s.getPropertyValue("--chart-selected").trim() || "#F97316",
+          border: s.getPropertyValue("--border").trim() || "#E2E8F0",
+        };
+      }
+
+      function rangeToDays(range) {
+        switch (range) {
+          case "1w": return 7;
+          case "3m": return 90;
+          case "1y": return 365;
+          case "5y": return 365 * 5;
+          case "all": return Infinity;
+          default: return 365;
+        }
+      }
+
+      function filterByRange(points, range) {
+        if (!points || !points.length) return [];
+        const days = rangeToDays(range);
+        if (days === Infinity) return points;
+        const lastDate = new Date(points[points.length - 1].date);
+        const cutoff = new Date(lastDate);
+        cutoff.setDate(cutoff.getDate() - days);
+        return points.filter(function(p) { return new Date(p.date) >= cutoff; });
+      }
+
+      function renderRetChart(points) {
+        if (!points || points.length < 2) {
+          retChartEl.style.display = "none";
+          retEmptyEl.style.display = "";
+          retEmptyEl.textContent = retData ? "선택 기간에 데이터가 부족합니다." : "포트폴리오를 먼저 계산해주세요.";
+          retHoverInfo.classList.remove("visible");
+          return;
+        }
+
+        retEmptyEl.style.display = "none";
+        retChartEl.style.display = "block";
+
+        const c = getThemeColorsRet();
+        const width = 900;
+        const height = 280;
+        const margin = { top: 48, right: 24, bottom: 36, left: 56 };
+        const innerW = width - margin.left - margin.right;
+        const innerH = height - margin.top - margin.bottom;
+
+        const dates = points.map(function(p) { return new Date(p.date); });
+        const rets = points.map(function(p) { return p.expected_return; });
+        const minDate = dates[0].getTime();
+        const maxDate = dates[dates.length - 1].getTime();
+        const dateSpan = maxDate - minDate || 1;
+        const retMin = Math.min(...rets) - Math.abs(Math.min(...rets)) * 0.15;
+        const retMax = Math.max(...rets) + Math.abs(Math.max(...rets)) * 0.15;
+        const retSpan = retMax - retMin || 0.01;
+
+        function xScale(d) { return margin.left + ((d.getTime() - minDate) / dateSpan) * innerW; }
+        function yScale(v) { return margin.top + innerH - ((v - retMin) / retSpan) * innerH; }
+
+        let svg = "";
+
+        // Background
+        svg += '<rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" fill="' + c.bg + '" rx="6" />';
+
+        // Y-axis grid lines and labels
+        const yTicks = 5;
+        for (let i = 0; i <= yTicks; i++) {
+          const val = retMin + (retSpan * i) / yTicks;
+          const y = yScale(val);
+          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" />';
+          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="11" font-family="Inter, Noto Sans KR, sans-serif" text-anchor="end">' + (val * 100).toFixed(1) + '%</text>';
+        }
+
+        // Zero line
+        if (retMin < 0 && retMax > 0) {
+          const zeroY = yScale(0);
+          svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.muted + '" stroke-width="1" opacity="0.5" />';
+        }
+
+        // X-axis date labels
+        const xTickCount = Math.min(6, points.length);
+        for (let i = 0; i < xTickCount; i++) {
+          const idx = Math.round((i / (xTickCount - 1)) * (points.length - 1));
+          const d = dates[idx];
+          const x = xScale(d);
+          const label = d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
+          svg += '<text x="' + x + '" y="' + (height - 10) + '" fill="' + c.label + '" font-size="10" font-family="Inter, Noto Sans KR, sans-serif" text-anchor="middle">' + label + '</text>';
+        }
+
+        // Clip path
+        svg += '<defs><clipPath id="ret-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath></defs>';
+
+        // Current expected return dotted horizontal line
+        const currentRet = lastData ? (lastData.expected_return || 0) : 0;
+        if (currentRet > retMin && currentRet < retMax) {
+          const refY = yScale(currentRet);
+          svg += '<g clip-path="url(#ret-clip)">';
+          svg += '<line x1="' + margin.left + '" y1="' + refY + '" x2="' + (margin.left + innerW) + '" y2="' + refY + '" stroke="' + c.selected + '" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7" />';
+          svg += '<text x="' + (margin.left + innerW - 4) + '" y="' + (refY - 6) + '" fill="' + c.selected + '" font-size="10" font-family="Inter, Noto Sans KR, sans-serif" text-anchor="end" font-weight="600">현재 ' + (currentRet * 100).toFixed(1) + '%</text>';
+          svg += '</g>';
+        }
+
+        // Area fill under the line
+        svg += '<g clip-path="url(#ret-clip)">';
+        let areaPath = "M" + xScale(dates[0]) + "," + (margin.top + innerH);
+        for (let i = 0; i < points.length; i++) {
+          areaPath += " L" + xScale(dates[i]) + "," + yScale(rets[i]);
+        }
+        areaPath += " L" + xScale(dates[dates.length - 1]) + "," + (margin.top + innerH) + " Z";
+        svg += '<path d="' + areaPath + '" fill="' + c.line + '" opacity="0.08" />';
+
+        // Return line
+        let linePath = "M" + xScale(dates[0]) + "," + yScale(rets[0]);
+        for (let i = 1; i < points.length; i++) {
+          linePath += " L" + xScale(dates[i]) + "," + yScale(rets[i]);
+        }
+        svg += '<path d="' + linePath + '" fill="none" stroke="' + c.line + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />';
+
+        // End dot (TODAY)
+        const lastX = xScale(dates[dates.length - 1]);
+        const lastY = yScale(rets[rets.length - 1]);
+        svg += '<circle cx="' + lastX + '" cy="' + lastY + '" r="4" fill="' + c.line + '" />';
+        svg += '<circle cx="' + lastX + '" cy="' + lastY + '" r="7" fill="' + c.line + '" opacity="0.15" />';
+        svg += '</g>';
+
+        // Invisible hit areas for hover
+        svg += '<g clip-path="url(#ret-clip)">';
+        for (let i = 0; i < points.length; i++) {
+          const x = xScale(dates[i]);
+          svg += '<line class="ret-hit" x1="' + x + '" y1="' + margin.top + '" x2="' + x + '" y2="' + (margin.top + innerH) + '" stroke="transparent" stroke-width="' + Math.max(2, innerW / points.length) + '" data-idx="' + i + '" />';
+        }
+        svg += '</g>';
+
+        retChartEl.innerHTML = svg;
+
+        // Hover crosshair
+        const crosshairLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        crosshairLine.setAttribute("y1", margin.top);
+        crosshairLine.setAttribute("y2", margin.top + innerH);
+        crosshairLine.setAttribute("stroke", c.muted);
+        crosshairLine.setAttribute("stroke-width", "1");
+        crosshairLine.setAttribute("stroke-dasharray", "3,3");
+        crosshairLine.setAttribute("pointer-events", "none");
+        crosshairLine.style.display = "none";
+        retChartEl.appendChild(crosshairLine);
+
+        const crosshairDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        crosshairDot.setAttribute("r", "5");
+        crosshairDot.setAttribute("fill", c.line);
+        crosshairDot.setAttribute("stroke", c.bg);
+        crosshairDot.setAttribute("stroke-width", "2");
+        crosshairDot.setAttribute("pointer-events", "none");
+        crosshairDot.style.display = "none";
+        retChartEl.appendChild(crosshairDot);
+
+        retChartEl.addEventListener("mousemove", function(e) {
+          const rect = retChartEl.getBoundingClientRect();
+          const scaleX = width / rect.width;
+          const mouseX = (e.clientX - rect.left) * scaleX;
+
+          if (mouseX < margin.left || mouseX > margin.left + innerW) {
+            crosshairLine.style.display = "none";
+            crosshairDot.style.display = "none";
+            retHoverInfo.classList.remove("visible");
+            return;
+          }
+
+          let closest = 0;
+          let closestDist = Infinity;
+          for (let i = 0; i < points.length; i++) {
+            const px = xScale(dates[i]);
+            const dist = Math.abs(px - mouseX);
+            if (dist < closestDist) { closestDist = dist; closest = i; }
+          }
+
+          const px = xScale(dates[closest]);
+          const py = yScale(rets[closest]);
+          crosshairLine.setAttribute("x1", px);
+          crosshairLine.setAttribute("x2", px);
+          crosshairLine.style.display = "";
+          crosshairDot.setAttribute("cx", px);
+          crosshairDot.setAttribute("cy", py);
+          crosshairDot.style.display = "";
+
+          const d = dates[closest];
+          retHoverDate.textContent = d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
+          retHoverValue.textContent = (rets[closest] * 100).toFixed(1) + "%";
+          retHoverInfo.classList.add("visible");
+        });
+
+        retChartEl.addEventListener("mouseleave", function() {
+          crosshairLine.style.display = "none";
+          crosshairDot.style.display = "none";
+          retHoverInfo.classList.remove("visible");
+        });
+      }
+
+      // Time range toggle buttons
+      retTimeBtns.forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          retTimeBtns.forEach(function(b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          retRange = btn.dataset.range;
+          if (retData) {
+            renderRetChart(filterByRange(retData, retRange));
+          }
+        });
+      });
+
+      // Fetch return data after portfolio simulation
+      let retLastKey = "";
+      window.loadReturnHistory = async function(weights, dataSource) {
+        if (!weights || Object.keys(weights).length === 0) return;
+        const key = JSON.stringify(weights);
+        if (key === retLastKey) return;
+        retLastKey = key;
+        try {
+          const res = await fetch("/portfolio/return-history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ weights: weights, data_source: dataSource || "stock_combination_demo" }),
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          retData = data.points || [];
+          renderRetChart(filterByRange(retData, retRange));
+        } catch (_) {
+          retData = null;
+          renderRetChart(null);
+        }
+      };
+
+      window.rerenderRetChart = function() {
+        if (retData) {
+          renderRetChart(filterByRange(retData, retRange));
+        }
+      };
+    })();
+
+    // ── History Chart Mode Toggle (Vol / Return) ──
+    (function() {
+      const modeTabs = document.querySelectorAll(".history-mode-tab");
+      const volPanel = document.getElementById("vol-panel");
+      const retPanel = document.getElementById("ret-panel");
+      const volToggles = document.getElementById("vol-time-toggles");
+      const retToggles = document.getElementById("ret-time-toggles");
+      const titleEl = document.getElementById("history-chart-title");
+      const descEl = document.getElementById("history-chart-desc");
+
+      modeTabs.forEach(function(tab) {
+        tab.addEventListener("click", function() {
+          modeTabs.forEach(function(t) { t.classList.remove("active"); });
+          tab.classList.add("active");
+          const mode = tab.dataset.mode;
+          if (mode === "vol") {
+            volPanel.style.display = "";
+            retPanel.style.display = "none";
+            volToggles.style.display = "";
+            retToggles.style.display = "none";
+            titleEl.textContent = "포트폴리오 변동성 추이";
+            descEl.textContent = "선택된 포트폴리오의 과거 실현 변동성 (20일 롤링, 연율화) 추이입니다.";
+          } else {
+            volPanel.style.display = "none";
+            retPanel.style.display = "";
+            volToggles.style.display = "none";
+            retToggles.style.display = "";
+            titleEl.textContent = "포트폴리오 기대수익률 추이";
+            descEl.textContent = "선택된 포트폴리오의 과거 실현 수익률 (20일 롤링, 연율화) 추이입니다.";
+          }
+        });
+      });
+    })();
+
     (function() {
       const toggle = document.getElementById("theme-toggle");
       const html = document.documentElement;
@@ -2464,6 +3169,12 @@ def render_homepage() -> HTMLResponse:
       function rerenderChart() {
         if (lastData) {
           setTimeout(() => renderChart(lastData), 50);
+        }
+        if (typeof window.rerenderVolChart === "function") {
+          setTimeout(window.rerenderVolChart, 60);
+        }
+        if (typeof window.rerenderRetChart === "function") {
+          setTimeout(window.rerenderRetChart, 70);
         }
       }
 

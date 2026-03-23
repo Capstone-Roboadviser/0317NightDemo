@@ -1,7 +1,10 @@
+import math
+
+import numpy as np
+import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.config import TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
-from app.api.schemas.request import PortfolioSimulationRequest
+from app.api.schemas.request import PortfolioSimulationRequest, VolatilityHistoryRequest
 from app.api.schemas.response import (
     AssetClassResponse,
     AssetUniverseResponse,
@@ -12,7 +15,13 @@ from app.api.schemas.response import (
     RandomPortfolioResponse,
     StockInstrumentResponse,
     StocksBySectorResponse,
+    ReturnHistoryResponse,
+    ReturnPointResponse,
+    VolatilityHistoryResponse,
+    VolatilityPointResponse,
 )
+from app.core.config import DEMO_STOCK_PRICES_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
+from app.data.stock_repository import StockDataRepository
 from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 from app.domain.models import PortfolioSimulationResult, UserProfile
 from app.services.portfolio_service import PortfolioSimulationService
@@ -155,6 +164,94 @@ def _frontier_point_response(point, label: str | None = None) -> FrontierPointRe
         volatility=round(point.volatility, 4),
         expected_return=round(point.expected_return, 4),
         weights={code: round(weight, 4) for code, weight in point.weights.items()},
+    )
+
+
+@router.post("/volatility-history", response_model=VolatilityHistoryResponse)
+def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryResponse:
+    tickers = [t.upper() for t in payload.weights.keys()]
+    weights_upper = {t.upper(): w for t, w in payload.weights.items()}
+
+    if not tickers:
+        raise HTTPException(status_code=400, detail="비중 정보가 비어 있습니다.")
+
+    repo = StockDataRepository()
+    prices = repo.load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
+    prices["ticker"] = prices["ticker"].str.upper()
+
+    available_tickers = set(prices["ticker"].unique())
+    missing = [t for t in tickers if t not in available_tickers]
+    if len(missing) == len(tickers):
+        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
+
+    prices = prices[prices["ticker"].isin(tickers)]
+    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
+    returns = pivoted.pct_change().dropna(how="all")
+
+    weight_series = pd.Series(weights_upper).reindex(returns.columns).fillna(0.0)
+    total = weight_series.sum()
+    if total > 0:
+        weight_series = weight_series / total
+
+    portfolio_returns = returns.fillna(0.0).dot(weight_series)
+    rolling_vol = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).std() * math.sqrt(252)
+    rolling_vol = rolling_vol.dropna()
+
+    points = [
+        VolatilityPointResponse(date=date.strftime("%Y-%m-%d"), volatility=round(float(vol), 6))
+        for date, vol in rolling_vol.items()
+        if np.isfinite(vol)
+    ]
+
+    all_dates = pivoted.index
+    return VolatilityHistoryResponse(
+        points=points,
+        earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+        latest_data_date=all_dates.max().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+    )
+
+
+@router.post("/return-history", response_model=ReturnHistoryResponse)
+def return_history(payload: VolatilityHistoryRequest) -> ReturnHistoryResponse:
+    tickers = [t.upper() for t in payload.weights.keys()]
+    weights_upper = {t.upper(): w for t, w in payload.weights.items()}
+
+    if not tickers:
+        raise HTTPException(status_code=400, detail="비중 정보가 비어 있습니다.")
+
+    repo = StockDataRepository()
+    prices = repo.load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
+    prices["ticker"] = prices["ticker"].str.upper()
+
+    available_tickers = set(prices["ticker"].unique())
+    missing = [t for t in tickers if t not in available_tickers]
+    if len(missing) == len(tickers):
+        raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
+
+    prices = prices[prices["ticker"].isin(tickers)]
+    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
+    returns = pivoted.pct_change().dropna(how="all")
+
+    weight_series = pd.Series(weights_upper).reindex(returns.columns).fillna(0.0)
+    total = weight_series.sum()
+    if total > 0:
+        weight_series = weight_series / total
+
+    portfolio_returns = returns.fillna(0.0).dot(weight_series)
+    rolling_ret = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).mean() * 252
+    rolling_ret = rolling_ret.dropna()
+
+    points = [
+        ReturnPointResponse(date=date.strftime("%Y-%m-%d"), expected_return=round(float(ret), 6))
+        for date, ret in rolling_ret.items()
+        if np.isfinite(ret)
+    ]
+
+    all_dates = pivoted.index
+    return ReturnHistoryResponse(
+        points=points,
+        earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+        latest_data_date=all_dates.max().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
     )
 
 

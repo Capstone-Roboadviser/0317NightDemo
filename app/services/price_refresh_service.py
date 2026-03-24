@@ -85,10 +85,20 @@ class PriceRefreshService:
             status=status,
             message=message,
         )
-        price_stats = self.managed_universe_service.repository.get_price_stats(
-            [instrument.ticker for instrument in instruments]
+        price_window = self.managed_universe_service.get_price_window(
+            version.version_id,
+            instruments,
         )
-        return ManagedPriceRefreshResult(job=finished_job, price_stats=price_stats)
+        price_stats = self.managed_universe_service.repository.get_price_stats(
+            [instrument.ticker for instrument in instruments],
+            start_date=None if price_window is None else price_window.aligned_start_date,
+            end_date=None if price_window is None else price_window.aligned_end_date,
+        )
+        return ManagedPriceRefreshResult(
+            job=finished_job,
+            price_stats=price_stats,
+            price_window=price_window,
+        )
 
     def get_latest_job(self, version_id: int | None = None):
         if not self.managed_universe_service.is_configured():

@@ -134,6 +134,7 @@ class PortfolioSimulationService:
         instruments = self.managed_universe_service.get_active_instruments()
         sector_checks = self._build_sector_checks(assets, instruments)
         issues: list[str] = []
+        price_window = self.managed_universe_service.get_price_window(active_version.version_id, instruments) if instruments else None
 
         if not instruments:
             issues.append("활성 관리자 유니버스에 등록된 종목이 없습니다.")
@@ -148,6 +149,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                price_window=price_window,
             )
 
         shortages = [
@@ -157,7 +159,10 @@ class PortfolioSimulationService:
         ]
         issues.extend(shortages)
 
-        prices = self.managed_universe_service.load_prices_for_instruments(instruments)
+        prices = self.managed_universe_service.load_prices_for_instruments(
+            instruments,
+            version_id=active_version.version_id,
+        )
         if prices.empty:
             issues.append("가격 데이터가 아직 적재되지 않았습니다. /admin 에서 가격 갱신을 먼저 실행해주세요.")
             return ManagedUniverseReadiness(
@@ -171,6 +176,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                price_window=price_window,
             )
 
         priced_ticker_count = int(prices["ticker"].astype(str).str.upper().nunique())
@@ -190,6 +196,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                price_window=price_window,
             )
 
         try:
@@ -207,6 +214,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                price_window=price_window,
             )
 
         try:
@@ -224,6 +232,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                price_window=price_window,
             )
 
         effective_history_rows = int(optimized_returns.count().min()) if not optimized_returns.empty else 0
@@ -241,6 +250,7 @@ class PortfolioSimulationService:
             effective_history_rows=effective_history_rows,
             minimum_history_rows=MINIMUM_HISTORY_ROWS,
             sector_checks=sector_checks,
+            price_window=price_window,
             selected_combination=self._build_universe_selection(
                 combination_id=active_version.version_name,
                 instruments=instruments,
@@ -398,7 +408,10 @@ class PortfolioSimulationService:
         if not instruments:
             raise RuntimeError("활성 관리자 유니버스에 등록된 종목이 없습니다. /admin 에서 종목을 추가한 뒤 다시 시도해주세요.")
 
-        prices = self.managed_universe_service.load_prices_for_instruments(instruments)
+        prices = self.managed_universe_service.load_prices_for_instruments(
+            instruments,
+            version_id=active_version.version_id,
+        )
         if prices.empty:
             raise RuntimeError(
                 "활성 관리자 유니버스의 가격 데이터가 없습니다. /admin 에서 가격 갱신을 먼저 실행해주세요."

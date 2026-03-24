@@ -95,6 +95,16 @@ class ManagedPriceStats:
 
 
 @dataclass(frozen=True)
+class ManagedUniversePriceWindow:
+    version_id: int
+    aligned_start_date: str | None
+    aligned_end_date: str | None
+    youngest_ticker: str | None
+    youngest_start_date: str | None
+    ticker_count: int
+
+
+@dataclass(frozen=True)
 class ManagedPriceRefreshJob:
     job_id: int
     version_id: int
@@ -125,6 +135,7 @@ class ManagedPriceRefreshJobItem:
 class ManagedPriceRefreshResult:
     job: ManagedPriceRefreshJob
     price_stats: ManagedPriceStats
+    price_window: ManagedUniversePriceWindow | None = None
 
 
 @dataclass(frozen=True)
@@ -175,6 +186,7 @@ class ManagedUniverseReadiness:
     effective_history_rows: int | None
     minimum_history_rows: int
     sector_checks: list[ManagedUniverseSectorReadiness]
+    price_window: ManagedUniversePriceWindow | None = None
     selected_combination: CombinationSelectionView | None = None
 
 

@@ -89,6 +89,15 @@ class ManagedPriceStatsResponse(BaseModel):
     max_date: str | None
 
 
+class ManagedUniversePriceWindowResponse(BaseModel):
+    version_id: int
+    aligned_start_date: str | None = None
+    aligned_end_date: str | None = None
+    youngest_ticker: str | None = None
+    youngest_start_date: str | None = None
+    ticker_count: int
+
+
 class ManagedPriceRefreshJobResponse(BaseModel):
     job_id: int
     version_id: int
@@ -118,6 +127,7 @@ class ManagedUniverseStatusResponse(BaseModel):
     database_configured: bool
     active_version: ManagedUniverseVersionResponse | None = None
     price_stats: ManagedPriceStatsResponse | None = None
+    price_window: ManagedUniversePriceWindowResponse | None = None
     latest_refresh_job: ManagedPriceRefreshJobResponse | None = None
 
 
@@ -140,12 +150,14 @@ class ManagedUniverseReadinessResponse(BaseModel):
     effective_history_rows: int | None = None
     minimum_history_rows: int
     sector_checks: list[ManagedUniverseSectorReadinessResponse]
+    price_window: ManagedUniversePriceWindowResponse | None = None
     selected_combination: CombinationSelectionResponse | None = None
 
 
 class ManagedPriceRefreshResponse(BaseModel):
     job: ManagedPriceRefreshJobResponse
     price_stats: ManagedPriceStatsResponse
+    price_window: ManagedUniversePriceWindowResponse | None = None
 
 
 class TickerLookupResponse(BaseModel):

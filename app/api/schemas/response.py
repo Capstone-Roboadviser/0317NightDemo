@@ -32,6 +32,13 @@ class RandomPortfolioResponse(BaseModel):
     weights: dict[str, float] = {}
 
 
+class IndividualAssetResponse(BaseModel):
+    code: str
+    name: str
+    volatility: float
+    expected_return: float
+
+
 class AllocationResponse(BaseModel):
     asset_code: str
     asset_name: str
@@ -193,6 +200,7 @@ class FrontierPreviewResponse(BaseModel):
     selected_point_index: int
     selected_point: FrontierPointResponse
     random_portfolios: list[RandomPortfolioResponse]
+    individual_assets: list[IndividualAssetResponse] = []
     selected_combination: CombinationSelectionResponse | None = None
 
 
@@ -237,6 +245,7 @@ class PortfolioSimulationResponse(BaseModel):
     selected_point_index: int
     selected_point: FrontierPointResponse
     random_portfolios: list[RandomPortfolioResponse]
+    individual_assets: list[IndividualAssetResponse] = []
     used_fallback: bool
     frontier_vol_min: float = 0.0
     frontier_vol_max: float = 0.0

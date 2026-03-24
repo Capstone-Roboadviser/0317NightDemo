@@ -11,6 +11,7 @@ from app.api.schemas.response import (
     CombinationSelectionResponse,
     FrontierPreviewResponse,
     FrontierPointResponse,
+    IndividualAssetResponse,
     PortfolioSimulationResponse,
     RandomPortfolioResponse,
     StockInstrumentResponse,
@@ -21,6 +22,7 @@ from app.api.schemas.response import (
     VolatilityPointResponse,
 )
 from app.core.config import DEMO_STOCK_PRICES_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
+from app.data.repository import StaticDataRepository
 from app.data.stock_repository import StockDataRepository
 from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 from app.domain.models import PortfolioSimulationResult, UserProfile
@@ -29,6 +31,23 @@ from app.services.portfolio_service import PortfolioSimulationService
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 portfolio_service = PortfolioSimulationService()
+_static_repo = StaticDataRepository()
+
+
+def _build_individual_assets() -> list[IndividualAssetResponse]:
+    assets = _static_repo.load_asset_universe()
+    assumptions = _static_repo.load_market_assumptions()
+    name_map = {a.code: a.name for a in assets}
+    return [
+        IndividualAssetResponse(
+            code=code,
+            name=name_map.get(code, code),
+            volatility=round(assumptions.annual_volatilities.get(code, 0), 4),
+            expected_return=round(assumptions.annual_returns.get(code, 0), 4),
+        )
+        for code in assumptions.annual_returns
+        if code in name_map
+    ]
 
 
 @router.get("/assets", response_model=AssetUniverseResponse)
@@ -96,6 +115,7 @@ def get_frontier(
             RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4), weights={k: round(v, 4) for k, v in point[2].items()})
             for point in result.random_portfolios
         ],
+        individual_assets=_build_individual_assets(),
         selected_combination=_combination_response(result.selected_combination),
     )
 
@@ -134,6 +154,7 @@ def simulate_portfolio(payload: PortfolioSimulationRequest) -> PortfolioSimulati
             RandomPortfolioResponse(volatility=round(point[0], 4), expected_return=round(point[1], 4), weights={k: round(v, 4) for k, v in point[2].items()})
             for point in result.random_portfolios
         ],
+        individual_assets=_build_individual_assets(),
         used_fallback=result.used_fallback,
         frontier_vol_min=round(min(p.volatility for p in result.frontier_points), 4) if result.frontier_points else 0.0,
         frontier_vol_max=round(max(p.volatility for p in result.frontier_points), 4) if result.frontier_points else 0.0,

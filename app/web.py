@@ -2331,12 +2331,13 @@ def render_homepage() -> HTMLResponse:
 
       const visibleRandomPortfolios = randomPortfolios.filter((point) => point.expected_return >= guideReturnAt(point.volatility) - 1e-9);
 
+      const individualAssets = data.individual_assets || [];
       const frontierExtents = frontier.length
         ? [frontier[0], frontier[frontier.length - 1]]
         : [];
       const visiblePoints = visibleRandomPortfolios.length
-        ? visibleRandomPortfolios.concat(frontierExtents, [selectedPoint])
-        : frontier.concat([selectedPoint]);
+        ? visibleRandomPortfolios.concat(frontierExtents, [selectedPoint]).concat(individualAssets)
+        : frontier.concat([selectedPoint]).concat(individualAssets);
       const volMin = Math.min(...visiblePoints.map((p) => p.volatility)) * 0.9;
       const volMax = Math.max(...visiblePoints.map((p) => p.volatility)) * 1.1;
       const retMin = Math.min(...visiblePoints.map((p) => p.expected_return)) * 0.9;
@@ -2388,6 +2389,18 @@ def render_homepage() -> HTMLResponse:
         const allocAttr = point.weights ? ' data-alloc="' + weightsToAllocJSON(point.weights) + '"' : '';
         svg += `<circle cx="${px}" cy="${py}" r="3" fill="${c.scatter}" />`;
         svg += `<circle class="scatter-point" cx="${px}" cy="${py}" r="8" fill="transparent" data-vol="${(point.volatility * 100).toFixed(1)}" data-ret="${(point.expected_return * 100).toFixed(1)}"${allocAttr} />`;
+      });
+
+      // Individual asset points (100% single-asset portfolios)
+      individualAssets.forEach((asset) => {
+        const ax = xScale(asset.volatility);
+        const ay = yScale(asset.expected_return);
+        const assetColor = ASSET_COLORS[asset.code] || "#64748B";
+        const singleAllocJSON = JSON.stringify([{name: asset.name, code: asset.code, weight: 1}]).replace(/"/g, '&quot;');
+        svg += `<circle cx="${ax}" cy="${ay}" r="10" fill="${assetColor}" fill-opacity="0.15" />`;
+        svg += `<circle class="scatter-point" cx="${ax}" cy="${ay}" r="10" fill="transparent" data-vol="${(asset.volatility * 100).toFixed(1)}" data-ret="${(asset.expected_return * 100).toFixed(1)}" data-alloc="${singleAllocJSON}" data-label="${asset.name}" />`;
+        svg += `<circle cx="${ax}" cy="${ay}" r="4.5" fill="${assetColor}" stroke="${c.bg}" stroke-width="1.5" pointer-events="none" />`;
+        svg += `<text x="${ax}" y="${ay - 12}" text-anchor="middle" fill="${c.label}" font-size="9" font-family="Inter, Noto Sans KR, sans-serif" pointer-events="none">${asset.name}</text>`;
       });
 
       if (frontier.length >= 2) {

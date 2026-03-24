@@ -1230,8 +1230,7 @@ def render_homepage() -> HTMLResponse:
       background: var(--background);
     }
     .option-chart-card.active {
-      border-color: var(--ring);
-      box-shadow: 0 0 0 1px var(--ring);
+      border-top: 2px solid var(--opt-color, var(--primary));
     }
     .option-chart-label {
       font-weight: 600;
@@ -2197,7 +2196,7 @@ def render_homepage() -> HTMLResponse:
             '<span class="option-chart-legend-val">' + pct + '%</span>' +
             '</div>';
         }).join("");
-        return '<div class="option-chart-card' + active + '">' +
+        return '<div class="option-chart-card' + active + '" style="--opt-color:' + dotColor + '">' +
           '<div class="option-chart-label"><span class="opt-dot" style="background:' + dotColor + '"></span>' + (item.label || "옵션") + '</div>' +
           donutSvg +
           '<div class="option-chart-stats">변동성 ' + percent(item.volatility) + ' · 수익률 ' + percent(item.expected_return) + '</div>' +

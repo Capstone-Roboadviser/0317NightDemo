@@ -1494,6 +1494,9 @@ def render_homepage() -> HTMLResponse:
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-scatter);"></i>가능한 포트폴리오</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-guide);"></i>비교 기준선</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-line);"></i>효율적 투자선</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #22c55e;"></i>안정형</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #3b82f6;"></i>균형형</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #a855f7;"></i>성장형</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-selected);"></i>현재 포트폴리오</span>
                 <span class="legend-item"><i class="legend-dot" style="background: #ef4444;"></i>최대 샤프</span>
               </div>
@@ -2209,6 +2212,19 @@ def render_homepage() -> HTMLResponse:
         svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" data-role="max-sharpe" data-target-vol="${maxSharpePoint.volatility.toFixed(6)}" />`;
         svg += `<circle id="sharpe-dot" cx="${sx}" cy="${sy}" r="6" fill="#ef4444" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
       }
+
+      // Frontier option dots (안정형, 균형형, 성장형)
+      const optionColors = { "안정형": "#22c55e", "균형형": "#3b82f6", "성장형": "#a855f7" };
+      const frontierOptions = data.frontier_options || [];
+      frontierOptions.forEach((opt) => {
+        const ox = xScale(opt.volatility);
+        const oy = yScale(opt.expected_return);
+        const col = optionColors[opt.label] || "#64748b";
+        const optAllocJSON = weightsToAllocJSON(opt.weights || {});
+        svg += `<circle cx="${ox}" cy="${oy}" r="10" fill="${col}" fill-opacity="0.15" />`;
+        svg += `<circle class="scatter-point" cx="${ox}" cy="${oy}" r="10" fill="transparent" data-vol="${(opt.volatility * 100).toFixed(1)}" data-ret="${(opt.expected_return * 100).toFixed(1)}" data-alloc="${optAllocJSON}" data-label="${opt.label}" data-target-vol="${opt.volatility.toFixed(6)}" />`;
+        svg += `<circle cx="${ox}" cy="${oy}" r="5" fill="${col}" stroke="${c.bg}" stroke-width="2" pointer-events="none" />`;
+      });
 
       const cx = xScale(selectedPoint.volatility);
       const cy = yScale(selectedPoint.expected_return);

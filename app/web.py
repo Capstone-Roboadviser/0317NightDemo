@@ -1462,9 +1462,9 @@ def render_homepage() -> HTMLResponse:
                 <div class="slider-card">
                   <div class="slider-header">
                     <span class="slider-profile" id="risk-label">균형형</span>
-                    <span class="slider-target" id="slider-target">목표 변동성 12.0%</span>
+                    <span class="slider-target" id="slider-target">목표 기대수익률 16.0%</span>
                   </div>
-                  <input id="risk_slider" type="range" min="4" max="22" step="0.1" value="12" />
+                  <input id="risk_slider" type="range" min="0" max="100" step="0.1" value="50" />
                   <div class="slider-labels">
                     <span>안정형</span>
                     <span>공격형</span>
@@ -1742,51 +1742,124 @@ def render_homepage() -> HTMLResponse:
       return `${(value * 100).toFixed(1)}%`;
     }
 
-    function sliderProfile(value) {
-      if (value <= 0.10) return { risk_profile: "conservative", label: "안정형" };
-      if (value <= 0.14) return { risk_profile: "balanced", label: "균형형" };
+    const DEFAULT_RETURN_MIN = 0.10;
+    const DEFAULT_RETURN_MAX = 0.22;
+    const FRONTIER_RISK_FREE_RATE = 0.02;
+
+    function sliderProfile(position) {
+      if (position <= 0.3333) return { risk_profile: "conservative", label: "안정형" };
+      if (position <= 0.6667) return { risk_profile: "balanced", label: "균형형" };
       return { risk_profile: "growth", label: "성장형" };
     }
 
-    function currentSliderTarget() {
+    function currentSliderPosition() {
       const raw = Number(slider.value);
-      if (!Number.isFinite(raw)) return 0.12;
-      return Math.min(0.22, Math.max(0.04, raw / 100));
+      if (!Number.isFinite(raw)) return 0.5;
+      return Math.min(1, Math.max(0, raw / 100));
     }
 
-    function normalizeTargetVolatility(value) {
-      if (!Number.isFinite(value)) return 0.12;
-      const clamped = Math.min(0.22, Math.max(0.04, value));
-      const snapped = 0.04 + Math.round((clamped - 0.04) / 0.02) * 0.02;
-      return Number(snapped.toFixed(2));
+    function frontierReturnRange(frontierPoints) {
+      if (!frontierPoints || !frontierPoints.length) {
+        return { min: DEFAULT_RETURN_MIN, max: DEFAULT_RETURN_MAX };
+      }
+      const min = Math.min(...frontierPoints.map((point) => point.expected_return));
+      const max = Math.max(...frontierPoints.map((point) => point.expected_return));
+      if (!Number.isFinite(min) || !Number.isFinite(max) || Math.abs(max - min) < 1e-9) {
+        return { min: DEFAULT_RETURN_MIN, max: DEFAULT_RETURN_MAX };
+      }
+      return { min, max };
     }
 
-    function suggestedVolatility() {
-      const target = currentSliderTarget();
-      const profile = sliderProfile(target);
+    function currentSliderTargetExpectedReturn(frontierPoints) {
+      const position = currentSliderPosition();
+      const range = frontierReturnRange(frontierPoints);
+      return range.min + (range.max - range.min) * position;
+    }
+
+    function syncSliderDisplay(frontierPoints) {
+      const position = currentSliderPosition();
+      const target = currentSliderTargetExpectedReturn(frontierPoints);
+      const profile = sliderProfile(position);
       riskLabel.textContent = profile.label;
-      sliderTarget.textContent = `목표 변동성 ${percent(target)}`;
+      sliderTarget.textContent = `목표 기대수익률 ${percent(target)}`;
       return { profile, target };
     }
 
-    function setSliderTargetVolatility(target, options) {
-      const next = Math.min(0.22, Math.max(0.04, Number(target || 0.12)));
-      slider.value = (next * 100).toFixed(1);
+    function setSliderTargetExpectedReturn(target, options) {
+      const range = frontierReturnRange(lastData && lastData.frontier_points ? lastData.frontier_points : null);
+      const next = Number(target);
+      const position = !Number.isFinite(next) || Math.abs(range.max - range.min) < 1e-9
+        ? 0.5
+        : (next - range.min) / (range.max - range.min);
+      slider.value = (Math.min(1, Math.max(0, position)) * 100).toFixed(1);
       updateSliderTrack();
-      suggestedVolatility();
+      syncSliderDisplay(lastData && lastData.frontier_points ? lastData.frontier_points : null);
       if (options && options.updateFromCache && lastData && lastData.frontier_points) {
         updateFromCache();
       }
     }
 
     function payloadFromInputs() {
-      const { profile, target } = suggestedVolatility();
+      const { profile } = syncSliderDisplay(lastData && lastData.frontier_points ? lastData.frontier_points : null);
       return {
         risk_profile: profile.risk_profile,
         investment_horizon: horizonEl.value,
         data_source: dataSourceEl.value,
-        target_volatility: normalizeTargetVolatility(target),
       };
+    }
+
+    function findClosestFrontierIndexByExpectedReturn(frontierPoints, targetReturn) {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      frontierPoints.forEach(function(p, i) {
+        const dist = Math.abs(p.expected_return - targetReturn);
+        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+      });
+      return bestIdx;
+    }
+
+    function buildFrontierSelectionCopy(point, targetReturn, disclaimer) {
+      const sharpeRatio = point.volatility > 0 ? (point.expected_return - FRONTIER_RISK_FREE_RATE) / point.volatility : 0;
+      return {
+        summary: `현재 선택은 목표 기대수익률 ${percent(targetReturn)}에 가장 가까운 효율적 투자선 포인트입니다. 예상 수익률은 ${percent(point.expected_return)}, 예상 변동성은 ${percent(point.volatility)}, 샤프지수는 ${sharpeRatio.toFixed(2)}입니다.`,
+        explanation: `위험 슬라이더는 효율적 투자선 위에서 목표 기대수익률 구간을 정합니다. 현재 포인트는 목표 기대수익률 ${percent(targetReturn)}에 가장 가까운 조합이며, 예상 수익률 ${percent(point.expected_return)}, 예상 변동성 ${percent(point.volatility)}로 계산됩니다.`,
+      };
+    }
+
+    function applyExpectedReturnSelection(data) {
+      if (!data || !data.frontier_points || !data.frontier_points.length) return null;
+      const { target } = syncSliderDisplay(data.frontier_points);
+      const idx = findClosestFrontierIndexByExpectedReturn(data.frontier_points, target);
+      const point = data.frontier_points[idx];
+      const expectedReturn = point.expected_return;
+      const volatility = point.volatility;
+      const sharpeRatio = volatility > 0 ? (expectedReturn - FRONTIER_RISK_FREE_RATE) / volatility : 0;
+
+      data.selected_point_index = idx;
+      data.selected_point = Object.assign({}, point, { label: "현재 포트폴리오" });
+      data.expected_return = expectedReturn;
+      data.volatility = volatility;
+      data.sharpe_ratio = sharpeRatio;
+
+      if (point.weights) {
+        const currentRiskMap = Object.fromEntries((data.allocations || []).map(function(a) {
+          return [a.asset_code, a.risk_contribution || 0];
+        }));
+        data.allocations = groupStockWeightsBySector(point.weights).map(function(item) {
+          return {
+            asset_code: item.asset_code,
+            asset_name: item.asset_name,
+            weight: item.weight,
+            risk_contribution: currentRiskMap[item.asset_code] || 0,
+          };
+        });
+      }
+
+      const copy = buildFrontierSelectionCopy(point, target, data.disclaimer);
+      data.summary = copy.summary;
+      data.explanation = copy.explanation;
+      data.explanation_body = copy.explanation;
+      return point;
     }
 
     function renderCombinationSelection(selection, sourceLabel) {
@@ -2068,7 +2141,7 @@ def render_homepage() -> HTMLResponse:
 
     function renderOptions(items, selectedPoint) {
       optionsEl.innerHTML = items.map((item) => {
-        const active = Math.abs(item.volatility - selectedPoint.volatility) < 0.02 ? " active" : "";
+        const active = Math.abs(item.expected_return - selectedPoint.expected_return) < 0.01 ? " active" : "";
         return `<div class="option-item${active}">
           <span class="option-label">${item.label || "옵션"}</span>
           <div class="option-stats">
@@ -2206,7 +2279,7 @@ def render_homepage() -> HTMLResponse:
         const sy = yScale(maxSharpePoint.expected_return);
         const sharpeAllocJSON = weightsToAllocJSON(maxSharpePoint.weights || {});
         svg += `<circle id="sharpe-glow" cx="${sx}" cy="${sy}" r="12" fill="rgba(239, 68, 68, 0.18)" />`;
-        svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" data-role="max-sharpe" data-target-vol="${maxSharpePoint.volatility.toFixed(6)}" />`;
+        svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" data-role="max-sharpe" data-target-return="${maxSharpePoint.expected_return.toFixed(6)}" />`;
         svg += `<circle id="sharpe-dot" cx="${sx}" cy="${sy}" r="6" fill="#ef4444" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
       }
 
@@ -2249,35 +2322,15 @@ def render_homepage() -> HTMLResponse:
       dot.setAttribute("cy", newCy);
     }
 
-    // Find the frontier point index closest to a target volatility
-    function findClosestFrontierIndex(frontierPoints, targetVol) {
-      let bestIdx = 0;
-      let bestDist = Infinity;
-      frontierPoints.forEach(function(p, i) {
-        const dist = Math.abs(p.volatility - targetVol);
-        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-      });
-      return bestIdx;
-    }
-
     // Update UI from cached data when slider changes (no API call)
     function updateFromCache() {
       if (!lastData || !lastData.frontier_points || !lastData.frontier_points.length) return;
+      const point = applyExpectedReturnSelection(lastData);
+      if (!point) return;
 
-      const { target } = suggestedVolatility();
-      const idx = findClosestFrontierIndex(lastData.frontier_points, target);
-      const point = lastData.frontier_points[idx];
-
-      const expectedReturn = point.expected_return;
-      const volatility = point.volatility;
-      const sharpeRatio = volatility > 0 ? expectedReturn / volatility : 0;
-
-      // Update selected point in cached data for chart re-render
-      lastData.selected_point_index = idx;
-      lastData.selected_point = Object.assign({}, point, { label: "현재 포트폴리오" });
-      lastData.expected_return = expectedReturn;
-      lastData.volatility = volatility;
-      lastData.sharpe_ratio = sharpeRatio;
+      const expectedReturn = lastData.expected_return || point.expected_return;
+      const volatility = lastData.volatility || point.volatility;
+      const sharpeRatio = lastData.sharpe_ratio || (volatility > 0 ? (expectedReturn - FRONTIER_RISK_FREE_RATE) / volatility : 0);
 
       // Animate metrics
       const metricReturnEl = document.getElementById("metric-return");
@@ -2287,24 +2340,16 @@ def render_homepage() -> HTMLResponse:
       animateNumber(metricVolEl, volatility * 100, function(v) { return v.toFixed(1) + "%"; });
       animateNumber(metricSharpeEl, sharpeRatio, function(v) { return v.toFixed(2); });
 
-      // Update allocations from frontier point weights
+      const updatedSummary = document.getElementById("summary");
+      const updatedExplanation = document.getElementById("explanation-body");
+      if (updatedSummary) updatedSummary.textContent = [lastData.summary, lastData.disclaimer].filter(Boolean).join(" ");
+      if (updatedExplanation) updatedExplanation.textContent = lastData.explanation || lastData.explanation_body || "";
+
       if (point.weights) {
-        const currentRiskMap = Object.fromEntries((lastData.allocations || []).map(function(a) {
-          return [a.asset_code, a.risk_contribution || 0];
-        }));
-        const updatedAllocs = groupStockWeightsBySector(point.weights).map(function(item) {
-          return {
-            asset_code: item.asset_code,
-            asset_name: item.asset_name,
-            weight: item.weight,
-            risk_contribution: currentRiskMap[item.asset_code] || 0,
-          };
-        });
-        lastData.allocations = updatedAllocs;
-        lastAllocations = updatedAllocs;
+        lastAllocations = lastData.allocations || [];
         const activeAllocEl = allocView === "pie" ? allocPieEl : allocListEl;
         crossfade(activeAllocEl, function() {
-          renderAllocations(updatedAllocs);
+          renderAllocations(lastAllocations);
         });
       }
 
@@ -2386,16 +2431,15 @@ def render_homepage() -> HTMLResponse:
         }
         finishProgress();
 
-        const expectedReturn = data.expected_return ?? data.metrics?.expected_return ?? 0;
-        const volatility = data.volatility ?? data.metrics?.volatility ?? 0;
-        const sharpeRatio = data.sharpe_ratio ?? data.metrics?.sharpe_ratio ?? 0;
-        const explanationTitle = data.explanation_title ?? data.explanation?.title ?? "왜 이런 포트폴리오가 나왔을까?";
-        const explanationBody = data.explanation ?? data.explanation?.body ?? "";
-
         lastData = data;
-        lastAllocations = data.allocations || [];
+        applyExpectedReturnSelection(lastData);
+        lastAllocations = lastData.allocations || [];
 
-        suggestedVolatility();
+        const expectedReturn = lastData.expected_return ?? lastData.metrics?.expected_return ?? 0;
+        const volatility = lastData.volatility ?? lastData.metrics?.volatility ?? 0;
+        const sharpeRatio = lastData.sharpe_ratio ?? lastData.metrics?.sharpe_ratio ?? 0;
+        const explanationTitle = lastData.explanation_title ?? lastData.explanation?.title ?? "왜 이런 포트폴리오가 나왔을까?";
+        const explanationBody = lastData.explanation ?? lastData.explanation?.body ?? "";
 
         // Animate metric numbers
         const metricReturnEl = document.getElementById("metric-return");
@@ -2411,25 +2455,25 @@ def render_homepage() -> HTMLResponse:
           explanationBodyEl.textContent = explanationBody;
         });
         crossfade(summaryEl, function() {
-          summaryEl.textContent = [data.summary, data.disclaimer].filter(Boolean).join(" ");
+          summaryEl.textContent = [lastData.summary, lastData.disclaimer].filter(Boolean).join(" ");
         });
         renderCombinationSelection(data.selected_combination, data.data_source_label);
         crossfade(optionsEl, function() {
-          renderOptions(data.frontier_options || [], data.selected_point);
+          renderOptions(lastData.frontier_options || [], lastData.selected_point);
         });
         const activeAllocEl = allocView === "pie" ? allocPieEl : allocListEl;
         crossfade(activeAllocEl, function() {
-          renderAllocations(data.allocations || []);
+          renderAllocations(lastData.allocations || []);
         });
 
-        renderChart(data);
+        renderChart(lastData);
         // Load volatility & return history charts
-        if (data.selected_point?.weights) {
+        if (lastData.selected_point?.weights) {
           if (typeof window.loadVolatilityHistory === "function") {
-            window.loadVolatilityHistory(data.selected_point.weights, data.data_source);
+            window.loadVolatilityHistory(lastData.selected_point.weights, lastData.data_source);
           }
           if (typeof window.loadReturnHistory === "function") {
-            window.loadReturnHistory(data.selected_point.weights, data.data_source);
+            window.loadReturnHistory(lastData.selected_point.weights, lastData.data_source);
           }
         }
         // Brief pause to show 100%, then reveal chart with blur fade
@@ -2460,7 +2504,7 @@ def render_homepage() -> HTMLResponse:
 
     slider.addEventListener("input", () => {
       updateSliderTrack();
-      suggestedVolatility();
+      syncSliderDisplay(lastData && lastData.frontier_points ? lastData.frontier_points : null);
       clearTimeout(debounceTimer);
       // Use cached frontier if available, otherwise fetch the initial portfolio
       if (lastData && lastData.frontier_points) {
@@ -3303,13 +3347,13 @@ def render_homepage() -> HTMLResponse:
       document.addEventListener("click", function(e) {
         const pt = e.target.closest('.scatter-point[data-role="max-sharpe"]');
         if (!pt) return;
-        const targetVol = Number(pt.dataset.targetVol || "NaN");
-        if (!Number.isFinite(targetVol)) return;
-        setSliderTargetVolatility(targetVol, { updateFromCache: true });
+        const targetReturn = Number(pt.dataset.targetReturn || "NaN");
+        if (!Number.isFinite(targetReturn)) return;
+        setSliderTargetExpectedReturn(targetReturn, { updateFromCache: true });
       });
     })();
 
-    suggestedVolatility();
+    syncSliderDisplay(null);
     loadPortfolio();
   </script>
 </body>

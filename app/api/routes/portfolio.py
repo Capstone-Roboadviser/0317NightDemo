@@ -375,9 +375,9 @@ def earnings_history(payload: EarningsHistoryRequest) -> EarningsHistoryResponse
     # Total cumulative return
     total_cumret = sum(sector_cumret.values())
 
-    # Subsample to ~500 points
+    # Subsample to ~250 points for smoother chart
     dates = pivoted.index.tolist()
-    step = max(1, len(dates) // 500)
+    step = max(1, len(dates) // 250)
     sampled_indices = list(range(0, len(dates), step))
     if sampled_indices[-1] != len(dates) - 1:
         sampled_indices.append(len(dates) - 1)

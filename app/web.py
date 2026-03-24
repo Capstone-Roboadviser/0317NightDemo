@@ -3848,16 +3848,24 @@ def render_homepage() -> HTMLResponse:
         function xScale(d) { return margin.left + ((d.getTime() - minDate) / dateSpan) * innerW; }
         function yScale(v) { return margin.top + innerH - ((v - yMin) / ySpan) * innerH; }
 
+        // Format Y-axis values as abbreviated Korean
+        function fmtY(v) {
+          var abs = Math.abs(v);
+          var sign = v < 0 ? "-" : "";
+          if (abs >= 100000000) return sign + (abs / 100000000).toFixed(1) + "억";
+          if (abs >= 10000) return sign + Math.round(abs / 10000).toLocaleString("ko-KR") + "만";
+          return sign + Math.round(abs).toLocaleString("ko-KR");
+        }
+
         var svg = "";
-        svg += '<rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" fill="' + c.bg + '" rx="6" />';
 
         // Y gridlines + labels
         var yTicks = 5;
         for (var j = 0; j <= yTicks; j++) {
           var val = yMin + (ySpan * j) / yTicks;
           var y = yScale(val);
-          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" />';
-          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="end">' + Math.round(val).toLocaleString("ko-KR") + '</text>';
+          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" stroke-opacity="0.5" />';
+          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="end">' + fmtY(val) + '</text>';
         }
 
         // X labels
@@ -3869,16 +3877,15 @@ def render_homepage() -> HTMLResponse:
           svg += '<text x="' + dx + '" y="' + (height - 8) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="middle">' + dlabel + '</text>';
         }
 
-        // Zero line with label
+        // Zero line
         var zeroY = yScale(0);
-        svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.label + '" stroke-width="1" stroke-opacity="0.3" stroke-dasharray="6,4" />';
-        svg += '<text x="' + (margin.left - 8) + '" y="' + (zeroY + 3) + '" fill="' + c.label + '" font-size="9" font-family="Inter, sans-serif" text-anchor="end" opacity="0.6">0원</text>';
+        svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.label + '" stroke-width="0.75" stroke-opacity="0.35" stroke-dasharray="6,4" />';
 
-        // Gradient defs for each sector
+        // Defs: clip + gradients
         svg += '<defs><clipPath id="earn-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath>';
         sectorCodes.forEach(function(sc, i) {
           var color = ASSET_COLORS[sc] || "#64748B";
-          svg += '<linearGradient id="earn-grad-' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.75"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0.45"/></linearGradient>';
+          svg += '<linearGradient id="earn-grad-' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.85"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0.6"/></linearGradient>';
         });
         svg += '</defs>';
 
@@ -3898,19 +3905,12 @@ def render_homepage() -> HTMLResponse:
           svg += '<path d="' + path + '" fill="url(#earn-grad-' + a + ')" />';
         }
 
-        // Total earnings line (solid white/dark with slight glow)
+        // Total earnings line — thin, subtle
         var totalPath = "M" + xScale(dates[0]) + "," + yScale(points[0].total_earnings);
         for (var t = 1; t < points.length; t++) {
           totalPath += " L" + xScale(dates[t]) + "," + yScale(points[t].total_earnings);
         }
-        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="1" stroke-opacity="0.15" stroke-linecap="round" stroke-linejoin="round" />';
-        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round" />';
-
-        // End dot
-        var lastPt = points[points.length - 1];
-        var ex = xScale(dates[dates.length - 1]);
-        var ey = yScale(lastPt.total_earnings);
-        svg += '<circle cx="' + ex + '" cy="' + ey + '" r="4.5" fill="' + c.text + '" stroke="' + c.bg + '" stroke-width="2" />';
+        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="1.5" stroke-opacity="0.7" stroke-linecap="round" stroke-linejoin="round" />';
 
         svg += '</g>';
 

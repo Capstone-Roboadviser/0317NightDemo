@@ -1507,7 +1507,7 @@ def render_homepage() -> HTMLResponse:
                   <div class="progress-indicator"></div>
                 </div>
               </div>
-              <svg id="frontier-chart" viewBox="0 0 900 460" aria-label="효율적 투자선 차트" style="display:none"></svg>
+              <svg id="frontier-chart" viewBox="0 0 900 860" aria-label="효율적 투자선 차트" style="display:none"></svg>
             </div>
           </div>
         </div>
@@ -2106,9 +2106,10 @@ def render_homepage() -> HTMLResponse:
       const c = getThemeColors();
       const margin = { top: 20, right: 24, bottom: 46, left: 60 };
       const width = 900;
-      const height = 460;
+      const height = 860;
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
+      chartEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
       function guideReturnAt(volatility) {
         if (frontier.length < 2) return -Infinity;

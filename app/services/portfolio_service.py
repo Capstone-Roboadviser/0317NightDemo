@@ -32,6 +32,7 @@ from app.domain.models import (
     CombinationSelectionView,
     ExpectedReturnModelInput,
     FrontierPoint,
+    IndividualAssetView,
     ManagedUniverseReadiness,
     ManagedUniverseSectorReadiness,
     PortfolioSimulationResult,
@@ -333,6 +334,7 @@ class PortfolioSimulationService:
             frontier_options=build_frontier_options(context.frontier_points),
             selected_point_index=selected_point_index,
             random_portfolios=context.random_portfolios,
+            individual_assets=self._build_individual_assets(context),
             used_fallback=context.used_fallback,
             selected_combination=context.selected_combination,
         )
@@ -776,6 +778,46 @@ class PortfolioSimulationService:
             successful_combinations=1,
             discard_reasons={},
         )
+
+    def _build_individual_assets(self, context: EngineContext) -> list[IndividualAssetView]:
+        if context.instruments:
+            selected_by_sector = {
+                instrument.sector_code: instrument
+                for instrument in context.instruments
+            }
+            points: list[IndividualAssetView] = []
+            for asset in context.assets:
+                instrument = selected_by_sector.get(asset.code)
+                if instrument is None:
+                    continue
+                ticker = instrument.ticker.upper()
+                if ticker not in context.expected_returns.index or ticker not in context.covariance.index:
+                    continue
+                variance = float(context.covariance.loc[ticker, ticker])
+                points.append(
+                    IndividualAssetView(
+                        code=asset.code,
+                        name=asset.name,
+                        volatility=max(variance, 0.0) ** 0.5,
+                        expected_return=float(context.expected_returns.loc[ticker]),
+                    )
+                )
+            return points
+
+        points: list[IndividualAssetView] = []
+        for asset in context.assets:
+            if asset.code not in context.expected_returns.index or asset.code not in context.covariance.index:
+                continue
+            variance = float(context.covariance.loc[asset.code, asset.code])
+            points.append(
+                IndividualAssetView(
+                    code=asset.code,
+                    name=asset.name,
+                    volatility=max(variance, 0.0) ** 0.5,
+                    expected_return=float(context.expected_returns.loc[asset.code]),
+                )
+            )
+        return points
 
     def _build_combination_id(
         self,

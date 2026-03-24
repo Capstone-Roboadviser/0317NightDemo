@@ -65,6 +65,14 @@ class AllocationView:
 
 
 @dataclass(frozen=True)
+class IndividualAssetView:
+    code: str
+    name: str
+    volatility: float
+    expected_return: float
+
+
+@dataclass(frozen=True)
 class StockInstrument:
     ticker: str
     name: str
@@ -207,5 +215,6 @@ class PortfolioSimulationResult:
     frontier_options: list[tuple[str, FrontierPoint]]
     selected_point_index: int
     random_portfolios: list[tuple[float, float, dict[str, float]]]
+    individual_assets: list[IndividualAssetView]
     used_fallback: bool
     selected_combination: CombinationSelectionView | None = None

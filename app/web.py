@@ -1231,8 +1231,8 @@ def render_homepage() -> HTMLResponse:
     }
     .option-chart-card.active {
       border-top: 2px solid var(--opt-color, var(--primary));
-      box-shadow: 0 0 12px color-mix(in srgb, var(--opt-color, var(--primary)) 25%, transparent),
-                  0 1px 3px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--opt-color, var(--primary)) 40%, transparent),
+                  0 0 6px color-mix(in srgb, var(--opt-color, var(--primary)) 20%, transparent);
     }
     .option-chart-label {
       font-weight: 600;

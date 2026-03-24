@@ -194,7 +194,7 @@ def render_admin_page() -> HTMLResponse:
 
     .status-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -819,7 +819,7 @@ def render_admin_page() -> HTMLResponse:
         <div class="title">관리자 유니버스 콘솔</div>
         <div class="subtitle">
           로그인 없이 섹터별 종목 후보군, 관리자 유니버스 버전, 가격 갱신을 브라우저에서 바로 관리하는 데모용 화면입니다.
-          실제 계산은 active 유니버스와 누적 price history를 기준으로 수행됩니다.
+          실제 계산은 active 유니버스와 해당 유니버스의 공통 price history 구간을 기준으로 수행됩니다.
         </div>
       </div>
       <div class="link-row">
@@ -853,18 +853,25 @@ def render_admin_page() -> HTMLResponse:
               <div class="status-value" id="price-row-count">0</div>
             </div>
             <div class="status-tile">
+              <div class="status-label">공통 시작일</div>
+              <div class="status-value" id="price-aligned-start-date">-</div>
+            </div>
+            <div class="status-tile">
               <div class="status-label">최근 가격일</div>
               <div class="status-value" id="price-max-date">-</div>
             </div>
           </div>
           <div id="status-pill"></div>
+          <p class="card-copy" id="status-alignment-copy" style="margin-top: 14px; margin-bottom: 0;">
+            유니버스 공통 가격 구간 정보를 아직 계산하지 않았습니다.
+          </p>
         </section>
 
         <section class="card">
           <div class="section-head">
             <div>
               <h2>가격 데이터 갱신</h2>
-              <p class="card-copy">active 유니버스 티커를 기준으로 `yfinance`에서 가격을 가져와 Postgres에 누적 저장합니다.</p>
+              <p class="card-copy">active 유니버스 티커를 기준으로 `yfinance`에서 가격을 가져오고, 실제 계산은 가장 늦게 시작한 종목 기준의 공통 구간으로 정렬됩니다.</p>
             </div>
           </div>
           <div class="form-grid">
@@ -986,6 +993,10 @@ def render_admin_page() -> HTMLResponse:
               <div class="status-label">유효 수익률 행 수</div>
               <div class="status-value" id="readiness-return-rows">0</div>
             </div>
+            <div class="readiness-tile">
+              <div class="status-label">공통 시작일</div>
+              <div class="status-value" id="readiness-aligned-start-date">-</div>
+            </div>
           </div>
           <div class="readiness-section">
             <div class="readiness-title">차단 사유</div>
@@ -1053,6 +1064,7 @@ def render_admin_page() -> HTMLResponse:
     const readinessVersionNameEl = document.getElementById("readiness-version-name");
     const readinessPricedTickerCountEl = document.getElementById("readiness-priced-ticker-count");
     const readinessReturnRowsEl = document.getElementById("readiness-return-rows");
+    const readinessAlignedStartDateEl = document.getElementById("readiness-aligned-start-date");
     const readinessIssuesEl = document.getElementById("readiness-issues");
     const readinessSectorChecksEl = document.getElementById("readiness-sector-checks");
     const reloadReadinessBtn = document.getElementById("reload-readiness-btn");
@@ -1434,9 +1446,11 @@ def render_admin_page() -> HTMLResponse:
       document.getElementById("db-status").textContent = data.database_configured ? "연결됨" : "미설정";
       document.getElementById("active-version-name").textContent = data.active_version?.version_name || "없음";
       document.getElementById("price-row-count").textContent = data.price_stats?.total_rows?.toLocaleString?.() || "0";
+      document.getElementById("price-aligned-start-date").textContent = data.price_window?.aligned_start_date || "-";
       document.getElementById("price-max-date").textContent = data.price_stats?.max_date || "-";
 
       const pillEl = document.getElementById("status-pill");
+      const statusAlignmentCopyEl = document.getElementById("status-alignment-copy");
       let pillClass = "warn";
       let pillText = "데모 fallback 모드";
       if (data.database_configured && data.active_version) {
@@ -1447,6 +1461,15 @@ def render_admin_page() -> HTMLResponse:
         pillText = "DATABASE_URL 미설정";
       }
       pillEl.innerHTML = `<span class="pill ${pillClass}">${pillText}</span>`;
+
+      if (data.price_window?.aligned_start_date || data.price_window?.aligned_end_date) {
+        const youngestText = data.price_window?.youngest_ticker && data.price_window?.youngest_start_date
+          ? ` · youngest ${data.price_window.youngest_ticker} (${data.price_window.youngest_start_date})`
+          : "";
+        statusAlignmentCopyEl.textContent = `공통 사용 구간 ${data.price_window?.aligned_start_date || "-"} ~ ${data.price_window?.aligned_end_date || "-"}${youngestText}`;
+      } else {
+        statusAlignmentCopyEl.textContent = "유니버스 공통 가격 구간 정보를 아직 계산하지 않았습니다.";
+      }
     }
 
     function renderReadiness(data) {
@@ -1461,6 +1484,7 @@ def render_admin_page() -> HTMLResponse:
         ? `${data.stock_return_rows}행`
         : `${effectiveRows}행`;
       readinessReturnRowsEl.textContent = rowsText;
+      readinessAlignedStartDateEl.textContent = data.price_window?.aligned_start_date || "-";
 
       if (data.issues?.length) {
         readinessIssuesEl.innerHTML = data.issues.map((issue) => `
@@ -1493,6 +1517,7 @@ def render_admin_page() -> HTMLResponse:
       readinessVersionNameEl.textContent = "-";
       readinessPricedTickerCountEl.textContent = "0";
       readinessReturnRowsEl.textContent = "0";
+      readinessAlignedStartDateEl.textContent = "-";
       readinessIssuesEl.innerHTML = `<div class="issue-item">${message}</div>`;
       readinessSectorChecksEl.innerHTML = '<div class="empty">섹터별 진단 결과를 불러오지 못했습니다.</div>';
     }

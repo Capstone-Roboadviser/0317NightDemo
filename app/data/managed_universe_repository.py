@@ -9,6 +9,7 @@ from app.domain.enums import PriceRefreshMode
 from app.domain.models import (
     ManagedPriceRefreshJob,
     ManagedPriceRefreshJobItem,
+    ManagedUniversePriceWindow,
     ManagedPriceStats,
     ManagedUniverseVersion,
     StockInstrument,
@@ -103,6 +104,19 @@ class ManagedUniverseRepository:
                         error_message TEXT,
                         started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         finished_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS universe_price_windows (
+                        version_id BIGINT PRIMARY KEY REFERENCES universe_versions(id) ON DELETE CASCADE,
+                        aligned_start_date DATE,
+                        aligned_end_date DATE,
+                        youngest_ticker TEXT,
+                        youngest_start_date DATE,
+                        ticker_count INTEGER NOT NULL DEFAULT 0,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """
                 )
@@ -292,6 +306,7 @@ class ManagedUniverseRepository:
                     """,
                     (version_name, notes, should_activate, version_id),
                 )
+                cursor.execute("DELETE FROM universe_price_windows WHERE version_id = %s", (version_id,))
                 cursor.execute("DELETE FROM universe_items WHERE version_id = %s", (version_id,))
                 cursor.executemany(
                     """
@@ -396,22 +411,37 @@ class ManagedUniverseRepository:
             connection.commit()
         return len(normalized)
 
-    def load_prices_for_tickers(self, tickers: list[str]) -> pd.DataFrame:
+    def load_prices_for_tickers(
+        self,
+        tickers: list[str],
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> pd.DataFrame:
         self._ensure_ready()
         unique_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
         if not unique_tickers:
             return pd.DataFrame(columns=["date", "ticker", "adjusted_close"])
 
+        params: list[object] = [unique_tickers]
+        filters = ["UPPER(ticker) = ANY(%s)"]
+        if start_date:
+            filters.append("date >= %s")
+            params.append(start_date)
+        if end_date:
+            filters.append("date <= %s")
+            params.append(end_date)
+
         with self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    """
+                    f"""
                     SELECT date, UPPER(ticker) AS ticker, adjusted_close
                     FROM price_history
-                    WHERE UPPER(ticker) = ANY(%s)
+                    WHERE {' AND '.join(filters)}
                     ORDER BY UPPER(ticker), date
                     """,
-                    (unique_tickers,),
+                    tuple(params),
                 )
                 rows = cursor.fetchall()
         frame = pd.DataFrame(rows)
@@ -424,16 +454,29 @@ class ManagedUniverseRepository:
         frame = frame.sort_values(["ticker", "date"]).drop_duplicates(subset=["date", "ticker"], keep="last")
         return frame[["date", "ticker", "adjusted_close"]]
 
-    def get_price_stats(self, tickers: list[str] | None = None) -> ManagedPriceStats:
+    def get_price_stats(
+        self,
+        tickers: list[str] | None = None,
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> ManagedPriceStats:
         if not self.is_configured():
             return ManagedPriceStats(total_rows=0, ticker_count=0, min_date=None, max_date=None)
 
-        params: tuple[object, ...] = ()
-        where_clause = ""
+        params: list[object] = []
+        where_parts: list[str] = []
         if tickers:
             unique_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
-            where_clause = "WHERE UPPER(ticker) = ANY(%s)"
-            params = (unique_tickers,)
+            where_parts.append("UPPER(ticker) = ANY(%s)")
+            params.append(unique_tickers)
+        if start_date:
+            where_parts.append("date >= %s")
+            params.append(start_date)
+        if end_date:
+            where_parts.append("date <= %s")
+            params.append(end_date)
+        where_clause = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
 
         with self._connect() as connection:
             with connection.cursor() as cursor:
@@ -447,7 +490,7 @@ class ManagedUniverseRepository:
                     FROM price_history
                     {where_clause}
                     """,
-                    params,
+                    tuple(params),
                 )
                 row = cursor.fetchone()
         return ManagedPriceStats(
@@ -476,6 +519,94 @@ class ManagedUniverseRepository:
                 )
                 rows = cursor.fetchall()
         return {str(row["ticker"]): str(row["max_date"]) for row in rows if row["max_date"] is not None}
+
+    def sync_price_window(self, *, version_id: int, tickers: list[str]) -> ManagedUniversePriceWindow | None:
+        self._ensure_ready()
+        unique_tickers = sorted({str(ticker).strip().upper() for ticker in tickers if ticker})
+        if not unique_tickers:
+            self._delete_price_window(version_id)
+            return None
+
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT
+                        UPPER(ticker) AS ticker,
+                        MIN(date)::TEXT AS min_date,
+                        MAX(date)::TEXT AS max_date
+                    FROM price_history
+                    WHERE UPPER(ticker) = ANY(%s)
+                    GROUP BY UPPER(ticker)
+                    ORDER BY UPPER(ticker)
+                    """,
+                    (unique_tickers,),
+                )
+                rows = cursor.fetchall()
+
+                if not rows:
+                    cursor.execute("DELETE FROM universe_price_windows WHERE version_id = %s", (version_id,))
+                    connection.commit()
+                    return None
+
+                aligned_start_date = max(str(row["min_date"]) for row in rows if row["min_date"] is not None)
+                aligned_end_date = min(str(row["max_date"]) for row in rows if row["max_date"] is not None)
+                youngest_row = max(
+                    rows,
+                    key=lambda row: (str(row["min_date"] or ""), str(row["ticker"])),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO universe_price_windows (
+                        version_id,
+                        aligned_start_date,
+                        aligned_end_date,
+                        youngest_ticker,
+                        youngest_start_date,
+                        ticker_count,
+                        updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (version_id) DO UPDATE
+                    SET aligned_start_date = EXCLUDED.aligned_start_date,
+                        aligned_end_date = EXCLUDED.aligned_end_date,
+                        youngest_ticker = EXCLUDED.youngest_ticker,
+                        youngest_start_date = EXCLUDED.youngest_start_date,
+                        ticker_count = EXCLUDED.ticker_count,
+                        updated_at = NOW()
+                    """,
+                    (
+                        version_id,
+                        aligned_start_date,
+                        aligned_end_date,
+                        str(youngest_row["ticker"]),
+                        str(youngest_row["min_date"]),
+                        len(rows),
+                    ),
+                )
+            connection.commit()
+        return self.get_price_window(version_id)
+
+    def get_price_window(self, version_id: int) -> ManagedUniversePriceWindow | None:
+        self._ensure_ready()
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT
+                        version_id,
+                        aligned_start_date::TEXT AS aligned_start_date,
+                        aligned_end_date::TEXT AS aligned_end_date,
+                        youngest_ticker,
+                        youngest_start_date::TEXT AS youngest_start_date,
+                        ticker_count
+                    FROM universe_price_windows
+                    WHERE version_id = %s
+                    """,
+                    (version_id,),
+                )
+                row = cursor.fetchone()
+        return None if row is None else self._price_window_from_row(row)
 
     def create_refresh_job(self, *, version_id: int, refresh_mode: PriceRefreshMode, ticker_count: int) -> ManagedPriceRefreshJob:
         self._ensure_ready()
@@ -718,3 +849,19 @@ class ManagedUniverseRepository:
             started_at=None if row["started_at"] is None else str(row["started_at"]),
             finished_at=None if row["finished_at"] is None else str(row["finished_at"]),
         )
+
+    def _price_window_from_row(self, row: dict) -> ManagedUniversePriceWindow:
+        return ManagedUniversePriceWindow(
+            version_id=int(row["version_id"]),
+            aligned_start_date=None if row["aligned_start_date"] is None else str(row["aligned_start_date"]),
+            aligned_end_date=None if row["aligned_end_date"] is None else str(row["aligned_end_date"]),
+            youngest_ticker=None if row["youngest_ticker"] is None else str(row["youngest_ticker"]),
+            youngest_start_date=None if row["youngest_start_date"] is None else str(row["youngest_start_date"]),
+            ticker_count=int(row["ticker_count"] or 0),
+        )
+
+    def _delete_price_window(self, version_id: int) -> None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM universe_price_windows WHERE version_id = %s", (version_id,))
+            connection.commit()

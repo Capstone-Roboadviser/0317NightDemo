@@ -12,6 +12,7 @@ from app.api.schemas.response import (
     ManagedPriceRefreshJobItemResponse,
     ManagedPriceRefreshResponse,
     ManagedUniverseReadinessResponse,
+    ManagedUniversePriceWindowResponse,
     ManagedUniverseSectorReadinessResponse,
     ManagedPriceStatsResponse,
     ManagedUniverseStatusResponse,
@@ -25,6 +26,7 @@ from app.domain.models import (
     ManagedPriceRefreshJob,
     ManagedPriceRefreshResult,
     ManagedPriceStats,
+    ManagedUniversePriceWindow,
     ManagedUniverseVersion,
 )
 from app.services.managed_universe_service import ManagedUniverseService
@@ -45,16 +47,24 @@ def get_managed_universe_status() -> ManagedUniverseStatusResponse:
     try:
         active_version = managed_universe_service.get_active_version() if managed_universe_service.is_configured() else None
         instruments = managed_universe_service.get_active_instruments() if active_version is not None else []
-        price_stats = (
-            ManagedPriceStatsResponse(**managed_universe_service.get_price_stats_for_instruments(instruments))
-            if instruments
+        price_window = (
+            managed_universe_service.get_price_window(active_version.version_id, instruments)
+            if active_version is not None and instruments
             else None
         )
+        price_stats = None
+        if active_version is not None and instruments:
+            stats = managed_universe_service.get_price_stats_for_instruments(
+                instruments,
+                version_id=active_version.version_id,
+            )
+            price_stats = _price_stats_response(stats)
         latest_refresh_job = price_refresh_service.get_latest_job(active_version.version_id) if active_version is not None else None
         return ManagedUniverseStatusResponse(
             database_configured=managed_universe_service.is_configured(),
             active_version=None if active_version is None else _version_response(active_version),
             price_stats=price_stats,
+            price_window=None if price_window is None else _price_window_response(price_window),
             latest_refresh_job=None if latest_refresh_job is None else _price_refresh_job_response(latest_refresh_job),
         )
     except RuntimeError as exc:
@@ -190,6 +200,7 @@ def get_managed_universe_readiness() -> ManagedUniverseReadinessResponse:
             )
             for item in readiness.sector_checks
         ],
+        price_window=None if readiness.price_window is None else _price_window_response(readiness.price_window),
         selected_combination=None
         if readiness.selected_combination is None
         else CombinationSelectionResponse(
@@ -326,4 +337,16 @@ def _price_refresh_response(result: ManagedPriceRefreshResult) -> ManagedPriceRe
     return ManagedPriceRefreshResponse(
         job=_price_refresh_job_response(result.job),
         price_stats=_price_stats_response(result.price_stats),
+        price_window=None if result.price_window is None else _price_window_response(result.price_window),
+    )
+
+
+def _price_window_response(price_window: ManagedUniversePriceWindow) -> ManagedUniversePriceWindowResponse:
+    return ManagedUniversePriceWindowResponse(
+        version_id=price_window.version_id,
+        aligned_start_date=price_window.aligned_start_date,
+        aligned_end_date=price_window.aligned_end_date,
+        youngest_ticker=price_window.youngest_ticker,
+        youngest_start_date=price_window.youngest_start_date,
+        ticker_count=price_window.ticker_count,
     )

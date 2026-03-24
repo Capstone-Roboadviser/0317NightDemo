@@ -4,7 +4,7 @@ import pandas as pd
 
 from app.data.managed_universe_repository import ManagedUniverseRepository
 from app.data.stock_repository import StockDataRepository
-from app.domain.models import ManagedUniverseVersion, StockInstrument
+from app.domain.models import ManagedPriceStats, ManagedUniversePriceWindow, ManagedUniverseVersion, StockInstrument
 
 
 class ManagedUniverseService:
@@ -33,20 +33,64 @@ class ManagedUniverseService:
     def get_active_instruments(self) -> list[StockInstrument]:
         return self.repository.get_active_instruments()
 
-    def load_prices_for_instruments(self, instruments: list[StockInstrument]) -> pd.DataFrame:
-        return self.repository.load_prices_for_tickers([instrument.ticker for instrument in instruments])
+    def load_prices_for_instruments(
+        self,
+        instruments: list[StockInstrument],
+        *,
+        version_id: int | None = None,
+    ) -> pd.DataFrame:
+        tickers = [instrument.ticker for instrument in instruments]
+        if version_id is None:
+            return self.repository.load_prices_for_tickers(tickers)
+
+        price_window = self.get_price_window(version_id, instruments)
+        return self.repository.load_prices_for_tickers(
+            tickers,
+            start_date=None if price_window is None else price_window.aligned_start_date,
+            end_date=None if price_window is None else price_window.aligned_end_date,
+        )
 
     def load_prices_for_tickers(self, tickers: list[str]) -> pd.DataFrame:
         return self.repository.load_prices_for_tickers(tickers)
 
-    def get_price_stats_for_instruments(self, instruments: list[StockInstrument]) -> dict[str, object]:
-        stats = self.repository.get_price_stats([instrument.ticker for instrument in instruments])
-        return {
-            "total_rows": stats.total_rows,
-            "ticker_count": stats.ticker_count,
-            "min_date": stats.min_date,
-            "max_date": stats.max_date,
-        }
+    def load_prices_for_active_version_tickers(self, tickers: list[str]) -> pd.DataFrame:
+        active_version = self.get_active_version()
+        if active_version is None:
+            return self.repository.load_prices_for_tickers(tickers)
+
+        instruments = self.get_instruments_for_version(active_version.version_id)
+        price_window = self.get_price_window(active_version.version_id, instruments)
+        return self.repository.load_prices_for_tickers(
+            tickers,
+            start_date=None if price_window is None else price_window.aligned_start_date,
+            end_date=None if price_window is None else price_window.aligned_end_date,
+        )
+
+    def get_price_window(
+        self,
+        version_id: int,
+        instruments: list[StockInstrument],
+    ) -> ManagedUniversePriceWindow | None:
+        return self.repository.sync_price_window(
+            version_id=version_id,
+            tickers=[instrument.ticker for instrument in instruments],
+        )
+
+    def get_price_stats_for_instruments(
+        self,
+        instruments: list[StockInstrument],
+        *,
+        version_id: int | None = None,
+    ) -> ManagedPriceStats:
+        if version_id is None:
+            return self.repository.get_price_stats([instrument.ticker for instrument in instruments])
+
+        price_window = self.get_price_window(version_id, instruments)
+        return self.repository.get_price_stats(
+            [instrument.ticker for instrument in instruments],
+            start_date=None if price_window is None else price_window.aligned_start_date,
+            end_date=None if price_window is None else price_window.aligned_end_date,
+        )
 
     def create_version(
         self,

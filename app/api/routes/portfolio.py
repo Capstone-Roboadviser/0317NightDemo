@@ -179,7 +179,7 @@ def _load_history_prices(
     if data_source == SimulationDataSource.MANAGED_UNIVERSE:
         if not portfolio_service.managed_universe_service.is_configured():
             raise HTTPException(status_code=400, detail="관리자 유니버스 DB가 설정되지 않았습니다.")
-        prices = portfolio_service.managed_universe_service.load_prices_for_tickers(normalized_tickers)
+        prices = portfolio_service.managed_universe_service.load_prices_for_active_version_tickers(normalized_tickers)
     elif data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
         repo = StockDataRepository()
         prices = repo.load_stock_prices(str(DEMO_STOCK_PRICES_PATH))

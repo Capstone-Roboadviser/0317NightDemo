@@ -33,6 +33,9 @@ class ManagedUniverseService:
     def get_active_instruments(self) -> list[StockInstrument]:
         return self.repository.get_active_instruments()
 
+    def get_instruments_for_version(self, version_id: int) -> list[StockInstrument]:
+        return self.repository.get_instruments_for_version(version_id)
+
     def load_prices_for_instruments(
         self,
         instruments: list[StockInstrument],

@@ -253,46 +253,59 @@ def _build_portfolio_return_series(payload: VolatilityHistoryRequest) -> tuple[p
         return portfolio_returns, pivoted.index
     except HTTPException:
         raise
-    except (RuntimeError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"포트폴리오 히스토리 시계열을 만드는 중 오류가 발생했습니다: {exc}",
+        ) from exc
 
 
 @router.post("/volatility-history", response_model=VolatilityHistoryResponse)
 def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryResponse:
-    portfolio_returns, all_dates = _build_portfolio_return_series(payload)
-    rolling_vol = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).std() * math.sqrt(252)
-    rolling_vol = rolling_vol.dropna()
+    try:
+        portfolio_returns, all_dates = _build_portfolio_return_series(payload)
+        rolling_vol = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).std() * math.sqrt(252)
+        rolling_vol = rolling_vol.dropna()
 
-    points = [
-        VolatilityPointResponse(date=date.strftime("%Y-%m-%d"), volatility=round(float(vol), 6))
-        for date, vol in rolling_vol.items()
-        if np.isfinite(vol)
-    ]
+        points = [
+            VolatilityPointResponse(date=date.strftime("%Y-%m-%d"), volatility=round(float(vol), 6))
+            for date, vol in rolling_vol.items()
+            if np.isfinite(vol)
+        ]
 
-    return VolatilityHistoryResponse(
-        points=points,
-        earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
-        latest_data_date=all_dates.max().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
-    )
+        return VolatilityHistoryResponse(
+            points=points,
+            earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+            latest_data_date=all_dates.max().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"변동성 추이 계산 중 오류가 발생했습니다: {exc}") from exc
 
 
 @router.post("/return-history", response_model=ReturnHistoryResponse)
 def return_history(payload: VolatilityHistoryRequest) -> ReturnHistoryResponse:
-    portfolio_returns, all_dates = _build_portfolio_return_series(payload)
-    rolling_ret = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).mean() * 252
-    rolling_ret = rolling_ret.dropna()
+    try:
+        portfolio_returns, all_dates = _build_portfolio_return_series(payload)
+        rolling_ret = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).mean() * 252
+        rolling_ret = rolling_ret.dropna()
 
-    points = [
-        ReturnPointResponse(date=date.strftime("%Y-%m-%d"), expected_return=round(float(ret), 6))
-        for date, ret in rolling_ret.items()
-        if np.isfinite(ret)
-    ]
+        points = [
+            ReturnPointResponse(date=date.strftime("%Y-%m-%d"), expected_return=round(float(ret), 6))
+            for date, ret in rolling_ret.items()
+            if np.isfinite(ret)
+        ]
 
-    return ReturnHistoryResponse(
-        points=points,
-        earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
-        latest_data_date=all_dates.max().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
-    )
+        return ReturnHistoryResponse(
+            points=points,
+            earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+            latest_data_date=all_dates.max().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"기대수익률 추이 계산 중 오류가 발생했습니다: {exc}") from exc
 
 
 def _combination_response(selection) -> CombinationSelectionResponse | None:

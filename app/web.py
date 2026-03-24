@@ -1213,6 +1213,80 @@ def render_homepage() -> HTMLResponse:
       gap: 4px;
     }
 
+    .option-charts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .option-chart-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--background);
+    }
+    .option-chart-card.active {
+      border-top: 2px solid var(--opt-color, var(--primary));
+      box-shadow: 0 0 20px color-mix(in srgb, var(--opt-color, var(--primary)) 40%, transparent),
+                  0 0 6px color-mix(in srgb, var(--opt-color, var(--primary)) 20%, transparent);
+    }
+    .option-chart-label {
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .option-chart-label .opt-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .option-chart-svg {
+      width: 120px;
+      height: 120px;
+    }
+    .option-chart-stats {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .option-chart-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+      padding: 0 4px;
+    }
+    .option-chart-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--muted-foreground);
+    }
+    .option-chart-legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .option-chart-legend-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .option-chart-legend-val {
+      font-variant-numeric: tabular-nums;
+    }
+
     .explanation-title {
       font-size: 16px;
       font-weight: 600;
@@ -1385,6 +1459,10 @@ def render_homepage() -> HTMLResponse:
         grid-template-columns: 1fr;
         gap: 32px;
       }
+
+      .option-charts {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 640px) {
@@ -1494,6 +1572,9 @@ def render_homepage() -> HTMLResponse:
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-scatter);"></i>가능한 포트폴리오</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-guide);"></i>비교 기준선</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-line);"></i>효율적 투자선</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #22c55e;"></i>안정형</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #3b82f6;"></i>균형형</span>
+                <span class="legend-item"><i class="legend-dot" style="background: #a855f7;"></i>성장형</span>
                 <span class="legend-item"><i class="legend-dot" style="background: var(--chart-selected);"></i>현재 포트폴리오</span>
                 <span class="legend-item"><i class="legend-dot" style="background: #ef4444;"></i>최대 샤프</span>
               </div>
@@ -1587,31 +1668,30 @@ def render_homepage() -> HTMLResponse:
           </div>
         </div>
 
-        <div class="two-col">
-          <div class="card">
-            <div class="card-header">
-              <div class="step-badge"><span class="step-num">3</span> 해석</div>
-            </div>
-            <div class="card-content">
-              <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
-              <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
-              <div class="summary-text fade-content" id="summary"></div>
-              <div class="combination-panel fade-content" id="combination-panel" hidden>
-                <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
-                <div class="combination-panel-meta" id="combination-meta"></div>
-                <div class="combination-members" id="combination-members"></div>
-              </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">3</span> 해석</div>
+          </div>
+          <div class="card-content">
+            <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
+            <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
+            <div class="summary-text fade-content" id="summary"></div>
+            <div class="combination-panel fade-content" id="combination-panel" hidden>
+              <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
+              <div class="combination-panel-meta" id="combination-meta"></div>
+              <div class="combination-members" id="combination-members"></div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header">
-              <div class="step-badge"><span class="step-num">4</span> 옵션 비교</div>
-              <div class="card-title">효율적 투자선 옵션</div>
-              <div class="card-description">각 위험 수준별 대표 포트폴리오를 비교합니다.</div>
-            </div>
-            <div class="card-content">
-              <div id="frontier-options" class="options-list fade-content"></div>
-            </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">4</span> 옵션 비교</div>
+            <div class="card-title">효율적 투자선 옵션</div>
+            <div class="card-description">각 위험 수준별 대표 포트폴리오를 비교합니다.</div>
+          </div>
+          <div class="card-content">
+            <div id="frontier-options" class="options-list fade-content"></div>
           </div>
         </div>
 
@@ -2139,17 +2219,73 @@ def render_homepage() -> HTMLResponse:
       });
     }
 
+    function buildMiniDonutSVG(items, valueKey) {
+      const size = 120;
+      const cx = size / 2;
+      const cy = size / 2;
+      const outerR = 52;
+      const innerR = 32;
+      const total = items.reduce((s, it) => s + (it[valueKey] || 0), 0) || 1;
+      let cumulativeAngle = -Math.PI / 2;
+      let paths = "";
+      items.forEach((item) => {
+        const fraction = (item[valueKey] || 0) / total;
+        if (fraction <= 0) return;
+        const angle = fraction * 2 * Math.PI;
+        const startAngle = cumulativeAngle;
+        const endAngle = cumulativeAngle + angle;
+        const x1 = cx + outerR * Math.cos(startAngle);
+        const y1 = cy + outerR * Math.sin(startAngle);
+        const x2 = cx + outerR * Math.cos(endAngle);
+        const y2 = cy + outerR * Math.sin(endAngle);
+        const x3 = cx + innerR * Math.cos(endAngle);
+        const y3 = cy + innerR * Math.sin(endAngle);
+        const x4 = cx + innerR * Math.cos(startAngle);
+        const y4 = cy + innerR * Math.sin(startAngle);
+        const largeArc = angle > Math.PI ? 1 : 0;
+        const color = ASSET_COLORS[item.asset_code] || "#64748B";
+        paths += '<path d="M ' + x1.toFixed(2) + " " + y1.toFixed(2) +
+          " A " + outerR + " " + outerR + " 0 " + largeArc + " 1 " + x2.toFixed(2) + " " + y2.toFixed(2) +
+          " L " + x3.toFixed(2) + " " + y3.toFixed(2) +
+          " A " + innerR + " " + innerR + " 0 " + largeArc + " 0 " + x4.toFixed(2) + " " + y4.toFixed(2) +
+          'Z" fill="' + color + '" />';
+        cumulativeAngle = endAngle;
+      });
+      return '<svg class="option-chart-svg" viewBox="0 0 ' + size + " " + size + '">' + paths + "</svg>";
+    }
+
+    const optionDotColors = { "안정형": "#22c55e", "균형형": "#3b82f6", "성장형": "#a855f7" };
+
     function renderOptions(items, selectedPoint) {
-      optionsEl.innerHTML = items.map((item) => {
-        const active = Math.abs(item.expected_return - selectedPoint.expected_return) < 0.01 ? " active" : "";
-        return `<div class="option-item${active}">
-          <span class="option-label">${item.label || "옵션"}</span>
-          <div class="option-stats">
-            <span>변동성 ${percent(item.volatility)}</span>
-            <span>수익률 ${percent(item.expected_return)}</span>
-          </div>
-        </div>`;
+      // Find closest option to selected point
+      let closestIdx = -1;
+      let closestDist = Infinity;
+      items.forEach((item, i) => {
+        const dist = Math.abs(item.expected_return - selectedPoint.expected_return);
+        if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+      });
+      const cards = items.map((item, i) => {
+        const active = i === closestIdx ? " active" : "";
+        const grouped = groupStockWeightsBySector(item.weights || {});
+        const dotColor = optionDotColors[item.label] || "#64748b";
+        const donutSvg = buildMiniDonutSVG(grouped, "weight");
+        const legendHtml = grouped.map((g) => {
+          const pct = ((g.weight || 0) * 100).toFixed(1);
+          const color = ASSET_COLORS[g.asset_code] || "#64748B";
+          return '<div class="option-chart-legend-item">' +
+            '<span class="option-chart-legend-dot" style="background:' + color + '"></span>' +
+            '<span class="option-chart-legend-name">' + g.asset_name + '</span>' +
+            '<span class="option-chart-legend-val">' + pct + '%</span>' +
+            '</div>';
+        }).join("");
+        return '<div class="option-chart-card' + active + '" style="--opt-color:' + dotColor + '">' +
+          '<div class="option-chart-label"><span class="opt-dot" style="background:' + dotColor + '"></span>' + (item.label || "옵션") + '</div>' +
+          donutSvg +
+          '<div class="option-chart-stats">변동성 ' + percent(item.volatility) + ' · 수익률 ' + percent(item.expected_return) + '</div>' +
+          '<div class="option-chart-legend">' + legendHtml + '</div>' +
+          '</div>';
       }).join("");
+      optionsEl.innerHTML = '<div class="option-charts">' + cards + '</div>';
     }
 
     function getThemeColors() {
@@ -2282,6 +2418,19 @@ def render_homepage() -> HTMLResponse:
         svg += `<circle class="scatter-point" cx="${sx}" cy="${sy}" r="10" fill="transparent" data-vol="${(maxSharpePoint.volatility * 100).toFixed(1)}" data-ret="${(maxSharpePoint.expected_return * 100).toFixed(1)}" data-alloc="${sharpeAllocJSON}" data-label="최대 샤프 포트폴리오 (${maxSharpe.toFixed(2)})" data-role="max-sharpe" data-target-return="${maxSharpePoint.expected_return.toFixed(6)}" />`;
         svg += `<circle id="sharpe-dot" cx="${sx}" cy="${sy}" r="6" fill="#ef4444" stroke="${c.bg}" stroke-width="2.5" pointer-events="none" />`;
       }
+
+      // Frontier option dots (안정형, 균형형, 성장형)
+      const optionColors = { "안정형": "#22c55e", "균형형": "#3b82f6", "성장형": "#a855f7" };
+      const frontierOptions = data.frontier_options || [];
+      frontierOptions.forEach((opt) => {
+        const ox = xScale(opt.volatility);
+        const oy = yScale(opt.expected_return);
+        const col = optionColors[opt.label] || "#64748b";
+        const optAllocJSON = weightsToAllocJSON(opt.weights || {});
+        svg += `<circle cx="${ox}" cy="${oy}" r="10" fill="${col}" fill-opacity="0.15" />`;
+        svg += `<circle class="scatter-point" cx="${ox}" cy="${oy}" r="10" fill="transparent" data-vol="${(opt.volatility * 100).toFixed(1)}" data-ret="${(opt.expected_return * 100).toFixed(1)}" data-alloc="${optAllocJSON}" data-label="${opt.label}" data-target-vol="${opt.volatility.toFixed(6)}" />`;
+        svg += `<circle cx="${ox}" cy="${oy}" r="5" fill="${col}" stroke="${c.bg}" stroke-width="2" pointer-events="none" />`;
+      });
 
       const cx = xScale(selectedPoint.volatility);
       const cy = yScale(selectedPoint.expected_return);
@@ -3345,7 +3494,7 @@ def render_homepage() -> HTMLResponse:
       });
 
       document.addEventListener("click", function(e) {
-        const pt = e.target.closest('.scatter-point[data-role="max-sharpe"]');
+        const pt = e.target.closest('.scatter-point[data-target-vol]');
         if (!pt) return;
         const targetReturn = Number(pt.dataset.targetReturn || "NaN");
         if (!Number.isFinite(targetReturn)) return;

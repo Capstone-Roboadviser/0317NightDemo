@@ -3963,10 +3963,21 @@ def render_homepage() -> HTMLResponse:
       }
 
       earnChart.addEventListener("mousemove", function(e) {
-        var hit = e.target.closest(".earn-hit");
         var st = earnChart._chartState;
-        if (!hit || !st) { clearEarnHover(); return; }
-        var idx = Number(hit.dataset.idx);
+        if (!st || !st.dates.length) { clearEarnHover(); return; }
+
+        // Find closest point by mouse X position
+        var rect = earnChart.getBoundingClientRect();
+        var svgWidth = 900;
+        var mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
+        if (mouseX < st.margin.left || mouseX > svgWidth - 24) { clearEarnHover(); return; }
+
+        var bestIdx = 0, bestDist = Infinity;
+        for (var i = 0; i < st.dates.length; i++) {
+          var dx = Math.abs(st.xScale(st.dates[i]) - mouseX);
+          if (dx < bestDist) { bestDist = dx; bestIdx = i; }
+        }
+        var idx = bestIdx;
         var pt = st.points[idx];
         if (!pt) return;
 
@@ -3983,7 +3994,6 @@ def render_homepage() -> HTMLResponse:
         earnTooltip.innerHTML = html;
 
         // Position near cursor
-        var rect = earnChart.getBoundingClientRect();
         var tx = e.clientX + 16;
         var ty = e.clientY - 20;
         if (tx + 290 > window.innerWidth) tx = e.clientX - 290;

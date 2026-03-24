@@ -1213,6 +1213,79 @@ def render_homepage() -> HTMLResponse:
       gap: 4px;
     }
 
+    .option-charts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .option-chart-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--background);
+    }
+    .option-chart-card.active {
+      border-color: var(--foreground);
+      background: var(--muted);
+    }
+    .option-chart-label {
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .option-chart-label .opt-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .option-chart-svg {
+      width: 120px;
+      height: 120px;
+    }
+    .option-chart-stats {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .option-chart-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+      padding: 0 4px;
+    }
+    .option-chart-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--muted-foreground);
+    }
+    .option-chart-legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .option-chart-legend-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .option-chart-legend-val {
+      font-variant-numeric: tabular-nums;
+    }
+
     .explanation-title {
       font-size: 16px;
       font-weight: 600;
@@ -1384,6 +1457,10 @@ def render_homepage() -> HTMLResponse:
       .donut-grid {
         grid-template-columns: 1fr;
         gap: 32px;
+      }
+
+      .option-charts {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -2069,17 +2146,66 @@ def render_homepage() -> HTMLResponse:
       });
     }
 
+    function buildMiniDonutSVG(items, valueKey) {
+      const size = 120;
+      const cx = size / 2;
+      const cy = size / 2;
+      const outerR = 52;
+      const innerR = 32;
+      const total = items.reduce((s, it) => s + (it[valueKey] || 0), 0) || 1;
+      let cumulativeAngle = -Math.PI / 2;
+      let paths = "";
+      items.forEach((item) => {
+        const fraction = (item[valueKey] || 0) / total;
+        if (fraction <= 0) return;
+        const angle = fraction * 2 * Math.PI;
+        const startAngle = cumulativeAngle;
+        const endAngle = cumulativeAngle + angle;
+        const x1 = cx + outerR * Math.cos(startAngle);
+        const y1 = cy + outerR * Math.sin(startAngle);
+        const x2 = cx + outerR * Math.cos(endAngle);
+        const y2 = cy + outerR * Math.sin(endAngle);
+        const x3 = cx + innerR * Math.cos(endAngle);
+        const y3 = cy + innerR * Math.sin(endAngle);
+        const x4 = cx + innerR * Math.cos(startAngle);
+        const y4 = cy + innerR * Math.sin(startAngle);
+        const largeArc = angle > Math.PI ? 1 : 0;
+        const color = ASSET_COLORS[item.asset_code] || "#64748B";
+        paths += '<path d="M ' + x1.toFixed(2) + " " + y1.toFixed(2) +
+          " A " + outerR + " " + outerR + " 0 " + largeArc + " 1 " + x2.toFixed(2) + " " + y2.toFixed(2) +
+          " L " + x3.toFixed(2) + " " + y3.toFixed(2) +
+          " A " + innerR + " " + innerR + " 0 " + largeArc + " 0 " + x4.toFixed(2) + " " + y4.toFixed(2) +
+          'Z" fill="' + color + '" />';
+        cumulativeAngle = endAngle;
+      });
+      return '<svg class="option-chart-svg" viewBox="0 0 ' + size + " " + size + '">' + paths + "</svg>";
+    }
+
+    const optionDotColors = { "안정형": "#22c55e", "균형형": "#3b82f6", "성장형": "#a855f7" };
+
     function renderOptions(items, selectedPoint) {
-      optionsEl.innerHTML = items.map((item) => {
+      const cards = items.map((item) => {
         const active = Math.abs(item.volatility - selectedPoint.volatility) < 0.02 ? " active" : "";
-        return `<div class="option-item${active}">
-          <span class="option-label">${item.label || "옵션"}</span>
-          <div class="option-stats">
-            <span>변동성 ${percent(item.volatility)}</span>
-            <span>수익률 ${percent(item.expected_return)}</span>
-          </div>
-        </div>`;
+        const grouped = groupStockWeightsBySector(item.weights || {});
+        const dotColor = optionDotColors[item.label] || "#64748b";
+        const donutSvg = buildMiniDonutSVG(grouped, "weight");
+        const legendHtml = grouped.map((g) => {
+          const pct = ((g.weight || 0) * 100).toFixed(1);
+          const color = ASSET_COLORS[g.asset_code] || "#64748B";
+          return '<div class="option-chart-legend-item">' +
+            '<span class="option-chart-legend-dot" style="background:' + color + '"></span>' +
+            '<span class="option-chart-legend-name">' + g.asset_name + '</span>' +
+            '<span class="option-chart-legend-val">' + pct + '%</span>' +
+            '</div>';
+        }).join("");
+        return '<div class="option-chart-card' + active + '">' +
+          '<div class="option-chart-label"><span class="opt-dot" style="background:' + dotColor + '"></span>' + (item.label || "옵션") + '</div>' +
+          donutSvg +
+          '<div class="option-chart-stats">변동성 ' + percent(item.volatility) + ' · 수익률 ' + percent(item.expected_return) + '</div>' +
+          '<div class="option-chart-legend">' + legendHtml + '</div>' +
+          '</div>';
       }).join("");
+      optionsEl.innerHTML = '<div class="option-charts">' + cards + '</div>';
     }
 
     function getThemeColors() {

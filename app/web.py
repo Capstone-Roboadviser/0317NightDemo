@@ -1358,37 +1358,64 @@ def render_homepage() -> HTMLResponse:
       width: 100%;
       display: block;
     }
-    .earn-hover-info {
-      position: absolute;
-      top: 12px;
-      left: 72px;
-      font-size: 12px;
+    .earn-tooltip {
+      position: fixed;
       pointer-events: none;
-      z-index: 2;
+      z-index: 50;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: var(--foreground);
+      color: var(--primary-foreground);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      min-width: 200px;
+      max-width: 280px;
     }
-    .earn-hover-date {
-      font-weight: 600;
-      color: var(--foreground);
-      margin-bottom: 4px;
-    }
-    .earn-hover-total {
-      font-weight: 600;
-      color: var(--foreground);
+    .earn-tooltip.visible { opacity: 0.92; }
+    .earn-tooltip-date {
+      font-size: 11px;
+      opacity: 0.7;
       margin-bottom: 6px;
     }
-    .earn-hover-row {
+    .earn-tooltip-total {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    .earn-tooltip-total.positive { color: #4ade80; }
+    .earn-tooltip-total.negative { color: #f87171; }
+    .earn-tooltip-row {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      color: var(--muted-foreground);
-      line-height: 1.6;
+      gap: 8px;
+      padding: 2px 0;
     }
-    .earn-hover-dot {
-      width: 7px;
-      height: 7px;
+    .earn-tooltip-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
+    }
+    .earn-tooltip-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 12px;
+    }
+    .earn-tooltip-val {
+      font-weight: 700;
+      white-space: nowrap;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
     }
     .earn-legend {
       display: flex;
@@ -1871,7 +1898,6 @@ def render_homepage() -> HTMLResponse:
               </div>
             </div>
             <div class="earn-chart-wrap">
-              <div class="earn-hover-info" id="earn-hover" style="display:none"></div>
               <svg id="earn-chart" viewBox="0 0 900 340" style="display:none"></svg>
             </div>
             <div class="earn-legend" id="earn-legend"></div>
@@ -1893,6 +1919,7 @@ def render_homepage() -> HTMLResponse:
   <div class="donut-tooltip" id="donut-tooltip"></div>
 
   <div class="chart-tooltip" id="chart-tooltip"></div>
+  <div class="earn-tooltip" id="earn-tooltip"></div>
 
   <script>
     // Stock-level data by sector (loaded async)
@@ -3708,7 +3735,7 @@ def render_homepage() -> HTMLResponse:
     // ── Earnings Simulation Chart ──
     (function() {
       var earnChart = document.getElementById("earn-chart");
-      var earnHover = document.getElementById("earn-hover");
+      var earnTooltip = document.getElementById("earn-tooltip");
       var earnMetrics = document.getElementById("earn-metrics");
       var earnLegend = document.getElementById("earn-legend");
       var earnStartInput = document.getElementById("earn-start");
@@ -3842,41 +3869,49 @@ def render_homepage() -> HTMLResponse:
           svg += '<text x="' + dx + '" y="' + (height - 8) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="middle">' + dlabel + '</text>';
         }
 
-        // Zero line
+        // Zero line with label
         var zeroY = yScale(0);
-        svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.label + '" stroke-width="1" stroke-opacity="0.4" />';
+        svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.label + '" stroke-width="1" stroke-opacity="0.3" stroke-dasharray="6,4" />';
+        svg += '<text x="' + (margin.left - 8) + '" y="' + (zeroY + 3) + '" fill="' + c.label + '" font-size="9" font-family="Inter, sans-serif" text-anchor="end" opacity="0.6">0원</text>';
 
-        // Stacked areas (bottom-up, each band between prev cumsum and current cumsum)
+        // Gradient defs for each sector
+        svg += '<defs><clipPath id="earn-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath>';
+        sectorCodes.forEach(function(sc, i) {
+          var color = ASSET_COLORS[sc] || "#64748B";
+          svg += '<linearGradient id="earn-grad-' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.75"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0.45"/></linearGradient>';
+        });
+        svg += '</defs>';
+
+        // Stacked areas
         svg += '<g clip-path="url(#earn-clip)">';
-        svg += '<defs><clipPath id="earn-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath></defs>';
 
         for (var a = sectorCodes.length - 1; a >= 0; a--) {
-          var color = ASSET_COLORS[sectorCodes[a]] || "#64748B";
           var path = "M" + xScale(dates[0]) + "," + yScale(stacked[a][0]);
           for (var t = 1; t < dates.length; t++) {
             path += " L" + xScale(dates[t]) + "," + yScale(stacked[a][t]);
           }
-          // Lower edge
           for (var t = dates.length - 1; t >= 0; t--) {
             var lower = a > 0 ? stacked[a - 1][t] : 0;
             path += " L" + xScale(dates[t]) + "," + yScale(lower);
           }
           path += " Z";
-          svg += '<path d="' + path + '" fill="' + color + '" opacity="0.65" />';
+          svg += '<path d="' + path + '" fill="url(#earn-grad-' + a + ')" />';
         }
 
-        // Total earnings dashed line
+        // Total earnings line (solid white/dark with slight glow)
         var totalPath = "M" + xScale(dates[0]) + "," + yScale(points[0].total_earnings);
         for (var t = 1; t < points.length; t++) {
           totalPath += " L" + xScale(dates[t]) + "," + yScale(points[t].total_earnings);
         }
-        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" />';
+        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="1" stroke-opacity="0.15" stroke-linecap="round" stroke-linejoin="round" />';
+        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round" />';
 
-        // End dot
+        // End dot with glow
         var lastPt = points[points.length - 1];
         var ex = xScale(dates[dates.length - 1]);
         var ey = yScale(lastPt.total_earnings);
-        svg += '<circle cx="' + ex + '" cy="' + ey + '" r="4" fill="' + c.text + '" />';
+        svg += '<circle cx="' + ex + '" cy="' + ey + '" r="10" fill="' + c.text + '" opacity="0.12" />';
+        svg += '<circle cx="' + ex + '" cy="' + ey + '" r="4.5" fill="' + c.text + '" stroke="' + c.bg + '" stroke-width="2" />';
 
         svg += '</g>';
 
@@ -3920,7 +3955,7 @@ def render_homepage() -> HTMLResponse:
       var earnHoverDot = null;
 
       function clearEarnHover() {
-        earnHover.style.display = "none";
+        earnTooltip.classList.remove("visible");
         if (earnCrosshair && earnCrosshair.parentNode) earnCrosshair.parentNode.removeChild(earnCrosshair);
         if (earnHoverDot && earnHoverDot.parentNode) earnHoverDot.parentNode.removeChild(earnHoverDot);
         earnCrosshair = null;
@@ -3935,18 +3970,32 @@ def render_homepage() -> HTMLResponse:
         var pt = st.points[idx];
         if (!pt) return;
 
-        earnHover.style.display = "block";
-        var html = '<div class="earn-hover-date">' + pt.date + '</div>';
-        html += '<div class="earn-hover-total">총 수익: ' + formatKRW(pt.total_earnings) + ' (' + (pt.total_return_pct >= 0 ? "+" : "") + pt.total_return_pct.toFixed(1) + '%)</div>';
+        // Build tooltip HTML
+        var pctCls = pt.total_return_pct >= 0 ? "positive" : "negative";
+        var html = '<div class="earn-tooltip-date">' + pt.date + '</div>';
+        html += '<div class="earn-tooltip-total ' + pctCls + '">' + formatKRW(pt.total_earnings) + ' (' + (pt.total_return_pct >= 0 ? "+" : "") + pt.total_return_pct.toFixed(1) + '%)</div>';
         st.sectorCodes.forEach(function(sc) {
           var col = ASSET_COLORS[sc] || "#64748B";
           var nm = st.sectorNameMap[sc] || sc;
           var val = pt.asset_earnings[sc] || 0;
-          html += '<div class="earn-hover-row"><span class="earn-hover-dot" style="background:' + col + '"></span>' + nm + ' ' + formatKRW(val) + '</div>';
+          html += '<div class="earn-tooltip-row"><span class="earn-tooltip-dot" style="background:' + col + '"></span><span class="earn-tooltip-name">' + nm + '</span><span class="earn-tooltip-val">' + formatKRW(val) + '</span></div>';
         });
-        earnHover.innerHTML = html;
+        earnTooltip.innerHTML = html;
 
-        clearEarnHover();
+        // Position near cursor
+        var rect = earnChart.getBoundingClientRect();
+        var tx = e.clientX + 16;
+        var ty = e.clientY - 20;
+        if (tx + 290 > window.innerWidth) tx = e.clientX - 290;
+        if (ty + earnTooltip.offsetHeight > window.innerHeight) ty = window.innerHeight - earnTooltip.offsetHeight - 8;
+        if (ty < 8) ty = 8;
+        earnTooltip.style.left = tx + "px";
+        earnTooltip.style.top = ty + "px";
+        earnTooltip.classList.add("visible");
+
+        // Crosshair + dot
+        if (earnCrosshair && earnCrosshair.parentNode) earnCrosshair.parentNode.removeChild(earnCrosshair);
+        if (earnHoverDot && earnHoverDot.parentNode) earnHoverDot.parentNode.removeChild(earnHoverDot);
         var hx = st.xScale(st.dates[idx]);
         earnCrosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
         earnCrosshair.setAttribute("x1", hx); earnCrosshair.setAttribute("y1", st.margin.top);
@@ -3957,11 +4006,10 @@ def render_homepage() -> HTMLResponse:
 
         earnHoverDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         earnHoverDot.setAttribute("cx", hx); earnHoverDot.setAttribute("cy", st.yScale(pt.total_earnings));
-        earnHoverDot.setAttribute("r", "4"); earnHoverDot.setAttribute("fill", st.c.text);
+        earnHoverDot.setAttribute("r", "5"); earnHoverDot.setAttribute("fill", st.c.text);
+        earnHoverDot.setAttribute("stroke", st.c.bg); earnHoverDot.setAttribute("stroke-width", "2");
         earnHoverDot.style.pointerEvents = "none";
         earnChart.appendChild(earnHoverDot);
-
-        earnHover.style.display = "block";
       });
 
       earnChart.addEventListener("mouseleave", clearEarnHover);

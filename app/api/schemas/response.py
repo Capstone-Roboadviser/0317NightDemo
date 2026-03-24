@@ -57,6 +57,31 @@ class StocksBySectorResponse(BaseModel):
     sectors: dict[str, list[StockInstrumentResponse]]
 
 
+class EarningsPointResponse(BaseModel):
+    date: str
+    total_earnings: float
+    total_return_pct: float
+    asset_earnings: dict[str, float]
+
+
+class AssetEarningSummary(BaseModel):
+    asset_code: str
+    asset_name: str
+    weight: float
+    earnings: float
+    return_pct: float
+
+
+class EarningsHistoryResponse(BaseModel):
+    points: list[EarningsPointResponse]
+    investment_amount: float
+    start_date: str
+    end_date: str
+    total_return_pct: float
+    total_earnings: float
+    asset_summary: list[AssetEarningSummary]
+
+
 class CombinationSelectionResponse(BaseModel):
     combination_id: str
     members_by_sector: dict[str, list[str]]

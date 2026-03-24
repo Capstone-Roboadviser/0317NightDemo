@@ -4,11 +4,14 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from app.api.schemas.request import PortfolioSimulationRequest, VolatilityHistoryRequest
+from app.api.schemas.request import EarningsHistoryRequest, PortfolioSimulationRequest, VolatilityHistoryRequest
 from app.api.schemas.response import (
     AssetClassResponse,
+    AssetEarningSummary,
     AssetUniverseResponse,
     CombinationSelectionResponse,
+    EarningsHistoryResponse,
+    EarningsPointResponse,
     FrontierPreviewResponse,
     FrontierPointResponse,
     IndividualAssetResponse,
@@ -301,4 +304,108 @@ def _combination_response(selection) -> CombinationSelectionResponse | None:
         total_combinations_tested=selection.total_combinations_tested,
         successful_combinations=selection.successful_combinations,
         discard_reasons=selection.discard_reasons,
+    )
+
+
+@router.post("/earnings-history", response_model=EarningsHistoryResponse)
+def earnings_history(payload: EarningsHistoryRequest) -> EarningsHistoryResponse:
+    tickers = [t for t, w in payload.weights.items() if w > 0]
+    prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
+
+    # Build ticker → sector mapping
+    instruments = portfolio_service.list_stocks(payload.data_source)
+    ticker_to_sector: dict[str, tuple[str, str]] = {}
+    for inst in instruments:
+        ticker_to_sector[inst.ticker.upper()] = (inst.sector_code, inst.sector_name)
+
+    # Pivot prices to wide format
+    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close")
+    pivoted = pivoted.sort_index().ffill()
+
+    # Filter from start_date
+    start = pd.Timestamp(payload.start_date)
+    pivoted = pivoted[pivoted.index >= start]
+    if pivoted.empty:
+        raise HTTPException(status_code=400, detail="시작일 이후 가격 데이터가 없습니다.")
+
+    # Normalize weights to match available tickers
+    available = set(pivoted.columns)
+    weight_map = {t.upper(): w for t, w in payload.weights.items() if t.upper() in available and w > 0}
+    if not weight_map:
+        raise HTTPException(status_code=400, detail="요청 종목의 가격 데이터가 없습니다.")
+    total_w = sum(weight_map.values())
+    weight_map = {t: w / total_w for t, w in weight_map.items()}
+
+    # Per-ticker cumulative return from first row
+    base_prices = pivoted.iloc[0]
+    cumret = pivoted.div(base_prices) - 1  # each cell = cumulative return of that ticker
+
+    # Group by sector
+    sector_names: dict[str, str] = {}
+    sector_weights: dict[str, float] = {}
+    for ticker, weight in weight_map.items():
+        sc, sn = ticker_to_sector.get(ticker, ("unknown", "기타"))
+        sector_names[sc] = sn
+        sector_weights.setdefault(sc, 0.0)
+        sector_weights[sc] += weight
+
+    # Per-sector weighted cumulative return series
+    sector_cumret: dict[str, pd.Series] = {}
+    for ticker, weight in weight_map.items():
+        sc = ticker_to_sector.get(ticker, ("unknown", "기타"))[0]
+        contrib = cumret[ticker] * weight
+        if sc in sector_cumret:
+            sector_cumret[sc] = sector_cumret[sc].add(contrib, fill_value=0)
+        else:
+            sector_cumret[sc] = contrib.copy()
+
+    # Total cumulative return
+    total_cumret = sum(sector_cumret.values())
+
+    # Subsample to ~500 points
+    dates = pivoted.index.tolist()
+    step = max(1, len(dates) // 500)
+    sampled_indices = list(range(0, len(dates), step))
+    if sampled_indices[-1] != len(dates) - 1:
+        sampled_indices.append(len(dates) - 1)
+
+    inv = payload.investment_amount
+    sector_codes = sorted(sector_cumret.keys())
+
+    points = []
+    for i in sampled_indices:
+        d = dates[i]
+        ae = {}
+        for sc in sector_codes:
+            ae[sc] = round(sector_cumret[sc].iloc[i] * inv, 0)
+        te = round(total_cumret.iloc[i] * inv, 0)
+        tr = round(total_cumret.iloc[i] * 100, 2)
+        points.append(EarningsPointResponse(
+            date=d.strftime("%Y-%m-%d"),
+            total_earnings=te,
+            total_return_pct=tr,
+            asset_earnings=ae,
+        ))
+
+    # Final summary
+    final_total_ret = total_cumret.iloc[-1]
+    asset_summary = []
+    for sc in sector_codes:
+        final_sc_ret = sector_cumret[sc].iloc[-1]
+        asset_summary.append(AssetEarningSummary(
+            asset_code=sc,
+            asset_name=sector_names.get(sc, sc),
+            weight=round(sector_weights.get(sc, 0), 4),
+            earnings=round(final_sc_ret * inv, 0),
+            return_pct=round(final_sc_ret / sector_weights.get(sc, 1) * 100, 2) if sector_weights.get(sc, 0) > 0 else 0,
+        ))
+
+    return EarningsHistoryResponse(
+        points=points,
+        investment_amount=inv,
+        start_date=dates[0].strftime("%Y-%m-%d"),
+        end_date=dates[-1].strftime("%Y-%m-%d"),
+        total_return_pct=round(final_total_ret * 100, 2),
+        total_earnings=round(final_total_ret * inv, 0),
+        asset_summary=asset_summary,
     )

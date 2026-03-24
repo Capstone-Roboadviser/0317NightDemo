@@ -225,20 +225,38 @@ def _load_history_prices(
     return filtered
 
 
-@router.post("/volatility-history", response_model=VolatilityHistoryResponse)
-def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryResponse:
-    tickers = [t.upper() for t in payload.weights.keys()]
-    weights_upper = {t.upper(): w for t, w in payload.weights.items()}
-    prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
-    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
-    returns = pivoted.pct_change().dropna(how="all")
+def _build_portfolio_return_series(payload: VolatilityHistoryRequest) -> tuple[pd.Series, pd.DatetimeIndex]:
+    try:
+        tickers = [t.upper() for t in payload.weights.keys()]
+        weights_upper = {t.upper(): w for t, w in payload.weights.items()}
+        prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
+        pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
+        if pivoted.empty:
+            raise HTTPException(status_code=400, detail="요청한 종목의 가격 데이터가 없습니다.")
 
-    weight_series = pd.Series(weights_upper).reindex(returns.columns).fillna(0.0)
-    total = weight_series.sum()
-    if total > 0:
+        returns = pivoted.pct_change().dropna(how="all")
+        if returns.empty:
+            raise HTTPException(status_code=400, detail="요청한 종목으로 유효 수익률 시계열을 만들지 못했습니다.")
+
+        weight_series = pd.Series(weights_upper, dtype=float).reindex(returns.columns).fillna(0.0)
+        total = float(weight_series.sum())
+        if total <= 0:
+            raise HTTPException(status_code=400, detail="포트폴리오 비중 합계가 0보다 커야 합니다.")
         weight_series = weight_series / total
 
-    portfolio_returns = returns.fillna(0.0).dot(weight_series)
+        portfolio_returns = returns.fillna(0.0).dot(weight_series)
+        if portfolio_returns.empty:
+            raise HTTPException(status_code=400, detail="요청한 종목으로 포트폴리오 수익률을 만들지 못했습니다.")
+        return portfolio_returns, pivoted.index
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/volatility-history", response_model=VolatilityHistoryResponse)
+def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryResponse:
+    portfolio_returns, all_dates = _build_portfolio_return_series(payload)
     rolling_vol = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).std() * math.sqrt(252)
     rolling_vol = rolling_vol.dropna()
 
@@ -248,7 +266,6 @@ def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryRe
         if np.isfinite(vol)
     ]
 
-    all_dates = pivoted.index
     return VolatilityHistoryResponse(
         points=points,
         earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",
@@ -258,18 +275,7 @@ def volatility_history(payload: VolatilityHistoryRequest) -> VolatilityHistoryRe
 
 @router.post("/return-history", response_model=ReturnHistoryResponse)
 def return_history(payload: VolatilityHistoryRequest) -> ReturnHistoryResponse:
-    tickers = [t.upper() for t in payload.weights.keys()]
-    weights_upper = {t.upper(): w for t, w in payload.weights.items()}
-    prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
-    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last").sort_index()
-    returns = pivoted.pct_change().dropna(how="all")
-
-    weight_series = pd.Series(weights_upper).reindex(returns.columns).fillna(0.0)
-    total = weight_series.sum()
-    if total > 0:
-        weight_series = weight_series / total
-
-    portfolio_returns = returns.fillna(0.0).dot(weight_series)
+    portfolio_returns, all_dates = _build_portfolio_return_series(payload)
     rolling_ret = portfolio_returns.rolling(window=payload.rolling_window, min_periods=payload.rolling_window).mean() * 252
     rolling_ret = rolling_ret.dropna()
 
@@ -279,7 +285,6 @@ def return_history(payload: VolatilityHistoryRequest) -> ReturnHistoryResponse:
         if np.isfinite(ret)
     ]
 
-    all_dates = pivoted.index
     return ReturnHistoryResponse(
         points=points,
         earliest_data_date=all_dates.min().strftime("%Y-%m-%d") if len(all_dates) > 0 else "",

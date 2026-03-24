@@ -2440,7 +2440,7 @@ def render_homepage() -> HTMLResponse:
         const col = optionColors[opt.label] || "#64748b";
         const optAllocJSON = weightsToAllocJSON(opt.weights || {});
         svg += `<circle cx="${ox}" cy="${oy}" r="10" fill="${col}" fill-opacity="0.15" />`;
-        svg += `<circle class="scatter-point" cx="${ox}" cy="${oy}" r="10" fill="transparent" data-vol="${(opt.volatility * 100).toFixed(1)}" data-ret="${(opt.expected_return * 100).toFixed(1)}" data-alloc="${optAllocJSON}" data-label="${opt.label}" data-target-vol="${opt.volatility.toFixed(6)}" />`;
+        svg += `<circle class="scatter-point" cx="${ox}" cy="${oy}" r="10" fill="transparent" data-vol="${(opt.volatility * 100).toFixed(1)}" data-ret="${(opt.expected_return * 100).toFixed(1)}" data-alloc="${optAllocJSON}" data-label="${opt.label}" data-target-return="${opt.expected_return.toFixed(6)}" />`;
         svg += `<circle cx="${ox}" cy="${oy}" r="5" fill="${col}" stroke="${c.bg}" stroke-width="2" pointer-events="none" />`;
       });
 
@@ -3040,7 +3040,15 @@ def render_homepage() -> HTMLResponse:
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ weights: weights, data_source: dataSource || "stock_combination_demo" }),
           });
-          if (!res.ok) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            volData = null;
+            volChartEl.style.display = "none";
+            volEmptyEl.style.display = "";
+            volEmptyEl.textContent = err.detail || "변동성 데이터를 불러오지 못했습니다.";
+            volHoverInfo.classList.remove("visible");
+            return;
+          }
           const data = await res.json();
           volData = data.points || [];
           renderVolChart(filterByRange(volData, volRange));
@@ -3299,7 +3307,15 @@ def render_homepage() -> HTMLResponse:
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ weights: weights, data_source: dataSource || "stock_combination_demo" }),
           });
-          if (!res.ok) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            retData = null;
+            retChartEl.style.display = "none";
+            retEmptyEl.style.display = "";
+            retEmptyEl.textContent = err.detail || "기대수익률 데이터를 불러오지 못했습니다.";
+            retHoverInfo.classList.remove("visible");
+            return;
+          }
           const data = await res.json();
           retData = data.points || [];
           renderRetChart(filterByRange(retData, retRange));
@@ -3506,7 +3522,7 @@ def render_homepage() -> HTMLResponse:
       });
 
       document.addEventListener("click", function(e) {
-        const pt = e.target.closest('.scatter-point[data-target-vol]');
+        const pt = e.target.closest('.scatter-point[data-target-return]');
         if (!pt) return;
         const targetReturn = Number(pt.dataset.targetReturn || "NaN");
         if (!Number.isFinite(targetReturn)) return;

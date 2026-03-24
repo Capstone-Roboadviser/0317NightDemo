@@ -3899,51 +3899,8 @@ def render_homepage() -> HTMLResponse:
         legendHtml += '<span class="earn-legend-item"><span class="earn-legend-dot" style="background:' + c.text + ';border-radius:0;height:2px;width:12px;margin-top:3px"></span>총 수익</span>';
         earnLegend.innerHTML = legendHtml;
 
-        // Hover
-        var crosshair = null;
-        var hoverDot = null;
-
-        earnChart.addEventListener("mousemove", function(e) {
-          var hit = e.target.closest(".earn-hit");
-          if (!hit) { earnHover.style.display = "none"; if (crosshair) crosshair.remove(); if (hoverDot) hoverDot.remove(); return; }
-          var idx = Number(hit.dataset.idx);
-          var pt = points[idx];
-          if (!pt) return;
-
-          earnHover.style.display = "block";
-          var html = '<div class="earn-hover-date">' + pt.date + '</div>';
-          html += '<div class="earn-hover-total">총 수익: ' + formatKRW(pt.total_earnings) + ' (' + (pt.total_return_pct >= 0 ? "+" : "") + pt.total_return_pct.toFixed(1) + '%)</div>';
-          sectorCodes.forEach(function(sc) {
-            var col = ASSET_COLORS[sc] || "#64748B";
-            var nm = sectorNameMap[sc] || sc;
-            var val = pt.asset_earnings[sc] || 0;
-            html += '<div class="earn-hover-row"><span class="earn-hover-dot" style="background:' + col + '"></span>' + nm + ' ' + formatKRW(val) + '</div>';
-          });
-          earnHover.innerHTML = html;
-
-          // Crosshair
-          if (crosshair) crosshair.remove();
-          crosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
-          var hx = xScale(dates[idx]);
-          crosshair.setAttribute("x1", hx); crosshair.setAttribute("y1", margin.top);
-          crosshair.setAttribute("x2", hx); crosshair.setAttribute("y2", margin.top + innerH);
-          crosshair.setAttribute("stroke", c.label); crosshair.setAttribute("stroke-width", "1");
-          crosshair.setAttribute("stroke-dasharray", "3,3"); crosshair.style.pointerEvents = "none";
-          earnChart.appendChild(crosshair);
-
-          if (hoverDot) hoverDot.remove();
-          hoverDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-          hoverDot.setAttribute("cx", hx); hoverDot.setAttribute("cy", yScale(pt.total_earnings));
-          hoverDot.setAttribute("r", "4"); hoverDot.setAttribute("fill", c.text);
-          hoverDot.style.pointerEvents = "none";
-          earnChart.appendChild(hoverDot);
-        });
-
-        earnChart.addEventListener("mouseleave", function() {
-          earnHover.style.display = "none";
-          if (crosshair) crosshair.remove();
-          if (hoverDot) hoverDot.remove();
-        });
+        // Store chart state for hover handler
+        earnChart._chartState = { points: points, dates: dates, sectorCodes: sectorCodes, sectorNameMap: sectorNameMap, xScale: xScale, yScale: yScale, margin: margin, innerH: innerH, c: c };
       }
 
       earnBtn.addEventListener("click", function() {
@@ -3957,6 +3914,57 @@ def render_homepage() -> HTMLResponse:
         var v = parseAmount(this.value);
         this.value = v.toLocaleString("ko-KR");
       });
+
+      // Hover handlers (attached once, read chart state from _chartState)
+      var earnCrosshair = null;
+      var earnHoverDot = null;
+
+      function clearEarnHover() {
+        earnHover.style.display = "none";
+        if (earnCrosshair && earnCrosshair.parentNode) earnCrosshair.parentNode.removeChild(earnCrosshair);
+        if (earnHoverDot && earnHoverDot.parentNode) earnHoverDot.parentNode.removeChild(earnHoverDot);
+        earnCrosshair = null;
+        earnHoverDot = null;
+      }
+
+      earnChart.addEventListener("mousemove", function(e) {
+        var hit = e.target.closest(".earn-hit");
+        var st = earnChart._chartState;
+        if (!hit || !st) { clearEarnHover(); return; }
+        var idx = Number(hit.dataset.idx);
+        var pt = st.points[idx];
+        if (!pt) return;
+
+        earnHover.style.display = "block";
+        var html = '<div class="earn-hover-date">' + pt.date + '</div>';
+        html += '<div class="earn-hover-total">총 수익: ' + formatKRW(pt.total_earnings) + ' (' + (pt.total_return_pct >= 0 ? "+" : "") + pt.total_return_pct.toFixed(1) + '%)</div>';
+        st.sectorCodes.forEach(function(sc) {
+          var col = ASSET_COLORS[sc] || "#64748B";
+          var nm = st.sectorNameMap[sc] || sc;
+          var val = pt.asset_earnings[sc] || 0;
+          html += '<div class="earn-hover-row"><span class="earn-hover-dot" style="background:' + col + '"></span>' + nm + ' ' + formatKRW(val) + '</div>';
+        });
+        earnHover.innerHTML = html;
+
+        clearEarnHover();
+        var hx = st.xScale(st.dates[idx]);
+        earnCrosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        earnCrosshair.setAttribute("x1", hx); earnCrosshair.setAttribute("y1", st.margin.top);
+        earnCrosshair.setAttribute("x2", hx); earnCrosshair.setAttribute("y2", st.margin.top + st.innerH);
+        earnCrosshair.setAttribute("stroke", st.c.label); earnCrosshair.setAttribute("stroke-width", "1");
+        earnCrosshair.setAttribute("stroke-dasharray", "3,3"); earnCrosshair.style.pointerEvents = "none";
+        earnChart.appendChild(earnCrosshair);
+
+        earnHoverDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        earnHoverDot.setAttribute("cx", hx); earnHoverDot.setAttribute("cy", st.yScale(pt.total_earnings));
+        earnHoverDot.setAttribute("r", "4"); earnHoverDot.setAttribute("fill", st.c.text);
+        earnHoverDot.style.pointerEvents = "none";
+        earnChart.appendChild(earnHoverDot);
+
+        earnHover.style.display = "block";
+      });
+
+      earnChart.addEventListener("mouseleave", clearEarnHover);
     })();
 
   </script>

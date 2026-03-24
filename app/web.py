@@ -1231,6 +1231,8 @@ def render_homepage() -> HTMLResponse:
     }
     .option-chart-card.active {
       border-top: 2px solid var(--opt-color, var(--primary));
+      box-shadow: 0 0 12px color-mix(in srgb, var(--opt-color, var(--primary)) 25%, transparent),
+                  0 1px 3px rgba(0, 0, 0, 0.06);
     }
     .option-chart-label {
       font-weight: 600;
@@ -2182,8 +2184,15 @@ def render_homepage() -> HTMLResponse:
     const optionDotColors = { "안정형": "#22c55e", "균형형": "#3b82f6", "성장형": "#a855f7" };
 
     function renderOptions(items, selectedPoint) {
-      const cards = items.map((item) => {
-        const active = Math.abs(item.volatility - selectedPoint.volatility) < 0.02 ? " active" : "";
+      // Find closest option to selected point
+      let closestIdx = -1;
+      let closestDist = Infinity;
+      items.forEach((item, i) => {
+        const dist = Math.abs(item.volatility - selectedPoint.volatility);
+        if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+      });
+      const cards = items.map((item, i) => {
+        const active = i === closestIdx ? " active" : "";
         const grouped = groupStockWeightsBySector(item.weights || {});
         const dotColor = optionDotColors[item.label] || "#64748b";
         const donutSvg = buildMiniDonutSVG(grouped, "weight");

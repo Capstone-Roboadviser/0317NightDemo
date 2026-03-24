@@ -209,6 +209,23 @@ class PortfolioSimulationService:
                 sector_checks=sector_checks,
             )
 
+        try:
+            self._build_sector_candidate_map(assets, instruments, optimized_returns)
+        except RuntimeError as exc:
+            issues.append(str(exc))
+            return ManagedUniverseReadiness(
+                ready=False,
+                summary="가격 적재는 완료됐지만 참여 섹터별 대표 종목 후보를 만들지 못했습니다.",
+                issues=issues,
+                active_version_name=active_version.version_name,
+                instrument_count=len(instruments),
+                priced_ticker_count=int(optimized_returns.shape[1]),
+                stock_return_rows=stock_return_rows,
+                effective_history_rows=None,
+                minimum_history_rows=MINIMUM_HISTORY_ROWS,
+                sector_checks=sector_checks,
+            )
+
         effective_history_rows = int(optimized_returns.count().min()) if not optimized_returns.empty else 0
         return ManagedUniverseReadiness(
             ready=True,
@@ -492,6 +509,7 @@ class PortfolioSimulationService:
         assets = self.list_assets()
         instruments_by_ticker = {instrument.ticker.upper(): instrument for instrument in instruments}
         candidate_map = self._build_sector_candidate_map(assets, instruments, stock_returns)
+        active_sector_codes = list(candidate_map.keys())
         combinations = self._build_representative_combinations(candidate_map)
 
         best_result: tuple[
@@ -505,7 +523,7 @@ class PortfolioSimulationService:
         discard_reasons: dict[str, int] = {}
 
         for combination in combinations:
-            selected_codes = [combination[asset.code] for asset in assets]
+            selected_codes = [combination[sector_code] for sector_code in active_sector_codes]
             selected_instruments = [instruments_by_ticker[code] for code in selected_codes]
             try:
                 combo_returns = self._prepare_selected_stock_returns(stock_returns, selected_codes)
@@ -577,23 +595,32 @@ class PortfolioSimulationService:
         stock_returns: pd.DataFrame,
     ) -> dict[str, list[str]]:
         available_codes = set(stock_returns.columns.astype(str).str.upper().tolist())
-        by_sector: dict[str, list[str]] = {asset.code: [] for asset in assets}
+        by_sector: dict[str, list[str]] = {}
         for instrument in instruments:
             ticker = instrument.ticker.upper()
-            if ticker in available_codes:
-                by_sector.setdefault(instrument.sector_code, []).append(ticker)
+            by_sector.setdefault(instrument.sector_code, []).append(ticker)
 
         shortages: list[str] = []
         normalized: dict[str, list[str]] = {}
         for asset in assets:
-            candidates = sorted(set(by_sector.get(asset.code, [])))
+            registered_codes = sorted(set(by_sector.get(asset.code, [])))
+            if not registered_codes:
+                continue
+
+            candidates = [ticker for ticker in registered_codes if ticker in available_codes]
             normalized[asset.code] = candidates
             if len(candidates) < SECTOR_MINIMUM_INSTRUMENTS:
-                shortages.append(f"{asset.name}({asset.code}) 현재 {len(candidates)}개")
+                shortages.append(
+                    f"{asset.name}({asset.code}) 가격 이력이 있는 후보 {len(candidates)}개 / "
+                    f"등록 종목 {len(registered_codes)}개"
+                )
+
+        if not normalized:
+            raise RuntimeError("참여 가능한 섹터가 없습니다. /admin 에서 종목을 등록한 뒤 다시 시도해주세요.")
 
         if shortages:
             raise RuntimeError(
-                "각 섹터에 대표 종목 후보가 최소 1개씩 필요합니다. "
+                "종목이 등록된 섹터에는 가격 이력이 있는 대표 종목 후보가 최소 1개씩 필요합니다. "
                 + " | ".join(shortages)
             )
         return normalized
@@ -812,9 +839,13 @@ class PortfolioSimulationService:
             ManagedUniverseSectorReadiness(
                 sector_code=asset.code,
                 sector_name=asset.name,
-                required_count=SECTOR_MINIMUM_INSTRUMENTS,
+                required_count=SECTOR_MINIMUM_INSTRUMENTS if int(counts_by_sector.get(asset.code, 0)) > 0 else 0,
                 actual_count=int(counts_by_sector.get(asset.code, 0)),
-                ready=int(counts_by_sector.get(asset.code, 0)) >= SECTOR_MINIMUM_INSTRUMENTS,
+                ready=(
+                    int(counts_by_sector.get(asset.code, 0)) >= SECTOR_MINIMUM_INSTRUMENTS
+                    if int(counts_by_sector.get(asset.code, 0)) > 0
+                    else True
+                ),
             )
             for asset in assets
         ]

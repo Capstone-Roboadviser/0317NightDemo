@@ -3442,7 +3442,7 @@ def render_homepage() -> HTMLResponse:
       });
 
       document.addEventListener("click", function(e) {
-        const pt = e.target.closest('.scatter-point[data-role="max-sharpe"]');
+        const pt = e.target.closest('.scatter-point[data-target-vol]');
         if (!pt) return;
         const targetVol = Number(pt.dataset.targetVol || "NaN");
         if (!Number.isFinite(targetVol)) return;

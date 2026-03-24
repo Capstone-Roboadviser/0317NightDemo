@@ -1667,31 +1667,30 @@ def render_homepage() -> HTMLResponse:
           </div>
         </div>
 
-        <div class="two-col">
-          <div class="card">
-            <div class="card-header">
-              <div class="step-badge"><span class="step-num">3</span> 해석</div>
-            </div>
-            <div class="card-content">
-              <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
-              <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
-              <div class="summary-text fade-content" id="summary"></div>
-              <div class="combination-panel fade-content" id="combination-panel" hidden>
-                <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
-                <div class="combination-panel-meta" id="combination-meta"></div>
-                <div class="combination-members" id="combination-members"></div>
-              </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">3</span> 해석</div>
+          </div>
+          <div class="card-content">
+            <div class="explanation-title" id="explanation-title">왜 이런 포트폴리오가 나왔을까?</div>
+            <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
+            <div class="summary-text fade-content" id="summary"></div>
+            <div class="combination-panel fade-content" id="combination-panel" hidden>
+              <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
+              <div class="combination-panel-meta" id="combination-meta"></div>
+              <div class="combination-members" id="combination-members"></div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header">
-              <div class="step-badge"><span class="step-num">4</span> 옵션 비교</div>
-              <div class="card-title">효율적 투자선 옵션</div>
-              <div class="card-description">각 위험 수준별 대표 포트폴리오를 비교합니다.</div>
-            </div>
-            <div class="card-content">
-              <div id="frontier-options" class="options-list fade-content"></div>
-            </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">4</span> 옵션 비교</div>
+            <div class="card-title">효율적 투자선 옵션</div>
+            <div class="card-description">각 위험 수준별 대표 포트폴리오를 비교합니다.</div>
+          </div>
+          <div class="card-content">
+            <div id="frontier-options" class="options-list fade-content"></div>
           </div>
         </div>
 

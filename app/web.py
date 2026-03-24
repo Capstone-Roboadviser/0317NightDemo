@@ -1230,8 +1230,8 @@ def render_homepage() -> HTMLResponse:
       background: var(--background);
     }
     .option-chart-card.active {
-      border-color: var(--foreground);
-      background: var(--muted);
+      border-color: var(--ring);
+      box-shadow: 0 0 0 1px var(--ring);
     }
     .option-chart-label {
       font-weight: 600;

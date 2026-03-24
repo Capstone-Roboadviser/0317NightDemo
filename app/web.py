@@ -3906,11 +3906,10 @@ def render_homepage() -> HTMLResponse:
         svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="1" stroke-opacity="0.15" stroke-linecap="round" stroke-linejoin="round" />';
         svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round" stroke-linejoin="round" />';
 
-        // End dot with glow
+        // End dot
         var lastPt = points[points.length - 1];
         var ex = xScale(dates[dates.length - 1]);
         var ey = yScale(lastPt.total_earnings);
-        svg += '<circle cx="' + ex + '" cy="' + ey + '" r="10" fill="' + c.text + '" opacity="0.12" />';
         svg += '<circle cx="' + ex + '" cy="' + ey + '" r="4.5" fill="' + c.text + '" stroke="' + c.bg + '" stroke-width="2" />';
 
         svg += '</g>';

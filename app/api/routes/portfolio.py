@@ -4,12 +4,15 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from app.api.schemas.request import EarningsHistoryRequest, PortfolioSimulationRequest, RebalanceSimulationRequest, VolatilityHistoryRequest
+from app.api.schemas.request import ComparisonBacktestRequest, EarningsHistoryRequest, PortfolioSimulationRequest, RebalanceSimulationRequest, VolatilityHistoryRequest
 from app.api.schemas.response import (
     AssetClassResponse,
     AssetEarningSummary,
     AssetUniverseResponse,
     CombinationSelectionResponse,
+    ComparisonBacktestResponse,
+    ComparisonLinePointResponse,
+    ComparisonLineResponse,
     EarningsHistoryResponse,
     EarningsPointResponse,
     FrontierPreviewResponse,
@@ -28,6 +31,7 @@ from app.api.schemas.response import (
     VolatilityPointResponse,
 )
 from app.core.config import DEMO_STOCK_PRICES_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
+from app.engine.comparison import build_comparison
 from app.engine.rebalance import simulate_quarterly_rebalance
 from app.data.stock_repository import StockDataRepository
 from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
@@ -483,4 +487,74 @@ def rebalance_simulation(payload: RebalanceSimulationRequest) -> RebalanceSimula
         total_return_pct=result.total_return_pct,
         no_rebalance_final_value=result.no_rebalance_final_value,
         no_rebalance_return_pct=result.no_rebalance_return_pct,
+    )
+
+
+def _fetch_benchmark_prices(start_date: str) -> dict[str, pd.Series]:
+    """Fetch S&P 500, Nasdaq 100, and 10-year Treasury ETF prices via yfinance."""
+    benchmarks: dict[str, pd.Series] = {}
+    try:
+        import yfinance as yf
+        tickers = {"sp500": "SPY", "nasdaq100": "QQQ", "treasury": "IEF"}
+        for key, ticker in tickers.items():
+            try:
+                data = yf.download(ticker, start=start_date, progress=False, auto_adjust=True)
+                if data is not None and not data.empty:
+                    close = data["Close"].squeeze()
+                    if hasattr(close, "droplevel"):
+                        close = close.droplevel(1) if close.index.nlevels > 1 else close
+                    if hasattr(close.index, "tz_localize"):
+                        close.index = close.index.tz_localize(None)
+                    benchmarks[key] = close
+            except Exception:
+                continue
+    except ImportError:
+        pass
+    return benchmarks
+
+
+@router.post("/comparison-backtest", response_model=ComparisonBacktestResponse)
+def comparison_backtest(payload: ComparisonBacktestRequest) -> ComparisonBacktestResponse:
+    try:
+        profile_data = portfolio_service.get_all_profile_weights(payload.data_source)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    all_tickers: set[str] = set()
+    for weights, _ in profile_data.values():
+        all_tickers.update(weights.keys())
+
+    prices = _load_history_prices(tickers=list(all_tickers), data_source=payload.data_source)
+    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last")
+    pivoted = pivoted.sort_index().ffill().dropna(how="any")
+
+    start = pd.Timestamp(payload.start_date)
+    pivoted = pivoted[pivoted.index >= start]
+    if pivoted.empty:
+        raise HTTPException(status_code=400, detail="시작일 이후 가격 데이터가 없습니다.")
+
+    portfolios = {name: weights for name, (weights, _) in profile_data.items()}
+    expected_returns = {name: er for name, (_, er) in profile_data.items()}
+
+    benchmark_series = _fetch_benchmark_prices(payload.start_date)
+
+    try:
+        result = build_comparison(pivoted, portfolios, expected_returns, benchmark_series)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"비교 백테스트 계산 중 오류: {exc}") from exc
+
+    return ComparisonBacktestResponse(
+        start_date=result.start_date,
+        end_date=result.end_date,
+        rebalance_dates=result.rebalance_dates,
+        lines=[
+            ComparisonLineResponse(
+                key=line.key,
+                label=line.label,
+                color=line.color,
+                style=line.style,
+                points=[ComparisonLinePointResponse(date=d, return_pct=r) for d, r in line.points],
+            )
+            for line in result.lines
+        ],
     )

@@ -1566,6 +1566,15 @@ def render_homepage() -> HTMLResponse:
       border-radius: 50%;
     }
 
+    .comp-chart-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .comp-chart-wrap svg {
+      width: 100%;
+      display: block;
+    }
+
     .explanation-title {
       font-size: 16px;
       font-weight: 600;
@@ -2058,6 +2067,26 @@ def render_homepage() -> HTMLResponse:
             <div class="rebal-legend" id="rebal-legend"></div>
           </div>
         </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">8</span> 포트폴리오 비교</div>
+            <div class="card-title">포트폴리오 유형별 성과 비교</div>
+            <div class="card-description">안정형·균형형·성장형 포트폴리오의 리밸런싱 수익률을 S&P 500, Nasdaq 100, 10년 국채와 비교합니다. 점선은 기대수익 궤적입니다.</div>
+          </div>
+          <div class="card-content">
+            <div class="earn-controls">
+              <div class="earn-field">
+                <label for="comp-start">투자 시작일</label>
+                <input type="date" id="comp-start" value="2024-01-02" />
+              </div>
+              <button class="earn-btn" id="comp-btn">비교 백테스트</button>
+            </div>
+            <div class="comp-chart-wrap">
+              <svg id="comp-chart" viewBox="0 0 900 420" style="display:none"></svg>
+            </div>
+            <div class="rebal-legend" id="comp-legend"></div>
+          </div>
+        </div>
 
       </div>
     </section>
@@ -2076,6 +2105,7 @@ def render_homepage() -> HTMLResponse:
   <div class="chart-tooltip" id="chart-tooltip"></div>
   <div class="earn-tooltip" id="earn-tooltip"></div>
   <div class="rebal-tooltip" id="rebal-tooltip"></div>
+  <div class="rebal-tooltip" id="comp-tooltip"></div>
 
   <script>
     // Stock-level data by sector (loaded async)
@@ -2888,6 +2918,9 @@ def render_homepage() -> HTMLResponse:
         if (typeof window.loadRebalanceSimulation === "function") {
           window.loadRebalanceSimulation(point.weights, lastData.data_source);
         }
+        if (typeof window.loadComparisonBacktest === "function") {
+          window.loadComparisonBacktest(lastData.data_source);
+        }
       }
     }
 
@@ -2985,6 +3018,9 @@ def render_homepage() -> HTMLResponse:
           }
           if (typeof window.loadRebalanceSimulation === "function") {
             window.loadRebalanceSimulation(lastData.selected_point.weights, lastData.data_source);
+          }
+          if (typeof window.loadComparisonBacktest === "function") {
+            window.loadComparisonBacktest(lastData.data_source);
           }
         }
         // Brief pause to show 100%, then reveal chart with blur fade
@@ -4480,6 +4516,241 @@ def render_homepage() -> HTMLResponse:
       });
 
       rebalChart.addEventListener("mouseleave", clearRebalHover);
+    })();
+
+    // ── Comparison Backtest Chart ──
+    (function() {
+      var compChart = document.getElementById("comp-chart");
+      var compTooltip = document.getElementById("comp-tooltip");
+      var compLegend = document.getElementById("comp-legend");
+      var compBtn = document.getElementById("comp-btn");
+      var compStartInput = document.getElementById("comp-start");
+      var lastCompData = null;
+
+      function getCompTheme() {
+        var s = getComputedStyle(document.documentElement);
+        return {
+          bg: s.getPropertyValue("--chart-bg").trim(),
+          grid: s.getPropertyValue("--chart-grid").trim(),
+          label: s.getPropertyValue("--chart-label").trim(),
+          text: s.getPropertyValue("--chart-text").trim(),
+        };
+      }
+
+      window.loadComparisonBacktest = function(dataSource) {
+        fetch("/portfolio/comparison-backtest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data_source: dataSource || "stock_combination_demo",
+            start_date: compStartInput.value,
+          }),
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.detail) return;
+            lastCompData = data;
+            renderCompChart(data);
+          })
+          .catch(function() {});
+      };
+
+      compBtn.addEventListener("click", function() {
+        if (typeof lastData !== "undefined" && lastData) {
+          window.loadComparisonBacktest(lastData.data_source);
+        } else {
+          window.loadComparisonBacktest("stock_combination_demo");
+        }
+      });
+
+      function renderCompChart(data) {
+        var lines = data.lines;
+        if (!lines || !lines.length) { compChart.style.display = "none"; return; }
+
+        var c = getCompTheme();
+        var width = 900, height = 420;
+        var margin = { top: 28, right: 110, bottom: 36, left: 72 };
+        var innerW = width - margin.left - margin.right;
+        var innerH = height - margin.top - margin.bottom;
+        compChart.setAttribute("viewBox", "0 0 " + width + " " + height);
+        compChart.style.display = "block";
+
+        // Parse dates from first line
+        var dates = lines[0].points.map(function(p) { return new Date(p.date); });
+
+        // Compute Y domain from all lines
+        var allVals = [0];
+        lines.forEach(function(line) {
+          line.points.forEach(function(p) { allVals.push(p.return_pct); });
+        });
+        var yMin = Math.min.apply(null, allVals);
+        var yMax = Math.max.apply(null, allVals);
+        var yPadding = (yMax - yMin) * 0.08 || 1;
+        yMin -= yPadding;
+        yMax += yPadding;
+        var ySpan = yMax - yMin || 1;
+
+        var minDate = dates[0].getTime();
+        var dateSpan = dates[dates.length - 1].getTime() - minDate || 1;
+
+        function xScale(d) { return margin.left + ((d.getTime() - minDate) / dateSpan) * innerW; }
+        function yScale(v) { return margin.top + innerH - ((v - yMin) / ySpan) * innerH; }
+
+        var svg = "";
+
+        // Defs + clip
+        svg += '<defs><clipPath id="comp-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath></defs>';
+
+        // Y gridlines + labels
+        var yTicks = 6;
+        for (var j = 0; j <= yTicks; j++) {
+          var val = yMin + (ySpan * j) / yTicks;
+          var y = yScale(val);
+          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" stroke-opacity="0.5" />';
+          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="end">' + val.toFixed(1) + '%</text>';
+        }
+
+        // X labels
+        var xCount = Math.min(6, dates.length);
+        for (var i = 0; i < xCount; i++) {
+          var idx = Math.round((i / (xCount - 1)) * (dates.length - 1));
+          var dx = xScale(dates[idx]);
+          svg += '<text x="' + dx + '" y="' + (height - 8) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="middle">' + dates[idx].toISOString().slice(0, 7) + '</text>';
+        }
+
+        // Zero line
+        var zeroY = yScale(0);
+        svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.label + '" stroke-width="0.75" stroke-opacity="0.4" stroke-dasharray="6,4" />';
+
+        svg += '<g clip-path="url(#comp-clip)">';
+
+        // Rebalance vertical lines
+        (data.rebalance_dates || []).forEach(function(rd) {
+          var rdDate = new Date(rd);
+          if (rdDate >= dates[0] && rdDate <= dates[dates.length - 1]) {
+            var rx = xScale(rdDate);
+            svg += '<line x1="' + rx + '" y1="' + margin.top + '" x2="' + rx + '" y2="' + (margin.top + innerH) + '" stroke="#f97316" stroke-width="1" stroke-dasharray="3,4" stroke-opacity="0.5" />';
+          }
+        });
+
+        // Draw each line
+        lines.forEach(function(line) {
+          if (!line.points.length) return;
+          var path = "M" + xScale(new Date(line.points[0].date)) + "," + yScale(line.points[0].return_pct);
+          for (var t = 1; t < line.points.length; t++) {
+            path += " L" + xScale(new Date(line.points[t].date)) + "," + yScale(line.points[t].return_pct);
+          }
+          var dashAttr = line.style === "dashed" ? ' stroke-dasharray="8,5"' : '';
+          var sw = line.style === "dashed" ? "1.5" : "2.2";
+          var opacity = line.style === "dashed" ? "0.7" : "1";
+          svg += '<path d="' + path + '" fill="none" stroke="' + line.color + '" stroke-width="' + sw + '" stroke-opacity="' + opacity + '" stroke-linecap="round" stroke-linejoin="round"' + dashAttr + ' />';
+        });
+
+        svg += '</g>';
+
+        // Right-side labels for each line (at last point)
+        lines.forEach(function(line) {
+          if (!line.points.length) return;
+          var lastPt = line.points[line.points.length - 1];
+          var ly = yScale(lastPt.return_pct);
+          var lx = margin.left + innerW + 8;
+          svg += '<text x="' + lx + '" y="' + (ly + 4) + '" fill="' + line.color + '" font-size="10" font-weight="600" font-family="Inter, Noto Sans KR, sans-serif">' + line.label + '</text>';
+        });
+
+        // Invisible hover hit areas
+        for (var t = 0; t < dates.length; t++) {
+          var hx = xScale(dates[t]);
+          svg += '<line class="comp-hit" x1="' + hx + '" y1="' + margin.top + '" x2="' + hx + '" y2="' + (margin.top + innerH) + '" stroke="transparent" stroke-width="' + Math.max(2, innerW / dates.length) + '" data-idx="' + t + '" />';
+        }
+
+        compChart.innerHTML = svg;
+
+        // Legend
+        var legendHtml = "";
+        lines.forEach(function(line) {
+          var dot = line.style === "dashed"
+            ? '<span class="rebal-legend-dot" style="background:none;border:2px dashed ' + line.color + ';width:12px;height:0;border-radius:0;margin-top:4px"></span>'
+            : '<span class="rebal-legend-dot" style="background:' + line.color + '"></span>';
+          legendHtml += '<span class="rebal-legend-item">' + dot + line.label + '</span>';
+        });
+        legendHtml += '<span class="rebal-legend-item"><span class="rebal-legend-dot" style="background:none;border:2px dashed #f97316;width:12px;height:0;border-radius:0;margin-top:4px"></span>리밸런싱</span>';
+        compLegend.innerHTML = legendHtml;
+
+        // Store state for hover
+        compChart._chartState = { lines: lines, dates: dates, xScale: xScale, yScale: yScale, margin: margin, innerH: innerH, c: c };
+      }
+
+      // Hover handlers
+      var compCrosshair = null;
+      var compDots = [];
+
+      function clearCompHover() {
+        compTooltip.classList.remove("visible");
+        if (compCrosshair && compCrosshair.parentNode) compCrosshair.parentNode.removeChild(compCrosshair);
+        compDots.forEach(function(d) { if (d.parentNode) d.parentNode.removeChild(d); });
+        compCrosshair = null;
+        compDots = [];
+      }
+
+      compChart.addEventListener("mousemove", function(ev) {
+        var st = compChart._chartState;
+        if (!st || !st.dates.length) { clearCompHover(); return; }
+
+        var rect = compChart.getBoundingClientRect();
+        var svgWidth = 900;
+        var mouseX = ((ev.clientX - rect.left) / rect.width) * svgWidth;
+        if (mouseX < st.margin.left || mouseX > svgWidth - 110) { clearCompHover(); return; }
+
+        var bestIdx = 0, bestDist = Infinity;
+        for (var i = 0; i < st.dates.length; i++) {
+          var dx = Math.abs(st.xScale(st.dates[i]) - mouseX);
+          if (dx < bestDist) { bestDist = dx; bestIdx = i; }
+        }
+
+        var html = '<div class="rebal-tooltip-date">' + st.lines[0].points[bestIdx].date + '</div>';
+        st.lines.forEach(function(line) {
+          if (bestIdx >= line.points.length) return;
+          var val = line.points[bestIdx].return_pct;
+          var sign = val >= 0 ? "+" : "";
+          html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name" style="color:' + line.color + '">' + line.label + '</span><span class="rebal-tooltip-val">' + sign + val.toFixed(2) + '%</span></div>';
+        });
+        compTooltip.innerHTML = html;
+
+        var tx = ev.clientX + 16;
+        var ty = ev.clientY - 20;
+        if (tx + 300 > window.innerWidth) tx = ev.clientX - 300;
+        if (ty + compTooltip.offsetHeight > window.innerHeight) ty = window.innerHeight - compTooltip.offsetHeight - 8;
+        if (ty < 8) ty = 8;
+        compTooltip.style.left = tx + "px";
+        compTooltip.style.top = ty + "px";
+        compTooltip.classList.add("visible");
+
+        // Crosshair
+        if (compCrosshair && compCrosshair.parentNode) compCrosshair.parentNode.removeChild(compCrosshair);
+        compDots.forEach(function(d) { if (d.parentNode) d.parentNode.removeChild(d); });
+        compDots = [];
+        var hx = st.xScale(st.dates[bestIdx]);
+        compCrosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        compCrosshair.setAttribute("x1", hx); compCrosshair.setAttribute("y1", st.margin.top);
+        compCrosshair.setAttribute("x2", hx); compCrosshair.setAttribute("y2", st.margin.top + st.innerH);
+        compCrosshair.setAttribute("stroke", st.c.label); compCrosshair.setAttribute("stroke-width", "1");
+        compCrosshair.setAttribute("stroke-dasharray", "3,3"); compCrosshair.style.pointerEvents = "none";
+        compChart.appendChild(compCrosshair);
+
+        // Dots on each line
+        st.lines.forEach(function(line) {
+          if (bestIdx >= line.points.length || line.style === "dashed") return;
+          var dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          dot.setAttribute("cx", hx); dot.setAttribute("cy", st.yScale(line.points[bestIdx].return_pct));
+          dot.setAttribute("r", "4"); dot.setAttribute("fill", line.color);
+          dot.setAttribute("stroke", st.c.bg); dot.setAttribute("stroke-width", "2");
+          dot.style.pointerEvents = "none";
+          compChart.appendChild(dot);
+          compDots.push(dot);
+        });
+      });
+
+      compChart.addEventListener("mouseleave", clearCompHover);
     })();
 
   </script>

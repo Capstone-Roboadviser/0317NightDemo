@@ -64,6 +64,26 @@ class StocksBySectorResponse(BaseModel):
     sectors: dict[str, list[StockInstrumentResponse]]
 
 
+class ComparisonLinePointResponse(BaseModel):
+    date: str
+    return_pct: float
+
+
+class ComparisonLineResponse(BaseModel):
+    key: str
+    label: str
+    color: str
+    style: str
+    points: list[ComparisonLinePointResponse]
+
+
+class ComparisonBacktestResponse(BaseModel):
+    start_date: str
+    end_date: str
+    rebalance_dates: list[str]
+    lines: list[ComparisonLineResponse]
+
+
 class EarningsPointResponse(BaseModel):
     date: str
     total_earnings: float

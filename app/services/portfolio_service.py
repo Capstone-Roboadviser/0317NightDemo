@@ -25,7 +25,7 @@ from app.core.config import (
 )
 from app.data.repository import StaticDataRepository
 from app.data.stock_repository import StockDataRepository
-from app.domain.enums import RiskProfile, SimulationDataSource
+from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 from app.domain.models import (
     AllocationView,
     AssetClass,
@@ -261,6 +261,44 @@ class PortfolioSimulationService:
                 instruments=instruments,
             ),
         )
+
+    def get_all_profile_weights(
+        self,
+        data_source: SimulationDataSource,
+    ) -> dict[str, tuple[dict[str, float], float]]:
+        """Return {profile_name: (ticker_weights, expected_return)} for all 3 risk profiles.
+
+        Builds the frontier once and selects 3 points, one per risk profile.
+        Returns raw ticker-level weights (not sector-aggregated) so they can be
+        used directly with price data for backtesting.
+        """
+        base_profile = UserProfile(
+            risk_profile=RiskProfile.BALANCED,
+            investment_horizon=InvestmentHorizon.MEDIUM,
+            data_source=data_source,
+        )
+        context = self._prepare_context(base_profile)
+        results: dict[str, tuple[dict[str, float], float]] = {}
+        for risk_profile in RiskProfile:
+            target_vol = self.mapping_service.resolve_target_volatility(
+                UserProfile(
+                    risk_profile=risk_profile,
+                    investment_horizon=InvestmentHorizon.MEDIUM,
+                    data_source=data_source,
+                )
+            )
+            idx = select_frontier_point_index(context.frontier_points, target_vol)
+            point = context.frontier_points[idx]
+            opt_weights = self._weights_for_optimization(point.weights, context.instruments)
+            metrics = portfolio_metrics_from_weights(
+                opt_weights,
+                context.expected_returns,
+                context.covariance,
+                RISK_FREE_RATE,
+            )
+            # Use raw ticker weights for backtesting with price data
+            results[risk_profile.value] = (point.weights, metrics.expected_return)
+        return results
 
     def simulate(self, user_profile: UserProfile) -> PortfolioSimulationResult:
         target_volatility = self.mapping_service.resolve_target_volatility(user_profile)

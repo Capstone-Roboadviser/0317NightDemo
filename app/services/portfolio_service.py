@@ -34,6 +34,7 @@ from app.domain.models import (
     FrontierPoint,
     IndividualAssetView,
     ManagedUniverseReadiness,
+    ManagedUniverseShortHistoryInstrument,
     ManagedUniverseSectorReadiness,
     PortfolioSimulationResult,
     PortfolioComponentCandidate,
@@ -164,12 +165,26 @@ class PortfolioSimulationService:
         ]
         issues.extend(shortages)
 
+        raw_prices = self.managed_universe_service.load_prices_for_tickers([instrument.ticker for instrument in instruments])
+        raw_stock_returns = (
+            StockDataRepository().build_stock_returns(raw_prices)
+            if not raw_prices.empty
+            else pd.DataFrame()
+        )
+
         prices = self.managed_universe_service.load_prices_for_instruments(
             instruments,
             version_id=active_version.version_id,
         )
         if prices.empty:
             issues.append("가격 데이터가 아직 적재되지 않았습니다. /admin 에서 가격 갱신을 먼저 실행해주세요.")
+            short_history_instruments = self._build_short_history_instruments(
+                instruments=instruments,
+                aligned_returns=pd.DataFrame(),
+                raw_returns=raw_stock_returns,
+                raw_prices=raw_prices,
+                price_window=price_window,
+            )
             return ManagedUniverseReadiness(
                 ready=False,
                 summary="가격 이력이 없어 시뮬레이션을 시작할 수 없습니다.",
@@ -181,12 +196,20 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                short_history_instruments=short_history_instruments,
                 price_window=price_window,
             )
 
         priced_ticker_count = int(prices["ticker"].astype(str).str.upper().nunique())
         stock_returns = StockDataRepository().build_stock_returns(prices)
         stock_return_rows = int(len(stock_returns))
+        short_history_instruments = self._build_short_history_instruments(
+            instruments=instruments,
+            aligned_returns=stock_returns,
+            raw_returns=raw_stock_returns,
+            raw_prices=raw_prices,
+            price_window=price_window,
+        )
 
         if stock_return_rows == 0:
             issues.append("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
@@ -201,6 +224,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                short_history_instruments=short_history_instruments,
                 price_window=price_window,
             )
 
@@ -219,6 +243,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                short_history_instruments=short_history_instruments,
                 price_window=price_window,
             )
 
@@ -237,6 +262,7 @@ class PortfolioSimulationService:
                 effective_history_rows=None,
                 minimum_history_rows=MINIMUM_HISTORY_ROWS,
                 sector_checks=sector_checks,
+                short_history_instruments=short_history_instruments,
                 price_window=price_window,
             )
 
@@ -255,11 +281,57 @@ class PortfolioSimulationService:
             effective_history_rows=effective_history_rows,
             minimum_history_rows=MINIMUM_HISTORY_ROWS,
             sector_checks=sector_checks,
+            short_history_instruments=short_history_instruments,
             price_window=price_window,
             selected_combination=self._build_universe_selection(
                 combination_id=active_version.version_name,
                 instruments=instruments,
             ),
+        )
+
+    def _build_short_history_instruments(
+        self,
+        *,
+        instruments: list[StockInstrument],
+        aligned_returns: pd.DataFrame,
+        raw_returns: pd.DataFrame,
+        raw_prices: pd.DataFrame,
+        price_window,
+    ) -> list[ManagedUniverseShortHistoryInstrument]:
+        aligned_counts = aligned_returns.count() if not aligned_returns.empty else pd.Series(dtype=int)
+        raw_counts = raw_returns.count() if not raw_returns.empty else pd.Series(dtype=int)
+        first_dates = (
+            raw_prices.groupby(raw_prices["ticker"].astype(str).str.upper())["date"].min()
+            if not raw_prices.empty
+            else pd.Series(dtype="datetime64[ns]")
+        )
+        instruments_by_ticker = {instrument.ticker.upper(): instrument for instrument in instruments}
+
+        short_items: list[ManagedUniverseShortHistoryInstrument] = []
+        for ticker, instrument in instruments_by_ticker.items():
+            aligned_rows = int(aligned_counts.get(ticker, 0))
+            if aligned_rows >= MINIMUM_HISTORY_ROWS:
+                continue
+            raw_rows = int(raw_counts.get(ticker, 0))
+            first_date = first_dates.get(ticker)
+            short_items.append(
+                ManagedUniverseShortHistoryInstrument(
+                    ticker=ticker,
+                    sector_code=instrument.sector_code,
+                    sector_name=instrument.sector_name,
+                    aligned_return_rows=aligned_rows,
+                    raw_return_rows=raw_rows,
+                    first_price_date=None if pd.isna(first_date) else pd.Timestamp(first_date).strftime("%Y-%m-%d"),
+                    is_youngest=(
+                        price_window is not None
+                        and ticker == str(price_window.youngest_ticker or "").upper()
+                    ),
+                )
+            )
+
+        return sorted(
+            short_items,
+            key=lambda item: (item.aligned_return_rows, 0 if item.is_youngest else 1, item.ticker),
         )
 
     def get_all_profile_weights(

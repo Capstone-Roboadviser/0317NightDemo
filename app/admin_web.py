@@ -385,6 +385,11 @@ def render_admin_page() -> HTMLResponse:
       gap: 10px;
     }
 
+    .history-warning-list {
+      display: grid;
+      gap: 10px;
+    }
+
     .issue-item,
     .sector-check-item {
       border-radius: 16px;
@@ -420,6 +425,37 @@ def render_admin_page() -> HTMLResponse:
     .sector-check-meta {
       font-size: 12px;
       color: var(--muted);
+    }
+
+    .history-warning-item {
+      display: grid;
+      gap: 8px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(217, 68, 38, 0.16);
+      background: rgba(255, 244, 242, 0.96);
+    }
+
+    .history-warning-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .history-warning-ticker {
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--text);
+    }
+
+    .history-warning-copy {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
     }
 
     input,
@@ -1075,6 +1111,12 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
           <div class="readiness-section">
+            <div class="readiness-title">짧은 이력 종목</div>
+            <div id="readiness-short-history" class="history-warning-list">
+              <div class="empty">아직 부족 이력 종목 진단 결과가 없습니다.</div>
+            </div>
+          </div>
+          <div class="readiness-section">
             <div class="readiness-title">자산군 분포</div>
             <div class="sector-check-list" id="readiness-sector-checks">
               <div class="empty">섹터별 진단 결과가 없습니다.</div>
@@ -1127,6 +1169,7 @@ def render_admin_page() -> HTMLResponse:
     const readinessReturnRowsEl = document.getElementById("readiness-return-rows");
     const readinessAlignedStartDateEl = document.getElementById("readiness-aligned-start-date");
     const readinessIssuesEl = document.getElementById("readiness-issues");
+    const readinessShortHistoryEl = document.getElementById("readiness-short-history");
     const readinessSectorChecksEl = document.getElementById("readiness-sector-checks");
     const reloadReadinessBtn = document.getElementById("reload-readiness-btn");
     const refreshPricesBtn = document.getElementById("refresh-prices-btn");
@@ -1567,6 +1610,26 @@ def render_admin_page() -> HTMLResponse:
         readinessIssuesEl.innerHTML = '<div class="empty">현재 차단 사유가 없습니다.</div>';
       }
 
+      if (data.short_history_instruments?.length) {
+        readinessShortHistoryEl.innerHTML = data.short_history_instruments.map((item) => `
+          <div class="history-warning-item">
+            <div class="history-warning-head">
+              <div class="history-warning-ticker">${item.ticker}</div>
+              <span class="pill ${item.is_youngest ? "danger" : "warn"}">
+                ${item.is_youngest ? "youngest · 공통 구간 제한" : "이력 부족"}
+              </span>
+            </div>
+            <div class="history-warning-copy">
+              <div>${item.sector_name} (${item.sector_code})</div>
+              <div>공통 구간 수익률 ${item.aligned_return_rows}행 / 전체 수익률 ${item.raw_return_rows}행</div>
+              <div>최초 가격일 ${item.first_price_date || "-"}</div>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        readinessShortHistoryEl.innerHTML = '<div class="empty">최소 이력 기준에 걸리는 종목이 없습니다.</div>';
+      }
+
       if (data.sector_checks?.length) {
         readinessSectorChecksEl.innerHTML = data.sector_checks.map((item) => `
           <div class="sector-check-item">
@@ -1592,6 +1655,7 @@ def render_admin_page() -> HTMLResponse:
       readinessReturnRowsEl.textContent = "0";
       readinessAlignedStartDateEl.textContent = "-";
       readinessIssuesEl.innerHTML = `<div class="issue-item">${message}</div>`;
+      readinessShortHistoryEl.innerHTML = '<div class="empty">짧은 이력 종목 진단 결과를 불러오지 못했습니다.</div>';
       readinessSectorChecksEl.innerHTML = '<div class="empty">섹터별 진단 결과를 불러오지 못했습니다.</div>';
     }
 

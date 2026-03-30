@@ -14,6 +14,7 @@ from app.api.schemas.response import (
     ManagedUniverseReadinessResponse,
     ManagedUniversePriceWindowResponse,
     ManagedUniverseSectorReadinessResponse,
+    ManagedUniverseShortHistoryInstrumentResponse,
     ManagedPriceStatsResponse,
     ManagedUniverseStatusResponse,
     ManagedUniverseVersionDetailResponse,
@@ -199,6 +200,18 @@ def get_managed_universe_readiness() -> ManagedUniverseReadinessResponse:
                 ready=item.ready,
             )
             for item in readiness.sector_checks
+        ],
+        short_history_instruments=[
+            ManagedUniverseShortHistoryInstrumentResponse(
+                ticker=item.ticker,
+                sector_code=item.sector_code,
+                sector_name=item.sector_name,
+                aligned_return_rows=item.aligned_return_rows,
+                raw_return_rows=item.raw_return_rows,
+                first_price_date=item.first_price_date,
+                is_youngest=item.is_youngest,
+            )
+            for item in readiness.short_history_instruments
         ],
         price_window=None if readiness.price_window is None else _price_window_response(readiness.price_window),
         selected_combination=None

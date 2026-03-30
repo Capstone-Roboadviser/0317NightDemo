@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -174,6 +174,17 @@ class ManagedUniverseSectorReadiness:
 
 
 @dataclass(frozen=True)
+class ManagedUniverseShortHistoryInstrument:
+    ticker: str
+    sector_code: str
+    sector_name: str
+    aligned_return_rows: int
+    raw_return_rows: int
+    first_price_date: str | None
+    is_youngest: bool
+
+
+@dataclass(frozen=True)
 class PortfolioComponentCandidate:
     asset_code: str
     asset_name: str
@@ -225,6 +236,7 @@ class ManagedUniverseReadiness:
     effective_history_rows: int | None
     minimum_history_rows: int
     sector_checks: list[ManagedUniverseSectorReadiness]
+    short_history_instruments: list[ManagedUniverseShortHistoryInstrument] = field(default_factory=list)
     price_window: ManagedUniversePriceWindow | None = None
     selected_combination: CombinationSelectionView | None = None
 

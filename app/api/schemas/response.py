@@ -198,6 +198,16 @@ class ManagedUniverseSectorReadinessResponse(BaseModel):
     ready: bool
 
 
+class ManagedUniverseShortHistoryInstrumentResponse(BaseModel):
+    ticker: str
+    sector_code: str
+    sector_name: str
+    aligned_return_rows: int
+    raw_return_rows: int
+    first_price_date: str | None = None
+    is_youngest: bool
+
+
 class ManagedUniverseReadinessResponse(BaseModel):
     ready: bool
     summary: str
@@ -209,6 +219,7 @@ class ManagedUniverseReadinessResponse(BaseModel):
     effective_history_rows: int | None = None
     minimum_history_rows: int
     sector_checks: list[ManagedUniverseSectorReadinessResponse]
+    short_history_instruments: list[ManagedUniverseShortHistoryInstrumentResponse] = []
     price_window: ManagedUniversePriceWindowResponse | None = None
     selected_combination: CombinationSelectionResponse | None = None
 

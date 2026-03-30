@@ -23,6 +23,7 @@ class AssetClass:
     weighting_mode: str
     return_mode: str
     expected_return_adjustment: float = 0.0
+    expected_return_adjustment_reference_ticker: str | None = None
 
 
 @dataclass(frozen=True)
@@ -182,6 +183,7 @@ class PortfolioComponentCandidate:
     return_mode: str
     member_tickers: tuple[str, ...]
     expected_return_adjustment: float = 0.0
+    expected_return_adjustment_reference_ticker: str | None = None
 
 
 @dataclass(frozen=True)

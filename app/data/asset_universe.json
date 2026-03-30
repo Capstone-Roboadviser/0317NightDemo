@@ -7,7 +7,9 @@
     "color": "#5B7C99",
     "min_weight": 0.05,
     "max_weight": 0.50,
-    "role_key": "single_representative"
+    "role_key": "dividend_representative",
+    "expected_return_adjustment": 0.02,
+    "expected_return_adjustment_reference_ticker": "BND"
   },
   {
     "code": "real_assets",
@@ -21,13 +23,13 @@
   },
   {
     "code": "etf",
-    "name": "ETF",
-    "category": "broad_market",
-    "description": "광범위한 지수 추종을 통해 시장 전반에 분산 투자하는 핵심 자산군입니다.",
+    "name": "신성장주",
+    "category": "new_growth",
+    "description": "신성장 테마 후보 종목을 동일비중 바스켓으로 묶어 성장 모멘텀을 넓게 반영하는 자산군입니다.",
     "color": "#2D6A8E",
     "min_weight": 0.05,
     "max_weight": 0.30,
-    "role_key": "single_representative"
+    "role_key": "equal_weight_basket"
   },
   {
     "code": "tech_healthcare",

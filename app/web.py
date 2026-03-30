@@ -4262,6 +4262,8 @@ def render_homepage() -> HTMLResponse:
           .then(function(data) {
             if (data.detail) return;
             lastRebalData = data;
+            // Store sector_names for tooltip display
+            lastRebalData._sectorNames = data.sector_names || {};
             rebalMetrics.style.display = "grid";
 
             var retCls = data.total_return_pct >= 0 ? "positive" : "negative";
@@ -4400,7 +4402,8 @@ def render_homepage() -> HTMLResponse:
         rebalLegend.innerHTML = legendHtml;
 
         // Store chart state for hover
-        rebalChart._chartState = { points: points, dates: dates, events: events, xScale: xScale, yScale: yScale, margin: margin, innerH: innerH, c: c, inv: inv };
+        var sectorNames = data._sectorNames || data.sector_names || {};
+        rebalChart._chartState = { points: points, dates: dates, events: events, xScale: xScale, yScale: yScale, margin: margin, innerH: innerH, c: c, inv: inv, sectorNames: sectorNames };
       }
 
       // Hover handlers
@@ -4447,27 +4450,32 @@ def render_homepage() -> HTMLResponse:
         // Build tooltip
         var html = '<div class="rebal-tooltip-date">' + pt.date + '</div>';
 
+        function sectorLabel(code) {
+          return st.sectorNames[code] || code;
+        }
+
         if (nearEvent) {
-          // Show rebalance event details
+          // Show rebalance event details (aggregated by sector)
           html += '<div class="rebal-tooltip-total">리밸런싱 실행</div>';
           html += '<div class="rebal-tooltip-row" style="margin-bottom:6px"><span class="rebal-tooltip-name">포트폴리오 가치</span><span class="rebal-tooltip-val">' + formatKRW(nearEvent.total_value) + '</span></div>';
 
-          var tickers = Object.keys(nearEvent.trades);
-          for (var ti = 0; ti < tickers.length; ti++) {
-            var ticker = tickers[ti];
-            var trade = nearEvent.trades[ticker];
+          var sectors = Object.keys(nearEvent.trades);
+          for (var ti = 0; ti < sectors.length; ti++) {
+            var sector = sectors[ti];
+            var trade = nearEvent.trades[sector];
+            if (Math.abs(trade) < 1) continue;
             var action = trade >= 0 ? "매수" : "매도";
             var cls = trade >= 0 ? "buy" : "sell";
-            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + ticker + ' ' + action + '</span><span class="rebal-tooltip-val ' + cls + '">' + (trade >= 0 ? "+" : "") + formatKRW(trade) + '</span></div>';
+            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + sectorLabel(sector) + ' ' + action + '</span><span class="rebal-tooltip-val ' + cls + '">' + (trade >= 0 ? "+" : "") + formatKRW(trade) + '</span></div>';
           }
 
           // Show weight drift
           html += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);font-size:11px;opacity:0.8">비중 변화 (전 → 후)</div>';
-          for (var ti = 0; ti < tickers.length; ti++) {
-            var ticker = tickers[ti];
-            var pre = (nearEvent.pre_weights[ticker] * 100).toFixed(1);
-            var post = (nearEvent.post_weights[ticker] * 100).toFixed(1);
-            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + ticker + '</span><span class="rebal-tooltip-val">' + pre + '% → ' + post + '%</span></div>';
+          for (var ti = 0; ti < sectors.length; ti++) {
+            var sector = sectors[ti];
+            var pre = (nearEvent.pre_weights[sector] * 100).toFixed(1);
+            var post = (nearEvent.post_weights[sector] * 100).toFixed(1);
+            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + sectorLabel(sector) + '</span><span class="rebal-tooltip-val">' + pre + '% → ' + post + '%</span></div>';
           }
         } else {
           // Show basic portfolio value
@@ -4476,11 +4484,11 @@ def render_homepage() -> HTMLResponse:
           html += '<div class="rebal-tooltip-total">' + formatKRW(pt.total_value) + '</div>';
           html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">수익률</span><span class="rebal-tooltip-val">' + retSign + retPct + '%</span></div>';
 
-          // Show asset breakdown
-          var assetKeys = Object.keys(pt.asset_values);
-          for (var ai = 0; ai < assetKeys.length; ai++) {
-            var ak = assetKeys[ai];
-            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + ak + '</span><span class="rebal-tooltip-val">' + formatKRW(pt.asset_values[ak]) + '</span></div>';
+          // Show asset breakdown (by sector)
+          var sectorKeys = Object.keys(pt.asset_values);
+          for (var ai = 0; ai < sectorKeys.length; ai++) {
+            var sk = sectorKeys[ai];
+            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + sectorLabel(sk) + '</span><span class="rebal-tooltip-val">' + formatKRW(pt.asset_values[sk]) + '</span></div>';
           }
         }
         rebalTooltip.innerHTML = html;

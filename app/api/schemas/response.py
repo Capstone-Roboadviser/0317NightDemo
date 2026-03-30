@@ -308,6 +308,7 @@ class RebalanceSimulationResponse(BaseModel):
     end_date: str
     investment_amount: float
     target_weights: dict[str, float]
+    sector_names: dict[str, str] = {}
     time_series: list[RebalanceTimePointResponse]
     rebalance_events: list[RebalanceEventResponse]
     final_value: float

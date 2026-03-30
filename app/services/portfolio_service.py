@@ -334,6 +334,18 @@ class PortfolioSimulationService:
             key=lambda item: (item.aligned_return_rows, 0 if item.is_youngest else 1, item.ticker),
         )
 
+    def _component_upper_bounds(self, asset_codes: list[str]) -> np.ndarray:
+        asset_by_code = {asset.code: asset for asset in self.list_assets()}
+        return np.array(
+            [
+                float(asset_by_code[asset_code].max_weight)
+                if asset_code in asset_by_code
+                else float(STOCK_MAX_WEIGHT)
+                for asset_code in asset_codes
+            ],
+            dtype=float,
+        )
+
     def get_all_profile_weights(
         self,
         data_source: SimulationDataSource,
@@ -595,7 +607,7 @@ class PortfolioSimulationService:
         constraints = self.constraint_engine.build_for_codes(
             asset_codes,
             lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values,
-            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=asset_codes, dtype=float).values,
+            upper_bounds=self._component_upper_bounds(asset_codes),
             extra_constraints=(
                 build_average_correlation_constraint(
                     correlation.values,
@@ -837,7 +849,7 @@ class PortfolioSimulationService:
         constraints = self.constraint_engine.build_for_codes(
             asset_codes,
             lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values,
-            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=asset_codes, dtype=float).values,
+            upper_bounds=self._component_upper_bounds(asset_codes),
             extra_constraints=(
                 build_average_correlation_constraint(
                     correlation.values,

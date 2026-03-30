@@ -26,7 +26,7 @@
     "description": "신성장 테마 후보 종목을 동일비중 바스켓으로 묶어 성장 모멘텀을 넓게 반영하는 자산군입니다.",
     "color": "#2D6A8E",
     "min_weight": 0.05,
-    "max_weight": 0.40,
+    "max_weight": 0.05,
     "role_key": "equal_weight_basket"
   },
   {

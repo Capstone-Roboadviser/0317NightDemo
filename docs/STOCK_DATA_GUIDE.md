@@ -58,7 +58,7 @@
 
 현재 기본 카탈로그 기준:
 
-- `short_term_bond`는 `dividend_representative`
+- `short_term_bond`, `cash_equivalents`는 `dividend_representative`
 - `new_growth`는 `equal_weight_basket`
 - 나머지 자산군은 `single_representative`
 

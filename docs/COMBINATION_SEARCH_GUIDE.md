@@ -32,7 +32,7 @@
 
 - 선택 방식은 `single_representative`와 같지만
 - 평가 시 기대수익률 보정치가 더해집니다.
-- 현재 기본 카탈로그에서는 `short_term_bond` 자산군이 이 역할을 사용하며, `BND`의 최근 1년 배당수익률을 우선 참조합니다.
+- 현재 기본 카탈로그에서는 `short_term_bond`, `cash_equivalents` 자산군이 이 역할을 사용하며, 각각 `BND`, `BIL`의 최근 1년 배당수익률을 우선 참조합니다.
 
 ### `equal_weight_basket`
 

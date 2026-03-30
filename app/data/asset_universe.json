@@ -49,7 +49,9 @@
     "color": "#6C757D",
     "min_weight": 0.00,
     "max_weight": 0.35,
-    "role_key": "single_representative"
+    "role_key": "dividend_representative",
+    "expected_return_adjustment": 0.01,
+    "expected_return_adjustment_reference_ticker": "BIL"
   },
   {
     "code": "gold",

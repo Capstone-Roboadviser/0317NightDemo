@@ -154,6 +154,7 @@
 
 - 현재 기본 자산군 카탈로그는 역할을 혼합해서 사용합니다.
 - `short_term_bond`는 `dividend_representative`로 설정돼 `BND`의 최근 1년 배당수익률을 우선 참조하고, 실패 시 `2%p` fallback 보정치를 사용합니다.
+- `cash_equivalents`는 `dividend_representative`로 설정돼 `BIL`의 최근 1년 배당수익률을 우선 참조하고, 실패 시 `1%p` fallback 보정치를 사용합니다.
 - `new_growth`는 표시명 `신성장주`로 노출되며 `equal_weight_basket`으로 동작합니다.
 - 현재 기본 자산군 카탈로그는 `미국 가치주 / 미국 성장주 / 신성장주 / 단기 채권 / 현금성자산 / 금 / 인프라 채권` 7개입니다.
 - 나머지 자산군은 `single_representative`를 기본으로 사용합니다.

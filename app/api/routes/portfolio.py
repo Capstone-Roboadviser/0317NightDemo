@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from app.api.schemas.request import EarningsHistoryRequest, PortfolioSimulationRequest, VolatilityHistoryRequest
+from app.api.schemas.request import EarningsHistoryRequest, PortfolioSimulationRequest, RebalanceSimulationRequest, VolatilityHistoryRequest
 from app.api.schemas.response import (
     AssetClassResponse,
     AssetEarningSummary,
@@ -17,6 +17,9 @@ from app.api.schemas.response import (
     IndividualAssetResponse,
     PortfolioSimulationResponse,
     RandomPortfolioResponse,
+    RebalanceEventResponse,
+    RebalanceSimulationResponse,
+    RebalanceTimePointResponse,
     StockInstrumentResponse,
     StocksBySectorResponse,
     ReturnHistoryResponse,
@@ -25,6 +28,7 @@ from app.api.schemas.response import (
     VolatilityPointResponse,
 )
 from app.core.config import DEMO_STOCK_PRICES_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
+from app.engine.rebalance import simulate_quarterly_rebalance
 from app.data.stock_repository import StockDataRepository
 from app.domain.enums import InvestmentHorizon, RiskProfile, SimulationDataSource
 from app.domain.models import PortfolioSimulationResult, UserProfile
@@ -428,4 +432,55 @@ def earnings_history(payload: EarningsHistoryRequest) -> EarningsHistoryResponse
         total_return_pct=round(final_total_ret * 100, 2),
         total_earnings=round(final_total_ret * inv, 0),
         asset_summary=asset_summary,
+    )
+
+
+@router.post("/rebalance-simulation", response_model=RebalanceSimulationResponse)
+def rebalance_simulation(payload: RebalanceSimulationRequest) -> RebalanceSimulationResponse:
+    tickers = [t for t, w in payload.weights.items() if w > 0]
+    prices = _load_history_prices(tickers=tickers, data_source=payload.data_source)
+
+    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last")
+    pivoted = pivoted.sort_index().ffill().dropna(how="any")
+
+    start = pd.Timestamp(payload.start_date)
+    pivoted = pivoted[pivoted.index >= start]
+    if pivoted.empty:
+        raise HTTPException(status_code=400, detail="시작일 이후 가격 데이터가 없습니다.")
+
+    available = set(pivoted.columns)
+    weight_map = {t.upper(): w for t, w in payload.weights.items() if t.upper() in available and w > 0}
+    if not weight_map:
+        raise HTTPException(status_code=400, detail="요청 종목의 가격 데이터가 없습니다.")
+    total_w = sum(weight_map.values())
+    weight_map = {t: w / total_w for t, w in weight_map.items()}
+
+    try:
+        result = simulate_quarterly_rebalance(pivoted, weight_map, payload.investment_amount)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"리밸런싱 시뮬레이션 중 오류가 발생했습니다: {exc}") from exc
+
+    return RebalanceSimulationResponse(
+        start_date=result.start_date,
+        end_date=result.end_date,
+        investment_amount=result.investment_amount,
+        target_weights=result.target_weights,
+        time_series=[
+            RebalanceTimePointResponse(date=p.date, total_value=p.total_value, asset_values=p.asset_values)
+            for p in result.time_series
+        ],
+        rebalance_events=[
+            RebalanceEventResponse(
+                date=e.date,
+                total_value=e.total_value,
+                pre_weights=e.pre_weights,
+                post_weights=e.post_weights,
+                trades=e.trades,
+            )
+            for e in result.rebalance_events
+        ],
+        final_value=result.final_value,
+        total_return_pct=result.total_return_pct,
+        no_rebalance_final_value=result.no_rebalance_final_value,
+        no_rebalance_return_pct=result.no_rebalance_return_pct,
     )

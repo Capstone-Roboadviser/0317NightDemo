@@ -258,6 +258,33 @@ class ReturnHistoryResponse(BaseModel):
     latest_data_date: str
 
 
+class RebalanceTimePointResponse(BaseModel):
+    date: str
+    total_value: float
+    asset_values: dict[str, float]
+
+
+class RebalanceEventResponse(BaseModel):
+    date: str
+    total_value: float
+    pre_weights: dict[str, float]
+    post_weights: dict[str, float]
+    trades: dict[str, float]
+
+
+class RebalanceSimulationResponse(BaseModel):
+    start_date: str
+    end_date: str
+    investment_amount: float
+    target_weights: dict[str, float]
+    time_series: list[RebalanceTimePointResponse]
+    rebalance_events: list[RebalanceEventResponse]
+    final_value: float
+    total_return_pct: float
+    no_rebalance_final_value: float
+    no_rebalance_return_pct: float
+
+
 class PortfolioSimulationResponse(BaseModel):
     portfolio_id: str
     disclaimer: str

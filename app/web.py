@@ -1457,6 +1457,115 @@ def render_homepage() -> HTMLResponse:
       border-radius: 50%;
     }
 
+    .rebal-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .rebal-metric {
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--background);
+    }
+    .rebal-metric-label {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-bottom: 4px;
+    }
+    .rebal-metric-sublabel {
+      font-size: 10px;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+    }
+    .rebal-metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .rebal-metric-value.positive { color: #22c55e; }
+    .rebal-metric-value.negative { color: #ef4444; }
+    .rebal-chart-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .rebal-chart-wrap svg {
+      width: 100%;
+      display: block;
+    }
+    .rebal-tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 50;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: var(--foreground);
+      color: var(--primary-foreground);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.5;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      min-width: 220px;
+      max-width: 320px;
+    }
+    .rebal-tooltip.visible { opacity: 0.92; }
+    .rebal-tooltip-date {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+    .rebal-tooltip-total {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    .rebal-tooltip-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0;
+    }
+    .rebal-tooltip-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 12px;
+    }
+    .rebal-tooltip-val {
+      font-weight: 700;
+      white-space: nowrap;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .rebal-tooltip-val.buy { color: #4ade80; }
+    .rebal-tooltip-val.sell { color: #f87171; }
+    .rebal-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      justify-content: center;
+    }
+    .rebal-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+    .rebal-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
     .explanation-title {
       font-size: 16px;
       font-weight: 600;
@@ -1924,6 +2033,31 @@ def render_homepage() -> HTMLResponse:
             <div class="earn-legend" id="earn-legend"></div>
           </div>
         </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="step-badge"><span class="step-num">7</span> 분기별 리밸런싱</div>
+            <div class="card-title">분기별 리밸런싱 시뮬레이션</div>
+            <div class="card-description">매 분기 말 목표 비중으로 되돌리는 리밸런싱 전략과 바이앤홀드 전략의 성과를 비교합니다.</div>
+          </div>
+          <div class="card-content">
+            <div class="rebal-metrics" id="rebal-metrics" style="display:none">
+              <div class="rebal-metric">
+                <div class="rebal-metric-label">리밸런싱 최종 가치</div>
+                <div class="rebal-metric-value" id="rebal-final">—</div>
+                <div class="rebal-metric-sublabel" id="rebal-ret-pct"></div>
+              </div>
+              <div class="rebal-metric">
+                <div class="rebal-metric-label">바이앤홀드 최종 가치</div>
+                <div class="rebal-metric-value" id="rebal-bh-final">—</div>
+                <div class="rebal-metric-sublabel" id="rebal-bh-ret-pct"></div>
+              </div>
+            </div>
+            <div class="rebal-chart-wrap">
+              <svg id="rebal-chart" viewBox="0 0 900 340" style="display:none"></svg>
+            </div>
+            <div class="rebal-legend" id="rebal-legend"></div>
+          </div>
+        </div>
 
       </div>
     </section>
@@ -1941,6 +2075,7 @@ def render_homepage() -> HTMLResponse:
 
   <div class="chart-tooltip" id="chart-tooltip"></div>
   <div class="earn-tooltip" id="earn-tooltip"></div>
+  <div class="rebal-tooltip" id="rebal-tooltip"></div>
 
   <script>
     // Stock-level data by sector (loaded async)
@@ -2750,6 +2885,9 @@ def render_homepage() -> HTMLResponse:
         if (typeof window.loadEarningsHistory === "function") {
           window.loadEarningsHistory(point.weights, lastData.data_source);
         }
+        if (typeof window.loadRebalanceSimulation === "function") {
+          window.loadRebalanceSimulation(point.weights, lastData.data_source);
+        }
       }
     }
 
@@ -2844,6 +2982,9 @@ def render_homepage() -> HTMLResponse:
           }
           if (typeof window.loadEarningsHistory === "function") {
             window.loadEarningsHistory(lastData.selected_point.weights, lastData.data_source);
+          }
+          if (typeof window.loadRebalanceSimulation === "function") {
+            window.loadRebalanceSimulation(lastData.selected_point.weights, lastData.data_source);
           }
         }
         // Brief pause to show 100%, then reveal chart with blur fade
@@ -3953,6 +4094,9 @@ def render_homepage() -> HTMLResponse:
       earnBtn.addEventListener("click", function() {
         if (typeof lastData !== "undefined" && lastData && lastData.selected_point && lastData.selected_point.weights) {
           window.loadEarningsHistory(lastData.selected_point.weights, lastData.data_source);
+          if (typeof window.loadRebalanceSimulation === "function") {
+            window.loadRebalanceSimulation(lastData.selected_point.weights, lastData.data_source);
+          }
         }
       });
 
@@ -4035,6 +4179,307 @@ def render_homepage() -> HTMLResponse:
       });
 
       earnChart.addEventListener("mouseleave", clearEarnHover);
+    })();
+
+    // ── Rebalancing Simulation Chart ──
+    (function() {
+      var rebalChart = document.getElementById("rebal-chart");
+      var rebalTooltip = document.getElementById("rebal-tooltip");
+      var rebalMetrics = document.getElementById("rebal-metrics");
+      var rebalLegend = document.getElementById("rebal-legend");
+      var rebalFinal = document.getElementById("rebal-final");
+      var rebalRetPct = document.getElementById("rebal-ret-pct");
+      var rebalBhFinal = document.getElementById("rebal-bh-final");
+      var rebalBhRetPct = document.getElementById("rebal-bh-ret-pct");
+      var lastRebalData = null;
+
+      function formatKRW(v) {
+        return Math.round(v).toLocaleString("ko-KR") + "원";
+      }
+
+      function getRebalThemeColors() {
+        var s = getComputedStyle(document.documentElement);
+        return {
+          bg: s.getPropertyValue("--chart-bg").trim(),
+          grid: s.getPropertyValue("--chart-grid").trim(),
+          label: s.getPropertyValue("--chart-label").trim(),
+          text: s.getPropertyValue("--chart-text").trim(),
+        };
+      }
+
+      window.loadRebalanceSimulation = function(weights, dataSource) {
+        if (!weights || !Object.keys(weights).length) return;
+        var earnStartInput = document.getElementById("earn-start");
+        var earnAmountInput = document.getElementById("earn-amount");
+        var amount = Number(String(earnAmountInput.value).replace(/[^0-9]/g, "")) || 10000000;
+        fetch("/portfolio/rebalance-simulation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            weights: weights,
+            data_source: dataSource || "stock_combination_demo",
+            start_date: earnStartInput.value,
+            investment_amount: amount,
+          }),
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.detail) return;
+            lastRebalData = data;
+            rebalMetrics.style.display = "grid";
+
+            var retCls = data.total_return_pct >= 0 ? "positive" : "negative";
+            rebalFinal.className = "rebal-metric-value";
+            rebalFinal.textContent = formatKRW(data.final_value);
+            rebalRetPct.textContent = (data.total_return_pct >= 0 ? "+" : "") + data.total_return_pct.toFixed(1) + "% 수익률";
+
+            var bhCls = data.no_rebalance_return_pct >= 0 ? "positive" : "negative";
+            rebalBhFinal.className = "rebal-metric-value";
+            rebalBhFinal.textContent = formatKRW(data.no_rebalance_final_value);
+            rebalBhRetPct.textContent = (data.no_rebalance_return_pct >= 0 ? "+" : "") + data.no_rebalance_return_pct.toFixed(1) + "% 수익률";
+
+            renderRebalChart(data);
+          })
+          .catch(function() {});
+      };
+
+      window.rerenderRebalChart = function() {
+        if (lastRebalData) setTimeout(function() { renderRebalChart(lastRebalData); }, 50);
+      };
+
+      function renderRebalChart(data) {
+        var points = data.time_series;
+        if (!points || !points.length) { rebalChart.style.display = "none"; return; }
+
+        var c = getRebalThemeColors();
+        var width = 900, height = 340;
+        var margin = { top: 28, right: 24, bottom: 36, left: 72 };
+        var innerW = width - margin.left - margin.right;
+        var innerH = height - margin.top - margin.bottom;
+        rebalChart.setAttribute("viewBox", "0 0 " + width + " " + height);
+        rebalChart.style.display = "block";
+
+        var dates = points.map(function(p) { return new Date(p.date); });
+        var values = points.map(function(p) { return p.total_value; });
+
+        // Build buy-and-hold series from rebalanced data
+        // We need to interpolate: at start both equal, at end = no_rebalance_final_value
+        // Simple approach: scale linearly from investment to bh_final using time fraction
+        // Better: derive from asset_values with original holdings
+        // Since we don't have bh time series, synthesize: ratio approach
+        var inv = data.investment_amount;
+        var bhFinal = data.no_rebalance_final_value;
+        var rebalFinalVal = data.final_value;
+        // We'll approximate bh as: at each point, bh_value = inv * (total_value_at_point_if_no_rebalance)
+        // Since we lack the full bh series, use the rebalanced series as a rough proxy
+        // and only show final comparison. Actually, we CAN compute it from the first point's asset allocation.
+        // For simplicity, just show the rebalanced line and mark rebalance events.
+
+        var yMin = Math.min.apply(null, values) * 0.98;
+        var yMax = Math.max.apply(null, values) * 1.02;
+        var ySpan = yMax - yMin || 1;
+
+        var minDate = dates[0].getTime();
+        var dateSpan = dates[dates.length - 1].getTime() - minDate || 1;
+
+        function xScale(d) { return margin.left + ((d.getTime() - minDate) / dateSpan) * innerW; }
+        function yScale(v) { return margin.top + innerH - ((v - yMin) / ySpan) * innerH; }
+
+        function fmtY(v) {
+          var abs = Math.abs(v);
+          var sign = v < 0 ? "-" : "";
+          if (abs >= 100000000) return sign + (abs / 100000000).toFixed(1) + "억";
+          if (abs >= 10000) return sign + Math.round(abs / 10000).toLocaleString("ko-KR") + "만";
+          return sign + Math.round(abs).toLocaleString("ko-KR");
+        }
+
+        var svg = "";
+
+        // Defs
+        svg += '<defs><clipPath id="rebal-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath>';
+        svg += '<linearGradient id="rebal-area-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0.03"/></linearGradient>';
+        svg += '</defs>';
+
+        // Y gridlines + labels
+        var yTicks = 5;
+        for (var j = 0; j <= yTicks; j++) {
+          var val = yMin + (ySpan * j) / yTicks;
+          var y = yScale(val);
+          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" stroke-opacity="0.5" />';
+          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="end">' + fmtY(val) + '</text>';
+        }
+
+        // X labels
+        var xCount = Math.min(6, dates.length);
+        for (var i = 0; i < xCount; i++) {
+          var idx = Math.round((i / (xCount - 1)) * (dates.length - 1));
+          var dx = xScale(dates[idx]);
+          var dlabel = dates[idx].toISOString().slice(0, 7);
+          svg += '<text x="' + dx + '" y="' + (height - 8) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="middle">' + dlabel + '</text>';
+        }
+
+        // Investment baseline
+        var baseY = yScale(inv);
+        svg += '<line x1="' + margin.left + '" y1="' + baseY + '" x2="' + (margin.left + innerW) + '" y2="' + baseY + '" stroke="' + c.label + '" stroke-width="0.75" stroke-opacity="0.35" stroke-dasharray="6,4" />';
+
+        // Area fill
+        svg += '<g clip-path="url(#rebal-clip)">';
+        var areaPath = "M" + xScale(dates[0]) + "," + yScale(values[0]);
+        for (var t = 1; t < dates.length; t++) {
+          areaPath += " L" + xScale(dates[t]) + "," + yScale(values[t]);
+        }
+        areaPath += " L" + xScale(dates[dates.length - 1]) + "," + yScale(yMin);
+        areaPath += " L" + xScale(dates[0]) + "," + yScale(yMin) + " Z";
+        svg += '<path d="' + areaPath + '" fill="url(#rebal-area-grad)" />';
+
+        // Portfolio value line
+        var linePath = "M" + xScale(dates[0]) + "," + yScale(values[0]);
+        for (var t = 1; t < dates.length; t++) {
+          linePath += " L" + xScale(dates[t]) + "," + yScale(values[t]);
+        }
+        svg += '<path d="' + linePath + '" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />';
+
+        // Rebalance event vertical lines
+        var events = data.rebalance_events || [];
+        for (var e = 0; e < events.length; e++) {
+          var evtDate = new Date(events[e].date);
+          var ex = xScale(evtDate);
+          svg += '<line x1="' + ex + '" y1="' + margin.top + '" x2="' + ex + '" y2="' + (margin.top + innerH) + '" stroke="#f97316" stroke-width="1.5" stroke-dasharray="4,3" stroke-opacity="0.8" />';
+          svg += '<circle cx="' + ex + '" cy="' + margin.top + '" r="4" fill="#f97316" stroke="' + c.bg + '" stroke-width="1.5" />';
+        }
+
+        svg += '</g>';
+
+        // Invisible hover hit areas for time series
+        for (var t = 0; t < dates.length; t++) {
+          var hx = xScale(dates[t]);
+          svg += '<line class="rebal-hit" x1="' + hx + '" y1="' + margin.top + '" x2="' + hx + '" y2="' + (margin.top + innerH) + '" stroke="transparent" stroke-width="' + Math.max(2, innerW / dates.length) + '" data-idx="' + t + '" />';
+        }
+
+        rebalChart.innerHTML = svg;
+
+        // Legend
+        var legendHtml = '<span class="rebal-legend-item"><span class="rebal-legend-dot" style="background:#3b82f6"></span>리밸런싱 포트폴리오</span>';
+        legendHtml += '<span class="rebal-legend-item"><span class="rebal-legend-dot" style="background:#f97316;border-radius:0;height:2px;width:12px;margin-top:3px"></span>리밸런싱 시점</span>';
+        rebalLegend.innerHTML = legendHtml;
+
+        // Store chart state for hover
+        rebalChart._chartState = { points: points, dates: dates, events: events, xScale: xScale, yScale: yScale, margin: margin, innerH: innerH, c: c, inv: inv };
+      }
+
+      // Hover handlers
+      var rebalCrosshair = null;
+      var rebalHoverDot = null;
+
+      function clearRebalHover() {
+        rebalTooltip.classList.remove("visible");
+        if (rebalCrosshair && rebalCrosshair.parentNode) rebalCrosshair.parentNode.removeChild(rebalCrosshair);
+        if (rebalHoverDot && rebalHoverDot.parentNode) rebalHoverDot.parentNode.removeChild(rebalHoverDot);
+        rebalCrosshair = null;
+        rebalHoverDot = null;
+      }
+
+      rebalChart.addEventListener("mousemove", function(ev) {
+        var st = rebalChart._chartState;
+        if (!st || !st.dates.length) { clearRebalHover(); return; }
+
+        var rect = rebalChart.getBoundingClientRect();
+        var svgWidth = 900;
+        var mouseX = ((ev.clientX - rect.left) / rect.width) * svgWidth;
+        if (mouseX < st.margin.left || mouseX > svgWidth - 24) { clearRebalHover(); return; }
+
+        // Check if hovering near a rebalance event line first
+        var nearEvent = null;
+        for (var e = 0; e < st.events.length; e++) {
+          var evtDate = new Date(st.events[e].date);
+          var ex = st.xScale(evtDate);
+          if (Math.abs(mouseX - ex) < 12) {
+            nearEvent = st.events[e];
+            break;
+          }
+        }
+
+        // Find closest time series point
+        var bestIdx = 0, bestDist = Infinity;
+        for (var i = 0; i < st.dates.length; i++) {
+          var dx = Math.abs(st.xScale(st.dates[i]) - mouseX);
+          if (dx < bestDist) { bestDist = dx; bestIdx = i; }
+        }
+        var pt = st.points[bestIdx];
+        if (!pt) return;
+
+        // Build tooltip
+        var html = '<div class="rebal-tooltip-date">' + pt.date + '</div>';
+
+        if (nearEvent) {
+          // Show rebalance event details
+          html += '<div class="rebal-tooltip-total">리밸런싱 실행</div>';
+          html += '<div class="rebal-tooltip-row" style="margin-bottom:6px"><span class="rebal-tooltip-name">포트폴리오 가치</span><span class="rebal-tooltip-val">' + formatKRW(nearEvent.total_value) + '</span></div>';
+
+          var tickers = Object.keys(nearEvent.trades);
+          for (var ti = 0; ti < tickers.length; ti++) {
+            var ticker = tickers[ti];
+            var trade = nearEvent.trades[ticker];
+            var action = trade >= 0 ? "매수" : "매도";
+            var cls = trade >= 0 ? "buy" : "sell";
+            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + ticker + ' ' + action + '</span><span class="rebal-tooltip-val ' + cls + '">' + (trade >= 0 ? "+" : "") + formatKRW(trade) + '</span></div>';
+          }
+
+          // Show weight drift
+          html += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);font-size:11px;opacity:0.8">비중 변화 (전 → 후)</div>';
+          for (var ti = 0; ti < tickers.length; ti++) {
+            var ticker = tickers[ti];
+            var pre = (nearEvent.pre_weights[ticker] * 100).toFixed(1);
+            var post = (nearEvent.post_weights[ticker] * 100).toFixed(1);
+            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + ticker + '</span><span class="rebal-tooltip-val">' + pre + '% → ' + post + '%</span></div>';
+          }
+        } else {
+          // Show basic portfolio value
+          var retPct = ((pt.total_value - st.inv) / st.inv * 100).toFixed(1);
+          var retSign = pt.total_value >= st.inv ? "+" : "";
+          html += '<div class="rebal-tooltip-total">' + formatKRW(pt.total_value) + '</div>';
+          html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">수익률</span><span class="rebal-tooltip-val">' + retSign + retPct + '%</span></div>';
+
+          // Show asset breakdown
+          var assetKeys = Object.keys(pt.asset_values);
+          for (var ai = 0; ai < assetKeys.length; ai++) {
+            var ak = assetKeys[ai];
+            html += '<div class="rebal-tooltip-row"><span class="rebal-tooltip-name">' + ak + '</span><span class="rebal-tooltip-val">' + formatKRW(pt.asset_values[ak]) + '</span></div>';
+          }
+        }
+        rebalTooltip.innerHTML = html;
+
+        // Position tooltip
+        var tx = ev.clientX + 16;
+        var ty = ev.clientY - 20;
+        if (tx + 320 > window.innerWidth) tx = ev.clientX - 320;
+        if (ty + rebalTooltip.offsetHeight > window.innerHeight) ty = window.innerHeight - rebalTooltip.offsetHeight - 8;
+        if (ty < 8) ty = 8;
+        rebalTooltip.style.left = tx + "px";
+        rebalTooltip.style.top = ty + "px";
+        rebalTooltip.classList.add("visible");
+
+        // Crosshair + dot
+        if (rebalCrosshair && rebalCrosshair.parentNode) rebalCrosshair.parentNode.removeChild(rebalCrosshair);
+        if (rebalHoverDot && rebalHoverDot.parentNode) rebalHoverDot.parentNode.removeChild(rebalHoverDot);
+        var hx = st.xScale(st.dates[bestIdx]);
+        rebalCrosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        rebalCrosshair.setAttribute("x1", hx); rebalCrosshair.setAttribute("y1", st.margin.top);
+        rebalCrosshair.setAttribute("x2", hx); rebalCrosshair.setAttribute("y2", st.margin.top + st.innerH);
+        rebalCrosshair.setAttribute("stroke", nearEvent ? "#f97316" : st.c.label);
+        rebalCrosshair.setAttribute("stroke-width", nearEvent ? "2" : "1");
+        rebalCrosshair.setAttribute("stroke-dasharray", "3,3"); rebalCrosshair.style.pointerEvents = "none";
+        rebalChart.appendChild(rebalCrosshair);
+
+        rebalHoverDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        rebalHoverDot.setAttribute("cx", hx); rebalHoverDot.setAttribute("cy", st.yScale(pt.total_value));
+        rebalHoverDot.setAttribute("r", "5"); rebalHoverDot.setAttribute("fill", nearEvent ? "#f97316" : "#3b82f6");
+        rebalHoverDot.setAttribute("stroke", st.c.bg); rebalHoverDot.setAttribute("stroke-width", "2");
+        rebalHoverDot.style.pointerEvents = "none";
+        rebalChart.appendChild(rebalHoverDot);
+      });
+
+      rebalChart.addEventListener("mouseleave", clearRebalHover);
     })();
 
   </script>

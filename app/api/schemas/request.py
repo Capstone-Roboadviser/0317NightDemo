@@ -98,6 +98,16 @@ class EarningsHistoryRequest(BaseModel):
     investment_amount: float = Field(default=10_000_000, gt=0, description="투자 금액 (원)")
 
 
+class RebalanceSimulationRequest(BaseModel):
+    weights: dict[str, float] = Field(..., description="종목별 목표 비중 (ticker → weight)")
+    data_source: SimulationDataSource = Field(
+        default=SimulationDataSource.MANAGED_UNIVERSE,
+        description="가격 데이터 소스",
+    )
+    start_date: str = Field(..., description="시뮬레이션 시작일 (YYYY-MM-DD)")
+    investment_amount: float = Field(default=10_000_000, gt=0, description="투자 금액 (원)")
+
+
 class PriceRefreshRequest(BaseModel):
     version_id: int | None = Field(default=None, description="가격 갱신 대상 유니버스 버전. 없으면 active 버전 사용")
     refresh_mode: PriceRefreshMode = Field(default=PriceRefreshMode.INCREMENTAL, description="증분 갱신 또는 전체 백필")

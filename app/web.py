@@ -2071,7 +2071,7 @@ def render_homepage() -> HTMLResponse:
           <div class="card-header">
             <div class="step-badge"><span class="step-num">8</span> 포트폴리오 비교</div>
             <div class="card-title">포트폴리오 유형별 성과 비교</div>
-            <div class="card-description">안정형·균형형·성장형 포트폴리오의 리밸런싱 수익률을 S&P 500, Nasdaq 100, 10년 국채와 비교합니다. 점선은 기대수익 궤적입니다.</div>
+            <div class="card-description">안정형·균형형·성장형 포트폴리오의 리밸런싱 수익률을 S&P 500, 10년 국채와 비교합니다. 점선은 기대수익 궤적입니다.</div>
           </div>
           <div class="card-content">
             <div class="earn-controls">

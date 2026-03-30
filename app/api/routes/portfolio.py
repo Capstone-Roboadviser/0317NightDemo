@@ -541,11 +541,11 @@ def rebalance_simulation(payload: RebalanceSimulationRequest) -> RebalanceSimula
 
 
 def _fetch_benchmark_prices(start_date: str) -> dict[str, pd.Series]:
-    """Fetch S&P 500, Nasdaq 100, and 10-year Treasury ETF prices via yfinance."""
+    """Fetch S&P 500 and 10-year Treasury ETF prices via yfinance."""
     benchmarks: dict[str, pd.Series] = {}
     try:
         import yfinance as yf
-        tickers = {"sp500": "SPY", "nasdaq100": "QQQ", "treasury": "IEF"}
+        tickers = {"sp500": "SPY", "treasury": "IEF"}
         for key, ticker in tickers.items():
             try:
                 data = yf.download(ticker, start=start_date, progress=False, auto_adjust=True)

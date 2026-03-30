@@ -56,6 +56,12 @@
 - 대표 종목 1개 + 기대수익률 보정이 적용되거나
 - 여러 종목이 동일비중 바스켓으로 함께 들어갈 수 있습니다
 
+현재 기본 카탈로그 기준:
+
+- `short_term_bond`는 `dividend_representative`
+- `new_growth`는 `equal_weight_basket`
+- 나머지 자산군은 `single_representative`
+
 ## 가격 데이터 요구사항
 
 현재 시스템은 내부적으로 아래 형태의 가격 이력이 필요합니다.

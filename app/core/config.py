@@ -40,14 +40,13 @@ DEMO_COMBINATION_SAMPLE_COUNT = 40
 DEMO_COMBINATION_WEIGHTING = "equal"
 DEMO_COMBINATION_USE_ALL_INSTRUMENTS = True
 DEMO_COMBINATION_SELECTION_SIZES = {
-    "bond": 2,
-    "real_assets": 2,
-    "etf": 2,
-    "tech_healthcare": 2,
-    "ai_semiconductor_social": 2,
-    "financials": 2,
-    "energy": 2,
-    "consumer_other": 2,
+    "us_value": 2,
+    "us_growth": 2,
+    "new_growth": 2,
+    "short_term_bond": 2,
+    "cash_equivalents": 2,
+    "gold": 2,
+    "infra_bond": 2,
 }
 
 DEFAULT_TARGET_VOLATILITY = {
@@ -64,34 +63,31 @@ HORIZON_VOLATILITY_ADJUSTMENT = {
 
 FALLBACK_WEIGHTS = {
     RiskProfile.CONSERVATIVE: {
-        "bond": 0.34,
-        "real_assets": 0.10,
-        "etf": 0.16,
-        "tech_healthcare": 0.08,
-        "ai_semiconductor_social": 0.05,
-        "financials": 0.08,
-        "energy": 0.05,
-        "consumer_other": 0.14,
+        "us_value": 0.15,
+        "us_growth": 0.08,
+        "new_growth": 0.10,
+        "short_term_bond": 0.25,
+        "cash_equivalents": 0.20,
+        "gold": 0.08,
+        "infra_bond": 0.14,
     },
     RiskProfile.BALANCED: {
-        "bond": 0.22,
-        "real_assets": 0.11,
-        "etf": 0.18,
-        "tech_healthcare": 0.12,
-        "ai_semiconductor_social": 0.10,
-        "financials": 0.09,
-        "energy": 0.07,
-        "consumer_other": 0.11,
+        "us_value": 0.20,
+        "us_growth": 0.15,
+        "new_growth": 0.20,
+        "short_term_bond": 0.15,
+        "cash_equivalents": 0.10,
+        "gold": 0.08,
+        "infra_bond": 0.12,
     },
     RiskProfile.GROWTH: {
-        "bond": 0.10,
-        "real_assets": 0.10,
-        "etf": 0.18,
-        "tech_healthcare": 0.17,
-        "ai_semiconductor_social": 0.18,
-        "financials": 0.10,
-        "energy": 0.08,
-        "consumer_other": 0.09,
+        "us_value": 0.18,
+        "us_growth": 0.22,
+        "new_growth": 0.33,
+        "short_term_bond": 0.08,
+        "cash_equivalents": 0.05,
+        "gold": 0.06,
+        "infra_bond": 0.08,
     },
 }
 

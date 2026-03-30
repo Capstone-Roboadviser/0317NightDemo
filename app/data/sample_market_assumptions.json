@@ -2,105 +2,86 @@
   "seed": 7,
   "years": 4,
   "annual_returns": {
-    "bond": 0.038,
-    "real_assets": 0.055,
-    "etf": 0.072,
-    "tech_healthcare": 0.094,
-    "ai_semiconductor_social": 0.108,
-    "financials": 0.068,
-    "energy": 0.062,
-    "consumer_other": 0.058
+    "us_value": 0.078,
+    "us_growth": 0.096,
+    "new_growth": 0.118,
+    "short_term_bond": 0.036,
+    "cash_equivalents": 0.026,
+    "gold": 0.061,
+    "infra_bond": 0.049
   },
   "annual_volatilities": {
-    "bond": 0.065,
-    "real_assets": 0.125,
-    "etf": 0.145,
-    "tech_healthcare": 0.205,
-    "ai_semiconductor_social": 0.235,
-    "financials": 0.175,
-    "energy": 0.195,
-    "consumer_other": 0.135
+    "us_value": 0.170,
+    "us_growth": 0.208,
+    "new_growth": 0.242,
+    "short_term_bond": 0.045,
+    "cash_equivalents": 0.012,
+    "gold": 0.168,
+    "infra_bond": 0.092
   },
   "correlations": {
-    "bond": {
-      "bond": 1.00,
-      "real_assets": 0.00,
-      "etf": 0.09,
-      "tech_healthcare": 0.08,
-      "ai_semiconductor_social": 0.08,
-      "financials": 0.10,
-      "energy": 0.01,
-      "consumer_other": 0.08
+    "us_value": {
+      "us_value": 1.00,
+      "us_growth": 0.72,
+      "new_growth": 0.62,
+      "short_term_bond": 0.10,
+      "cash_equivalents": 0.05,
+      "gold": 0.08,
+      "infra_bond": 0.22
     },
-    "real_assets": {
-      "bond": 0.00,
-      "real_assets": 1.00,
-      "etf": 0.26,
-      "tech_healthcare": 0.24,
-      "ai_semiconductor_social": 0.22,
-      "financials": 0.27,
-      "energy": 0.52,
-      "consumer_other": 0.26
+    "us_growth": {
+      "us_value": 0.72,
+      "us_growth": 1.00,
+      "new_growth": 0.78,
+      "short_term_bond": 0.08,
+      "cash_equivalents": 0.03,
+      "gold": 0.05,
+      "infra_bond": 0.18
     },
-    "etf": {
-      "bond": 0.09,
-      "real_assets": 0.26,
-      "etf": 1.00,
-      "tech_healthcare": 0.52,
-      "ai_semiconductor_social": 0.52,
-      "financials": 0.49,
-      "energy": 0.33,
-      "consumer_other": 0.40
+    "new_growth": {
+      "us_value": 0.62,
+      "us_growth": 0.78,
+      "new_growth": 1.00,
+      "short_term_bond": 0.06,
+      "cash_equivalents": 0.02,
+      "gold": 0.03,
+      "infra_bond": 0.15
     },
-    "tech_healthcare": {
-      "bond": 0.08,
-      "real_assets": 0.24,
-      "etf": 0.52,
-      "tech_healthcare": 1.00,
-      "ai_semiconductor_social": 0.75,
-      "financials": 0.54,
-      "energy": 0.29,
-      "consumer_other": 0.42
+    "short_term_bond": {
+      "us_value": 0.10,
+      "us_growth": 0.08,
+      "new_growth": 0.06,
+      "short_term_bond": 1.00,
+      "cash_equivalents": 0.45,
+      "gold": 0.02,
+      "infra_bond": 0.55
     },
-    "ai_semiconductor_social": {
-      "bond": 0.08,
-      "real_assets": 0.22,
-      "etf": 0.52,
-      "tech_healthcare": 0.75,
-      "ai_semiconductor_social": 1.00,
-      "financials": 0.54,
-      "energy": 0.25,
-      "consumer_other": 0.42
+    "cash_equivalents": {
+      "us_value": 0.05,
+      "us_growth": 0.03,
+      "new_growth": 0.02,
+      "short_term_bond": 0.45,
+      "cash_equivalents": 1.00,
+      "gold": -0.02,
+      "infra_bond": 0.25
     },
-    "financials": {
-      "bond": 0.10,
-      "real_assets": 0.27,
-      "etf": 0.49,
-      "tech_healthcare": 0.54,
-      "ai_semiconductor_social": 0.54,
-      "financials": 1.00,
-      "energy": 0.35,
-      "consumer_other": 0.41
+    "gold": {
+      "us_value": 0.08,
+      "us_growth": 0.05,
+      "new_growth": 0.03,
+      "short_term_bond": 0.02,
+      "cash_equivalents": -0.02,
+      "gold": 1.00,
+      "infra_bond": 0.15
     },
-    "energy": {
-      "bond": 0.01,
-      "real_assets": 0.52,
-      "etf": 0.33,
-      "tech_healthcare": 0.29,
-      "ai_semiconductor_social": 0.25,
-      "financials": 0.35,
-      "energy": 1.00,
-      "consumer_other": 0.32
-    },
-    "consumer_other": {
-      "bond": 0.08,
-      "real_assets": 0.26,
-      "etf": 0.40,
-      "tech_healthcare": 0.42,
-      "ai_semiconductor_social": 0.42,
-      "financials": 0.41,
-      "energy": 0.32,
-      "consumer_other": 1.00
+    "infra_bond": {
+      "us_value": 0.22,
+      "us_growth": 0.18,
+      "new_growth": 0.15,
+      "short_term_bond": 0.55,
+      "cash_equivalents": 0.25,
+      "gold": 0.15,
+      "infra_bond": 1.00
     }
   }
 }

@@ -136,11 +136,11 @@
 
 ```json
 {
-  "combination_id": "manual-20260330-v1|bond:BIL|etf:QQQ|real_assets:REET-GLD",
+  "combination_id": "manual-20260330-v1|short_term_bond:SHY|new_growth:QQQ-NVDA|gold:GLD",
   "members_by_sector": {
-    "bond": ["BIL"],
-    "etf": ["QQQ"],
-    "real_assets": ["REET", "GLD"]
+    "short_term_bond": ["SHY"],
+    "new_growth": ["QQQ", "NVDA"],
+    "gold": ["GLD"]
   }
 }
 ```

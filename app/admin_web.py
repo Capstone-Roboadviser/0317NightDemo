@@ -1299,7 +1299,7 @@ def render_admin_page() -> HTMLResponse:
     }
 
     function addBuilderRow(seed = {}) {
-      const sectorCode = seed.sector_code || "etf";
+      const sectorCode = seed.sector_code || activeSectorCode || sectorOptions[0]?.code || "us_value";
       const panel = ensureSectorPanel(sectorCode);
       const rowsWrap = panel.querySelector(`[data-sector-rows="${sectorCode}"]`);
       const row = document.createElement("div");

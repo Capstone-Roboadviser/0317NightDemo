@@ -1,7 +1,28 @@
+import json
+
 from fastapi.responses import HTMLResponse
+
+from app.data.repository import StaticDataRepository
 
 
 def render_homepage() -> HTMLResponse:
+    assets = StaticDataRepository().load_asset_universe()
+    asset_metadata_json = json.dumps(
+        [
+            {
+                "code": asset.code,
+                "name": asset.name,
+                "color": asset.color,
+                "role_key": asset.role_key,
+                "role_name": asset.role_name,
+                "selection_mode": asset.selection_mode,
+                "weighting_mode": asset.weighting_mode,
+                "return_mode": asset.return_mode,
+            }
+            for asset in assets
+        ],
+        ensure_ascii=False,
+    )
     html = """<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -1659,12 +1680,12 @@ def render_homepage() -> HTMLResponse:
       <span class="badge">Efficient Frontier Demo</span>
       <h1>효율적 투자선 기반<br />자산배분 시뮬레이터</h1>
       <p>
-        고정된 8개 자산군을 기준으로, 사용자의 위험 성향에 따라
+        관리자 유니버스에 정의된 자산군 카탈로그와 역할 규칙을 기준으로,
         효율적 투자선 위의 포트폴리오 예시를 계산하고 설명합니다.
       </p>
       <div class="hero-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        본 서비스는 데모용 시뮬레이션입니다. 고정 샘플 데이터 기반이며 투자 자문이나 수익 보장을 제공하지 않습니다.
+        본 서비스는 데모용 시뮬레이션입니다. 관리자 유니버스 또는 샘플 데이터를 기반으로 계산하며 투자 자문이나 수익 보장을 제공하지 않습니다.
       </div>
     </section>
 
@@ -1935,16 +1956,8 @@ def render_homepage() -> HTMLResponse:
       } catch (_) { /* ignore – tooltip just won't show stocks */ }
     })();
 
-    const ASSET_COLORS = {
-      bond: "#5B7C99",
-      real_assets: "#A67C52",
-      etf: "#2D6A8E",
-      tech_healthcare: "#7B6ED6",
-      ai_semiconductor_social: "#E76F51",
-      financials: "#2A9D8F",
-      energy: "#E9C46A",
-      consumer_other: "#6C757D",
-    };
+    const ASSET_METADATA = __ASSET_METADATA_JSON__;
+    const ASSET_COLORS = Object.fromEntries(ASSET_METADATA.map((asset) => [asset.code, asset.color]));
 
     const slider = document.getElementById("risk_slider");
     const riskLabel = document.getElementById("risk-label");
@@ -2140,7 +2153,7 @@ def render_homepage() -> HTMLResponse:
       }
 
       combinationPanelEl.hidden = false;
-      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 섹터별 후보군에서 대표 종목 1개씩을 선택해 최적화했습니다. 현재 적용된 유니버스 ID는 ${selection.combination_id} 입니다.`;
+      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 자산군별 역할 정의에 따라 현재 포트폴리오 컴포넌트를 구성했습니다. 현재 적용된 유니버스 ID는 ${selection.combination_id} 입니다.`;
       combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
         .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
         .join("");
@@ -4028,4 +4041,5 @@ def render_homepage() -> HTMLResponse:
 </body>
 </html>
 """
+    html = html.replace("__ASSET_METADATA_JSON__", asset_metadata_json)
     return HTMLResponse(content=html)

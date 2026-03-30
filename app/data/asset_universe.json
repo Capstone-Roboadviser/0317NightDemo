@@ -6,7 +6,8 @@
     "description": "변동성을 낮추고 포트폴리오의 방어 역할을 담당하는 금리 민감 자산군입니다.",
     "color": "#5B7C99",
     "min_weight": 0.05,
-    "max_weight": 0.50
+    "max_weight": 0.50,
+    "role_key": "single_representative"
   },
   {
     "code": "real_assets",
@@ -15,7 +16,8 @@
     "description": "원자재, 부동산, 인프라 등 실물 기반 자산으로 인플레이션 방어 성격을 가집니다.",
     "color": "#A67C52",
     "min_weight": 0.00,
-    "max_weight": 0.25
+    "max_weight": 0.25,
+    "role_key": "single_representative"
   },
   {
     "code": "etf",
@@ -24,7 +26,8 @@
     "description": "광범위한 지수 추종을 통해 시장 전반에 분산 투자하는 핵심 자산군입니다.",
     "color": "#2D6A8E",
     "min_weight": 0.05,
-    "max_weight": 0.30
+    "max_weight": 0.30,
+    "role_key": "single_representative"
   },
   {
     "code": "tech_healthcare",
@@ -33,7 +36,8 @@
     "description": "성장성이 높지만 금리와 밸류에이션 변화에 민감한 혁신 섹터 자산군입니다.",
     "color": "#7B6ED6",
     "min_weight": 0.00,
-    "max_weight": 0.30
+    "max_weight": 0.30,
+    "role_key": "single_representative"
   },
   {
     "code": "ai_semiconductor_social",
@@ -42,7 +46,8 @@
     "description": "AI와 플랫폼 모멘텀에 민감한 고변동 테마 자산군입니다.",
     "color": "#E76F51",
     "min_weight": 0.00,
-    "max_weight": 0.30
+    "max_weight": 0.30,
+    "role_key": "single_representative"
   },
   {
     "code": "financials",
@@ -51,7 +56,8 @@
     "description": "금리와 경기 흐름의 영향을 크게 받는 경기민감 자산군입니다.",
     "color": "#2A9D8F",
     "min_weight": 0.00,
-    "max_weight": 0.25
+    "max_weight": 0.25,
+    "role_key": "single_representative"
   },
   {
     "code": "energy",
@@ -60,7 +66,8 @@
     "description": "원자재 가격과 지정학적 이슈의 영향을 받는 섹터 자산군입니다.",
     "color": "#E9C46A",
     "min_weight": 0.00,
-    "max_weight": 0.20
+    "max_weight": 0.20,
+    "role_key": "single_representative"
   },
   {
     "code": "consumer_other",
@@ -69,6 +76,7 @@
     "description": "소비, 산업, 기타 일반 섹터를 포괄하는 보완형 자산군입니다.",
     "color": "#6C757D",
     "min_weight": 0.00,
-    "max_weight": 0.25
+    "max_weight": 0.25,
+    "role_key": "single_representative"
   }
 ]

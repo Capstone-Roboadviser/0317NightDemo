@@ -13,6 +13,13 @@ class AssetClassResponse(BaseModel):
     color: str
     min_weight: float
     max_weight: float
+    role_key: str
+    role_name: str
+    role_description: str
+    selection_mode: str
+    weighting_mode: str
+    return_mode: str
+    expected_return_adjustment: float
 
 
 class AssetUniverseResponse(BaseModel):

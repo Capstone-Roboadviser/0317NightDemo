@@ -16,6 +16,23 @@ class AssetClass:
     color: str
     min_weight: float
     max_weight: float
+    role_key: str
+    role_name: str
+    role_description: str
+    selection_mode: str
+    weighting_mode: str
+    return_mode: str
+    expected_return_adjustment: float = 0.0
+
+
+@dataclass(frozen=True)
+class AssetRoleTemplate:
+    key: str
+    name: str
+    description: str
+    selection_mode: str
+    weighting_mode: str
+    return_mode: str
 
 
 @dataclass(frozen=True)
@@ -153,6 +170,18 @@ class ManagedUniverseSectorReadiness:
     required_count: int
     actual_count: int
     ready: bool
+
+
+@dataclass(frozen=True)
+class PortfolioComponentCandidate:
+    asset_code: str
+    asset_name: str
+    role_key: str
+    selection_mode: str
+    weighting_mode: str
+    return_mode: str
+    member_tickers: tuple[str, ...]
+    expected_return_adjustment: float = 0.0
 
 
 @dataclass(frozen=True)

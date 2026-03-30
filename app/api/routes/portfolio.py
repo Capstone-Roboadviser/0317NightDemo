@@ -48,6 +48,13 @@ def list_assets() -> AssetUniverseResponse:
                 color=asset.color,
                 min_weight=asset.min_weight,
                 max_weight=asset.max_weight,
+                role_key=asset.role_key,
+                role_name=asset.role_name,
+                role_description=asset.role_description,
+                selection_mode=asset.selection_mode,
+                weighting_mode=asset.weighting_mode,
+                return_mode=asset.return_mode,
+                expected_return_adjustment=asset.expected_return_adjustment,
             )
             for asset in assets
         ]

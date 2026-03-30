@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = BASE_DIR.parent
 DATA_DIR = BASE_DIR / "data"
 ASSET_UNIVERSE_PATH = DATA_DIR / "asset_universe.json"
+ASSET_ROLE_TEMPLATES_PATH = DATA_DIR / "asset_role_templates.json"
 SAMPLE_MARKET_ASSUMPTIONS_PATH = DATA_DIR / "sample_market_assumptions.json"
 DEMO_STOCK_DATA_DIR = DATA_DIR / "demo"
 DEMO_STOCK_UNIVERSE_PATH = DEMO_STOCK_DATA_DIR / "demo_stock_universe.csv"

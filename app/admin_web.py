@@ -1,7 +1,29 @@
+import json
+
 from fastapi.responses import HTMLResponse
+
+from app.data.repository import StaticDataRepository
 
 
 def render_admin_page() -> HTMLResponse:
+    assets = StaticDataRepository().load_asset_universe()
+    asset_options_json = json.dumps(
+        [
+            {
+                "code": asset.code,
+                "name": asset.name,
+                "role_key": asset.role_key,
+                "role_name": asset.role_name,
+                "role_description": asset.role_description,
+                "selection_mode": asset.selection_mode,
+                "weighting_mode": asset.weighting_mode,
+                "return_mode": asset.return_mode,
+                "expected_return_adjustment": asset.expected_return_adjustment,
+            }
+            for asset in assets
+        ],
+        ensure_ascii=False,
+    )
     html = """<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -613,6 +635,54 @@ def render_admin_page() -> HTMLResponse:
       font-size: 14px;
     }
 
+    .sector-role-card {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .sector-role-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sector-role-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .sector-role-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .sector-role-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sector-role-meta span {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
     .sector-search {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -818,7 +888,7 @@ def render_admin_page() -> HTMLResponse:
         <div class="eyebrow">Admin Console</div>
         <div class="title">관리자 유니버스 콘솔</div>
         <div class="subtitle">
-          로그인 없이 섹터별 종목 후보군, 관리자 유니버스 버전, 가격 갱신을 브라우저에서 바로 관리하는 데모용 화면입니다.
+          로그인 없이 자산군별 종목 후보군, 자산군 역할, 관리자 유니버스 버전, 가격 갱신을 브라우저에서 바로 관리하는 데모용 화면입니다.
           실제 계산은 active 유니버스와 해당 유니버스의 공통 price history 구간을 기준으로 수행됩니다.
         </div>
       </div>
@@ -910,7 +980,7 @@ def render_admin_page() -> HTMLResponse:
         <div class="builder-head">
           <div>
             <h2>유니버스 편집기</h2>
-            <p class="card-copy">신규 유니버스를 만들거나 저장된 버전을 불러와 그대로 수정할 수 있습니다. 섹터별 탭에서 종목을 관리하고, 티커 자동채움과 검색 결과 추가를 함께 사용할 수 있습니다.</p>
+            <p class="card-copy">신규 유니버스를 만들거나 저장된 버전을 불러와 그대로 수정할 수 있습니다. 자산군별 탭에서 종목을 관리하고, 역할 정보와 함께 티커 자동채움/검색 결과 추가를 사용할 수 있습니다.</p>
           </div>
           <span class="pill warn" id="editor-mode-pill">신규 생성</span>
         </div>
@@ -928,7 +998,7 @@ def render_admin_page() -> HTMLResponse:
 
         <div class="builder-summary">
           <div class="summary-pill">편집 상태 <span id="editor-mode-summary">새 유니버스</span></div>
-          <div class="summary-pill">총 섹터 수 <span id="sector-count-summary">8</span></div>
+          <div class="summary-pill">총 자산군 수 <span id="sector-count-summary">0</span></div>
           <div class="summary-pill">입력 종목 수 <span id="instrument-count-summary">0</span></div>
         </div>
         <div class="sector-tabs" id="sector-tabs"></div>
@@ -1005,7 +1075,7 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
           <div class="readiness-section">
-            <div class="readiness-title">섹터 분포</div>
+            <div class="readiness-title">자산군 분포</div>
             <div class="sector-check-list" id="readiness-sector-checks">
               <div class="empty">섹터별 진단 결과가 없습니다.</div>
             </div>
@@ -1035,16 +1105,7 @@ def render_admin_page() -> HTMLResponse:
   </div>
 
   <script>
-    const sectorOptions = [
-      { code: "bond", name: "채권" },
-      { code: "real_assets", name: "실물" },
-      { code: "etf", name: "ETF" },
-      { code: "tech_healthcare", name: "기술주 및 헬스케어" },
-      { code: "ai_semiconductor_social", name: "AI반도체 및 소셜미디어" },
-      { code: "financials", name: "금융" },
-      { code: "energy", name: "에너지" },
-      { code: "consumer_other", name: "소비재 및 기타" }
-    ];
+    const sectorOptions = __ASSET_OPTIONS_JSON__;
 
     const builderRowsEl = document.getElementById("builder-rows");
     const sectorTabsEl = document.getElementById("sector-tabs");
@@ -1176,13 +1237,25 @@ def render_admin_page() -> HTMLResponse:
           <div class="sector-count"><strong>0</strong>개 종목</div>
         </div>
         <div class="sector-copy">이 섹터에 포함할 종목 후보군을 관리합니다. 저장하면 현재 입력된 전체 섹터 구성이 하나의 유니버스 버전으로 생성됩니다.</div>
+        <div class="sector-role-card">
+          <div class="sector-role-top">
+            <span class="pill success">역할 ${sector.role_name || sector.role_key}</span>
+            <span class="sector-role-name">${sector.role_key}</span>
+          </div>
+          <div class="sector-role-desc">${sector.role_description || "이 자산군의 포트폴리오 편입 규칙입니다."}</div>
+          <div class="sector-role-meta">
+            <span>선정 ${sector.selection_mode}</span>
+            <span>비중 ${sector.weighting_mode}</span>
+            <span>수익률 ${sector.return_mode}</span>
+          </div>
+        </div>
         <div class="sector-search">
           <input class="sector-search-input" data-search-input="${sector.code}" placeholder="티커 또는 회사명 검색 (예: NVDA, Microsoft)" />
           <button class="secondary-btn" type="button" data-search-sector="${sector.code}">검색</button>
         </div>
         <div class="search-results" data-search-results="${sector.code}" hidden></div>
         <div class="sector-actions">
-          <span class="pill warn">섹터 후보군</span>
+          <span class="pill warn">자산군 후보군</span>
           <button class="secondary-btn" type="button" data-add-sector="${sector.code}">종목 추가</button>
         </div>
         <div class="sector-empty">아직 등록된 종목이 없습니다. 이 섹터에 티커를 추가하면 다음 유니버스 버전에 포함됩니다.</div>
@@ -1764,4 +1837,5 @@ def render_admin_page() -> HTMLResponse:
   </script>
 </body>
 </html>"""
+    html = html.replace("__ASSET_OPTIONS_JSON__", asset_options_json)
     return HTMLResponse(content=html)

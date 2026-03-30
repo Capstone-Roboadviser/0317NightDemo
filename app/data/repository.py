@@ -5,8 +5,8 @@ import json
 import numpy as np
 import pandas as pd
 
-from app.core.config import ASSET_UNIVERSE_PATH, SAMPLE_MARKET_ASSUMPTIONS_PATH
-from app.domain.models import AssetClass, MarketAssumptions
+from app.core.config import ASSET_ROLE_TEMPLATES_PATH, ASSET_UNIVERSE_PATH, SAMPLE_MARKET_ASSUMPTIONS_PATH
+from app.domain.models import AssetClass, AssetRoleTemplate, MarketAssumptions
 
 
 class StaticDataRepository:
@@ -14,13 +14,46 @@ class StaticDataRepository:
 
     def __init__(self) -> None:
         self._asset_universe: list[AssetClass] | None = None
+        self._asset_role_templates: dict[str, AssetRoleTemplate] | None = None
         self._market_assumptions: MarketAssumptions | None = None
         self._sample_returns: pd.DataFrame | None = None
 
+    def load_asset_role_templates(self) -> dict[str, AssetRoleTemplate]:
+        if self._asset_role_templates is None:
+            payload = json.loads(ASSET_ROLE_TEMPLATES_PATH.read_text())
+            templates = [AssetRoleTemplate(**item) for item in payload]
+            self._asset_role_templates = {item.key: item for item in templates}
+        return self._asset_role_templates
+
     def load_asset_universe(self) -> list[AssetClass]:
         if self._asset_universe is None:
+            role_templates = self.load_asset_role_templates()
             payload = json.loads(ASSET_UNIVERSE_PATH.read_text())
-            self._asset_universe = [AssetClass(**item) for item in payload]
+            assets: list[AssetClass] = []
+            for item in payload:
+                role_key = str(item.get("role_key", "single_representative"))
+                role = role_templates.get(role_key)
+                if role is None:
+                    raise RuntimeError(f"자산군 '{item.get('code', 'unknown')}'의 role_key '{role_key}'를 찾을 수 없습니다.")
+                assets.append(
+                    AssetClass(
+                        code=item["code"],
+                        name=item["name"],
+                        category=item["category"],
+                        description=item["description"],
+                        color=item["color"],
+                        min_weight=float(item["min_weight"]),
+                        max_weight=float(item["max_weight"]),
+                        role_key=role.key,
+                        role_name=role.name,
+                        role_description=role.description,
+                        selection_mode=role.selection_mode,
+                        weighting_mode=role.weighting_mode,
+                        return_mode=role.return_mode,
+                        expected_return_adjustment=float(item.get("expected_return_adjustment", 0.0) or 0.0),
+                    )
+                )
+            self._asset_universe = assets
         return self._asset_universe
 
     def load_market_assumptions(self) -> MarketAssumptions:

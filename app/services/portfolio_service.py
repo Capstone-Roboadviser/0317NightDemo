@@ -36,6 +36,7 @@ from app.domain.models import (
     ManagedUniverseReadiness,
     ManagedUniverseSectorReadiness,
     PortfolioSimulationResult,
+    PortfolioComponentCandidate,
     StockInstrument,
     UserProfile,
 )
@@ -52,6 +53,7 @@ from app.engine.returns import AssumptionReturnModel, ExpectedReturnModel, Histo
 from app.services.explanation_service import ExplanationService
 from app.services.managed_universe_service import ManagedUniverseService
 from app.services.mapping_service import ProfileMappingService
+from app.services.portfolio_component_service import ComponentCandidateMapResult, PortfolioComponentService
 
 
 @dataclass
@@ -71,6 +73,7 @@ class EngineContext:
 @dataclass
 class RepresentativeCombinationContext:
     selected_instruments: list[StockInstrument]
+    selected_candidates: dict[str, PortfolioComponentCandidate]
     selection_view: CombinationSelectionView
     expected_returns: pd.Series
     covariance: pd.DataFrame
@@ -85,6 +88,7 @@ class PortfolioSimulationService:
         self.return_model = return_model or AssumptionReturnModel()
         self.stock_return_model = HistoricalMeanReturnModel(shrinkage=0.25)
         self.managed_universe_service = ManagedUniverseService()
+        self.component_service = PortfolioComponentService()
         self.covariance_model = ShrinkageCovarianceModel()
         self.constraint_engine = ConstraintEngine()
         self.optimizer = EfficientFrontierOptimizer()
@@ -267,16 +271,17 @@ class PortfolioSimulationService:
 
         selected_point_index = select_frontier_point_index(context.frontier_points, target_volatility)
         selected_point = context.frontier_points[selected_point_index]
+        optimization_weights = self._weights_for_optimization(selected_point.weights, context.instruments)
         metrics = portfolio_metrics_from_weights(
-            selected_point.weights,
+            optimization_weights,
             context.expected_returns,
             context.covariance,
             RISK_FREE_RATE,
         )
-        contribution_map = risk_contributions(selected_point.weights, context.covariance)
+        contribution_map = risk_contributions(optimization_weights, context.covariance)
         allocations = self._build_sector_allocations(
             stock_weights=selected_point.weights,
-            stock_risk_contributions=contribution_map,
+            sector_risk_contributions=contribution_map,
             assets=context.assets,
             instruments=context.instruments,
         )
@@ -299,13 +304,13 @@ class PortfolioSimulationService:
                 if context.data_source == SimulationDataSource.MANAGED_UNIVERSE
                 else "개별 종목 유니버스 모드"
             )
-            summary += f" {mode_label}에서는 섹터별 후보군 중 대표 종목 1개씩을 선택한 뒤 그 대표 종목들로 최적화를 수행했습니다."
+            summary += f" {mode_label}에서는 자산군별 역할 정의에 따라 최적화 입력을 조립한 뒤 Efficient Frontier를 계산했습니다."
             explanation_body += (
                 f" 현재 적용된 유니버스 ID는 '{context.selected_combination.combination_id}'이며, "
-                "섹터별 후보군 중 대표 종목 1개씩을 먼저 고른 뒤, 선택된 대표 종목 수익률로 효율적 투자선을 계산하고 있습니다."
+                "자산군별 역할 정의(대표 종목, 배당 보정, 동일비중 바스켓 등)에 맞춰 포트폴리오 컴포넌트를 만든 뒤 효율적 투자선을 계산하고 있습니다."
             )
             selected_average_correlation = self._estimate_selected_average_correlation(
-                selected_point.weights,
+                optimization_weights,
                 context.covariance,
             )
             if selected_average_correlation is not None:
@@ -466,22 +471,21 @@ class PortfolioSimulationService:
     def _load_demo_instruments(self):
         return StockDataRepository().load_stock_universe(str(DEMO_STOCK_UNIVERSE_PATH))
 
-    def _build_stock_frontier_context(
+    def _build_component_frontier_context(
         self,
-        *,
-        instruments: list[StockInstrument],
-        prices: pd.DataFrame,
+        selected_candidates: dict[str, PortfolioComponentCandidate],
+        component_returns: pd.DataFrame,
     ) -> tuple[pd.Series, pd.DataFrame, list[FrontierPoint], list[tuple[float, float, dict[str, float]]]]:
-        optimized_returns = self._prepare_stock_returns_for_optimization(instruments, prices)
-        instrument_codes = list(optimized_returns.columns)
-        correlation = optimized_returns.corr().reindex(index=instrument_codes, columns=instrument_codes)
+        asset_codes = list(component_returns.columns)
+        correlation = component_returns.corr().reindex(index=asset_codes, columns=asset_codes)
         correlation = correlation.fillna(0.0).astype(float)
-        for code in instrument_codes:
+        for code in asset_codes:
             correlation.loc[code, code] = 1.0
+
         constraints = self.constraint_engine.build_for_codes(
-            instrument_codes,
-            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=instrument_codes, dtype=float).values,
-            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=instrument_codes, dtype=float).values,
+            asset_codes,
+            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values,
+            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=asset_codes, dtype=float).values,
             extra_constraints=(
                 build_average_correlation_constraint(
                     correlation.values,
@@ -489,24 +493,42 @@ class PortfolioSimulationService:
                 ),
             ),
         )
-        expected_returns = self._build_stock_expected_returns(optimized_returns)
-        covariance = self.covariance_model.calculate(optimized_returns)
-        frontier_points = self.optimizer.build_frontier(
+        expected_returns = self._build_component_expected_returns(component_returns, selected_candidates)
+        covariance = self.covariance_model.calculate(component_returns)
+
+        component_frontier_points = self.optimizer.build_frontier(
             expected_returns=expected_returns.reindex(constraints.asset_codes),
             covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
             constraints=constraints,
             point_count=FRONTIER_POINT_COUNT,
         )
-        random_portfolios = self.optimizer.sample_random_portfolios(
+        component_random_portfolios = self.optimizer.sample_random_portfolios(
             expected_returns=expected_returns.reindex(constraints.asset_codes),
             covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
             constraints=constraints,
             sample_count=RANDOM_PORTFOLIO_COUNT,
         )
+
+        frontier_points = [
+            FrontierPoint(
+                volatility=point.volatility,
+                expected_return=point.expected_return,
+                weights=self.component_service.explode_component_weights(point.weights, selected_candidates),
+            )
+            for point in sorted(component_frontier_points, key=lambda point: point.volatility)
+        ]
+        random_portfolios = [
+            (
+                float(point[0]),
+                float(point[1]),
+                self.component_service.explode_component_weights(point[2], selected_candidates),
+            )
+            for point in component_random_portfolios
+        ]
         return (
-            expected_returns.reindex(instrument_codes).astype(float),
-            covariance.reindex(index=instrument_codes, columns=instrument_codes).astype(float),
-            sorted(frontier_points, key=lambda point: point.volatility),
+            expected_returns.reindex(asset_codes).astype(float),
+            covariance.reindex(index=asset_codes, columns=asset_codes).astype(float),
+            frontier_points,
             random_portfolios,
         )
 
@@ -522,13 +544,13 @@ class PortfolioSimulationService:
             raise RuntimeError("가격 이력으로부터 유효 수익률을 생성하지 못했습니다.")
 
         assets = self.list_assets()
-        instruments_by_ticker = {instrument.ticker.upper(): instrument for instrument in instruments}
         candidate_map = self._build_sector_candidate_map(assets, instruments, stock_returns)
         active_sector_codes = list(candidate_map.keys())
         combinations = self._build_representative_combinations(candidate_map)
 
         best_result: tuple[
             list[StockInstrument],
+            dict[str, PortfolioComponentCandidate],
             pd.Series,
             pd.DataFrame,
             FrontierPoint,
@@ -538,27 +560,42 @@ class PortfolioSimulationService:
         discard_reasons: dict[str, int] = {}
 
         for combination in combinations:
-            selected_codes = [combination[sector_code] for sector_code in active_sector_codes]
-            selected_instruments = [instruments_by_ticker[code] for code in selected_codes]
             try:
-                combo_returns = self._prepare_selected_stock_returns(stock_returns, selected_codes)
-                expected_returns, covariance, best_point = self._evaluate_stock_combination(combo_returns)
+                selected_candidates = {
+                    asset_code: combination[asset_code]
+                    for asset_code in active_sector_codes
+                }
+                combo_returns = self._prepare_component_returns(stock_returns, selected_candidates)
+                expected_returns, covariance, best_point = self._evaluate_component_combination(
+                    combo_returns,
+                    selected_candidates,
+                )
             except RuntimeError as exc:
                 reason = str(exc)
                 discard_reasons[reason] = discard_reasons.get(reason, 0) + 1
                 continue
 
             successful_combinations += 1
-            members_by_sector = {sector_code: [ticker] for sector_code, ticker in combination.items()}
+            members_by_sector = self.component_service.describe_members_by_asset(selected_candidates)
+            selected_tickers = {
+                ticker
+                for candidate in selected_candidates.values()
+                for ticker in candidate.member_tickers
+            }
+            selected_instruments = [
+                instrument
+                for instrument in instruments
+                if instrument.ticker.upper() in selected_tickers
+            ]
             if best_result is None:
-                best_result = (selected_instruments, expected_returns, covariance, best_point, members_by_sector)
+                best_result = (selected_instruments, selected_candidates, expected_returns, covariance, best_point, members_by_sector)
                 continue
 
-            current_best_point = best_result[3]
+            current_best_point = best_result[4]
             current_metrics = portfolio_metrics_from_weights(
                 current_best_point.weights,
-                best_result[1],
                 best_result[2],
+                best_result[3],
                 RISK_FREE_RATE,
             )
             candidate_metrics = portfolio_metrics_from_weights(
@@ -568,7 +605,7 @@ class PortfolioSimulationService:
                 RISK_FREE_RATE,
             )
             if candidate_metrics.sharpe_ratio > current_metrics.sharpe_ratio:
-                best_result = (selected_instruments, expected_returns, covariance, best_point, members_by_sector)
+                best_result = (selected_instruments, selected_candidates, expected_returns, covariance, best_point, members_by_sector)
 
         if best_result is None:
             reason_text = ", ".join(f"{key}={value}" for key, value in sorted(discard_reasons.items()))
@@ -577,15 +614,18 @@ class PortfolioSimulationService:
                 f"사유: {reason_text or 'unknown'}"
             )
 
-        selected_instruments, expected_returns, covariance, _, members_by_sector = best_result
+        selected_instruments, selected_candidates, expected_returns, covariance, _, members_by_sector = best_result
         (
             expected_returns,
             covariance,
             frontier_points,
             random_portfolios,
-        ) = self._build_stock_frontier_context(
-            instruments=selected_instruments,
-            prices=prices,
+        ) = self._build_component_frontier_context(
+            selected_candidates=selected_candidates,
+            component_returns=self._prepare_component_returns(
+                stock_returns,
+                selected_candidates,
+            ),
         )
         selection_view = CombinationSelectionView(
             combination_id=self._build_combination_id(combination_prefix, members_by_sector),
@@ -596,6 +636,7 @@ class PortfolioSimulationService:
         )
         return RepresentativeCombinationContext(
             selected_instruments=selected_instruments,
+            selected_candidates=selected_candidates,
             selection_view=selection_view,
             expected_returns=expected_returns,
             covariance=covariance,
@@ -608,95 +649,85 @@ class PortfolioSimulationService:
         assets: list[AssetClass],
         instruments: list[StockInstrument],
         stock_returns: pd.DataFrame,
-    ) -> dict[str, list[str]]:
-        available_codes = set(stock_returns.columns.astype(str).str.upper().tolist())
-        by_sector: dict[str, list[str]] = {}
-        for instrument in instruments:
-            ticker = instrument.ticker.upper()
-            by_sector.setdefault(instrument.sector_code, []).append(ticker)
-
-        shortages: list[str] = []
-        normalized: dict[str, list[str]] = {}
-        for asset in assets:
-            registered_codes = sorted(set(by_sector.get(asset.code, [])))
-            if not registered_codes:
-                continue
-
-            candidates = [ticker for ticker in registered_codes if ticker in available_codes]
-            normalized[asset.code] = candidates
-            if len(candidates) < SECTOR_MINIMUM_INSTRUMENTS:
-                shortages.append(
-                    f"{asset.name}({asset.code}) 가격 이력이 있는 후보 {len(candidates)}개 / "
-                    f"등록 종목 {len(registered_codes)}개"
-                )
-
-        if not normalized:
+    ) -> dict[str, list[PortfolioComponentCandidate]]:
+        result: ComponentCandidateMapResult = self.component_service.build_candidate_map(
+            assets,
+            instruments,
+            stock_returns,
+        )
+        if not result.candidate_map:
             raise RuntimeError("참여 가능한 섹터가 없습니다. /admin 에서 종목을 등록한 뒤 다시 시도해주세요.")
 
-        if shortages:
+        if result.shortages:
             raise RuntimeError(
-                "종목이 등록된 섹터에는 가격 이력이 있는 대표 종목 후보가 최소 1개씩 필요합니다. "
-                + " | ".join(shortages)
+                "종목이 등록된 자산군에는 역할 정의에 맞는 유효 후보가 최소 1개씩 필요합니다. "
+                + " | ".join(result.shortages)
             )
-        return normalized
+        return result.candidate_map
 
     def _build_representative_combinations(
         self,
-        candidate_map: dict[str, list[str]],
-    ) -> list[dict[str, str]]:
+        candidate_map: dict[str, list[PortfolioComponentCandidate]],
+    ) -> list[dict[str, PortfolioComponentCandidate]]:
         sector_codes = list(candidate_map.keys())
         total_combinations = prod(len(candidate_map[sector_code]) for sector_code in sector_codes)
 
         if total_combinations <= REPRESENTATIVE_MAX_EXHAUSTIVE_COMBINATIONS:
-            combinations: list[dict[str, str]] = []
+            combinations: list[dict[str, PortfolioComponentCandidate]] = []
             for picks in product(*(candidate_map[sector_code] for sector_code in sector_codes)):
-                combinations.append({sector_code: ticker for sector_code, ticker in zip(sector_codes, picks)})
+                combinations.append({sector_code: candidate for sector_code, candidate in zip(sector_codes, picks)})
             return combinations
 
         random_generator = np.random.default_rng(REPRESENTATIVE_COMBINATION_RANDOM_SEED)
-        signatures: set[tuple[tuple[str, str], ...]] = set()
-        combinations: list[dict[str, str]] = []
+        signatures: set[tuple[tuple[str, tuple[str, ...]], ...]] = set()
+        combinations: list[dict[str, PortfolioComponentCandidate]] = []
         attempts = 0
         max_attempts = max(REPRESENTATIVE_COMBINATION_SAMPLE_COUNT * 20, 200)
 
         while len(combinations) < REPRESENTATIVE_COMBINATION_SAMPLE_COUNT and attempts < max_attempts:
             attempts += 1
             combination = {
-                sector_code: str(random_generator.choice(candidate_map[sector_code]))
+                sector_code: candidate_map[sector_code][int(random_generator.integers(0, len(candidate_map[sector_code])))]
                 for sector_code in sector_codes
             }
-            signature = tuple(sorted(combination.items()))
+            signature = tuple(
+                sorted((sector_code, tuple(candidate.member_tickers)) for sector_code, candidate in combination.items())
+            )
             if signature in signatures:
                 continue
             signatures.add(signature)
             combinations.append(combination)
         return combinations
 
-    def _prepare_selected_stock_returns(
+    def _prepare_component_returns(
         self,
         stock_returns: pd.DataFrame,
-        selected_codes: list[str],
+        selected_candidates: dict[str, PortfolioComponentCandidate],
     ) -> pd.DataFrame:
-        selected_returns = stock_returns.reindex(columns=[code.upper() for code in selected_codes])
-        selected_returns = selected_returns.dropna(how="any")
-        if len(selected_returns) < MINIMUM_HISTORY_ROWS:
-            raise RuntimeError("insufficient_common_history")
-        return selected_returns.astype(float)
+        frames: dict[str, pd.Series] = {}
+        for asset_code, candidate in selected_candidates.items():
+            frames[asset_code] = self.component_service.build_component_series(stock_returns, candidate)
 
-    def _evaluate_stock_combination(
+        component_returns = pd.DataFrame(frames).dropna(how="any")
+        if len(component_returns) < MINIMUM_HISTORY_ROWS:
+            raise RuntimeError("insufficient_common_history")
+        return component_returns.astype(float)
+
+    def _evaluate_component_combination(
         self,
-        selected_returns: pd.DataFrame,
+        component_returns: pd.DataFrame,
+        selected_candidates: dict[str, PortfolioComponentCandidate],
     ) -> tuple[pd.Series, pd.DataFrame, FrontierPoint]:
-        instrument_codes = list(selected_returns.columns)
-        correlation = selected_returns.corr().reindex(index=instrument_codes, columns=instrument_codes)
+        asset_codes = list(component_returns.columns)
+        correlation = component_returns.corr().reindex(index=asset_codes, columns=asset_codes)
         correlation = correlation.fillna(0.0).astype(float)
-        for code in instrument_codes:
+        for code in asset_codes:
             correlation.loc[code, code] = 1.0
 
         constraints = self.constraint_engine.build_for_codes(
-            instrument_codes,
-            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=instrument_codes, dtype=float).values,
-            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=instrument_codes, dtype=float).values,
+            asset_codes,
+            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values,
+            upper_bounds=pd.Series(STOCK_MAX_WEIGHT, index=asset_codes, dtype=float).values,
             extra_constraints=(
                 build_average_correlation_constraint(
                     correlation.values,
@@ -704,8 +735,8 @@ class PortfolioSimulationService:
                 ),
             ),
         )
-        expected_returns = self._build_stock_expected_returns(selected_returns)
-        covariance = self.covariance_model.calculate(selected_returns)
+        expected_returns = self._build_component_expected_returns(component_returns, selected_candidates)
+        covariance = self.covariance_model.calculate(component_returns)
         best_point = self.optimizer.maximize_sharpe(
             expected_returns=expected_returns.reindex(constraints.asset_codes),
             covariance=covariance.reindex(index=constraints.asset_codes, columns=constraints.asset_codes),
@@ -713,8 +744,8 @@ class PortfolioSimulationService:
             risk_free_rate=RISK_FREE_RATE,
         )
         return (
-            expected_returns.reindex(instrument_codes).astype(float),
-            covariance.reindex(index=instrument_codes, columns=instrument_codes).astype(float),
+            expected_returns.reindex(asset_codes).astype(float),
+            covariance.reindex(index=asset_codes, columns=asset_codes).astype(float),
             best_point,
         )
 
@@ -759,6 +790,23 @@ class PortfolioSimulationService:
             )
         )
 
+    def _build_component_expected_returns(
+        self,
+        component_returns: pd.DataFrame,
+        selected_candidates: dict[str, PortfolioComponentCandidate],
+    ) -> pd.Series:
+        asset_codes = list(component_returns.columns)
+        expected_returns = self.stock_return_model.calculate(
+            ExpectedReturnModelInput(
+                asset_codes=asset_codes,
+                returns=component_returns,
+            )
+        )
+        adjustments = self.component_service.component_adjustment_series(selected_candidates)
+        if not adjustments.empty:
+            expected_returns = expected_returns.add(adjustments.reindex(asset_codes).fillna(0.0), fill_value=0.0)
+        return expected_returns.astype(float)
+
     def _build_universe_selection(
         self,
         *,
@@ -779,33 +827,25 @@ class PortfolioSimulationService:
             discard_reasons={},
         )
 
-    def _build_individual_assets(self, context: EngineContext) -> list[IndividualAssetView]:
-        if context.instruments:
-            selected_by_sector = {
-                instrument.sector_code: instrument
-                for instrument in context.instruments
-            }
-            points: list[IndividualAssetView] = []
-            for asset in context.assets:
-                instrument = selected_by_sector.get(asset.code)
-                if instrument is None:
-                    continue
-                ticker = instrument.ticker.upper()
-                if ticker not in context.expected_returns.index or ticker not in context.covariance.index:
-                    continue
-                variance = float(context.covariance.loc[ticker, ticker])
-                points.append(
-                    IndividualAssetView(
-                        code=asset.code,
-                        name=asset.name,
-                        volatility=max(variance, 0.0) ** 0.5,
-                        expected_return=float(context.expected_returns.loc[ticker]),
-                    )
-                )
-            return points
+    def _weights_for_optimization(
+        self,
+        weights: dict[str, float],
+        instruments: list[StockInstrument],
+    ) -> dict[str, float]:
+        if not instruments:
+            return weights
+        return self._aggregate_sector_weights(weights, instruments)
 
+    def _build_individual_assets(self, context: EngineContext) -> list[IndividualAssetView]:
         points: list[IndividualAssetView] = []
+        selected_assets = (
+            set(context.selected_combination.members_by_sector.keys())
+            if context.selected_combination is not None
+            else set(context.expected_returns.index.astype(str).tolist())
+        )
         for asset in context.assets:
+            if asset.code not in selected_assets:
+                continue
             if asset.code not in context.expected_returns.index or asset.code not in context.covariance.index:
                 continue
             variance = float(context.covariance.loc[asset.code, asset.code])
@@ -848,12 +888,11 @@ class PortfolioSimulationService:
         self,
         *,
         stock_weights: dict[str, float],
-        stock_risk_contributions: dict[str, float],
+        sector_risk_contributions: dict[str, float],
         assets: list[AssetClass],
         instruments: list[StockInstrument],
     ) -> list[AllocationView]:
         sector_weights = self._aggregate_sector_weights(stock_weights, instruments)
-        sector_risk_contributions = self._aggregate_sector_weights(stock_risk_contributions, instruments)
         asset_by_code = {asset.code: asset for asset in assets}
         allocations: list[AllocationView] = []
         for sector_code, weight in sorted(sector_weights.items(), key=lambda item: item[1], reverse=True):

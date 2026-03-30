@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from app.core.config import (
+    BLACK_LITTERMAN_RISK_AVERSION,
     DEMO_STOCK_PRICES_PATH,
     DEMO_STOCK_UNIVERSE_PATH,
     FALLBACK_WEIGHTS,
@@ -50,7 +51,7 @@ from app.engine.covariance import ShrinkageCovarianceModel
 from app.engine.frontier import build_frontier_options, select_frontier_point_index
 from app.engine.math import portfolio_metrics_from_weights, risk_contributions
 from app.engine.optimizer import EfficientFrontierOptimizer
-from app.engine.returns import AssumptionReturnModel, ExpectedReturnModel, HistoricalMeanReturnModel
+from app.engine.returns import AssumptionReturnModel, BlackLittermanReturnModel, ExpectedReturnModel
 from app.services.explanation_service import ExplanationService
 from app.services.managed_universe_service import ManagedUniverseService
 from app.services.mapping_service import ProfileMappingService
@@ -87,7 +88,12 @@ class PortfolioSimulationService:
         self.mapping_service = ProfileMappingService()
         self.explanation_service = ExplanationService()
         self.return_model = return_model or AssumptionReturnModel()
-        self.stock_return_model = HistoricalMeanReturnModel(shrinkage=0.25)
+        self.stock_return_model = BlackLittermanReturnModel(
+            periods_per_year=252,
+            min_obs=MINIMUM_HISTORY_ROWS,
+            risk_aversion=BLACK_LITTERMAN_RISK_AVERSION,
+            allow_equal_weight_fallback=True,
+        )
         self.managed_universe_service = ManagedUniverseService()
         self.component_service = PortfolioComponentService()
         self.covariance_model = ShrinkageCovarianceModel()
@@ -905,10 +911,16 @@ class PortfolioSimulationService:
 
     def _build_stock_expected_returns(self, stock_returns: pd.DataFrame) -> pd.Series:
         instrument_codes = list(stock_returns.columns)
+        prior_weights = (
+            pd.Series(1.0 / len(instrument_codes), index=instrument_codes, dtype=float)
+            if instrument_codes
+            else None
+        )
         return self.stock_return_model.calculate(
             ExpectedReturnModelInput(
                 asset_codes=instrument_codes,
                 returns=stock_returns,
+                prior_weights=prior_weights,
             )
         )
 
@@ -918,10 +930,12 @@ class PortfolioSimulationService:
         selected_candidates: dict[str, PortfolioComponentCandidate],
     ) -> pd.Series:
         asset_codes = list(component_returns.columns)
+        prior_weights = self.component_service.component_prior_weight_series(selected_candidates)
         expected_returns = self.stock_return_model.calculate(
             ExpectedReturnModelInput(
                 asset_codes=asset_codes,
                 returns=component_returns,
+                prior_weights=prior_weights,
             )
         )
         adjustments = self.component_service.component_adjustment_series(selected_candidates)

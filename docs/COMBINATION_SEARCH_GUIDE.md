@@ -31,7 +31,7 @@
 ### `dividend_representative`
 
 - 선택 방식은 `single_representative`와 같지만
-- 평가 시 기대수익률 보정치가 더해집니다.
+- 평가 시 Black-Litterman prior 기대수익률 위에 배당 보정치가 더해집니다.
 - 현재 기본 카탈로그에서는 `short_term_bond`, `cash_equivalents` 자산군이 이 역할을 사용하며, 각각 `BND`, `BIL`의 최근 1년 배당수익률을 우선 참조합니다.
 
 ### `equal_weight_basket`
@@ -54,6 +54,10 @@
 
 각 조합은 아래 기준으로 평가됩니다.
 
+- 기대수익률은 Black-Litterman market-implied prior 사용
+  - `Pi = delta * Sigma * w_prior`
+  - `delta = 2.5` 고정
+  - `w_prior`는 컴포넌트 시가총액 비중, 실패 시 equal-weight fallback
 - long-only
 - Sharpe Ratio 최대화
 - 평균 종목 상관관계 상한 제약 적용
@@ -73,5 +77,5 @@
 1. 역할별 개별 전략 클래스로 분리
 2. soft-penalty 기반 상관관계 제약
 3. 역할별 최소/최대 자산군 비중 제약
-4. 기대수익률 모델 교체
+4. Black-Litterman views(P/Q) 도입
 5. 배치 기반 장시간 탐색

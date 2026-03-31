@@ -618,13 +618,11 @@ def comparison_backtest(payload: ComparisonBacktestRequest) -> ComparisonBacktes
     instruments, prices, combination_prefix = _load_comparison_universe(payload.data_source)
     prices = prices.copy()
     prices["date"] = pd.to_datetime(prices["date"]).dt.normalize()
-
-    start = pd.Timestamp(payload.start_date).normalize()
-    prices = prices[prices["date"] >= start].copy()
     if prices.empty:
-        raise HTTPException(status_code=400, detail="시작일 이후 가격 데이터가 없습니다.")
+        raise HTTPException(status_code=400, detail="비교 백테스트에 사용할 가격 데이터가 없습니다.")
 
     train_prices, test_prices, train_end_date, test_start_date = _split_prices_train_test(prices, split_ratio=0.9)
+    train_start_date = pd.Timestamp(train_prices["date"].min()).normalize()
 
     try:
         profile_data = portfolio_service.get_all_profile_weights_for_price_window(
@@ -661,7 +659,7 @@ def comparison_backtest(payload: ComparisonBacktestRequest) -> ComparisonBacktes
             portfolios,
             expected_returns,
             benchmark_series,
-            train_start_date=start.strftime("%Y-%m-%d"),
+            train_start_date=train_start_date.strftime("%Y-%m-%d"),
             train_end_date=train_end_date.strftime("%Y-%m-%d"),
             split_ratio=0.9,
         )

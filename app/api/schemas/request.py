@@ -103,7 +103,6 @@ class ComparisonBacktestRequest(BaseModel):
         default=SimulationDataSource.MANAGED_UNIVERSE,
         description="가격 데이터 소스",
     )
-    start_date: str = Field(..., description="투자 시작일 (YYYY-MM-DD)")
 
 
 class RebalanceSimulationRequest(BaseModel):

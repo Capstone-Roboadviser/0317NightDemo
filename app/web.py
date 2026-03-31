@@ -1999,14 +1999,10 @@ def render_homepage() -> HTMLResponse:
           <div class="card-header">
             <div class="step-badge"><span class="step-num">7</span> 포트폴리오 비교</div>
             <div class="card-title">포트폴리오 유형별 성과 비교</div>
-            <div class="card-description">선택한 시작일 이후 구간을 9:1로 나눠 앞 90% train 종료 시점에 추천된 안정형·균형형·성장형 포트폴리오를 뒤 10% test 구간부터 현재까지 S&P 500, 10년 국채와 비교합니다. 점선은 train 시점 기대수익 궤적입니다.</div>
+            <div class="card-description">최신 갱신 데이터 전체 구간을 9:1로 자동 분할해 앞 90% train 종료 시점에 추천된 안정형·균형형·성장형 포트폴리오를 뒤 10% test 구간부터 현재까지 S&P 500, 10년 국채와 비교합니다. 점선은 train 시점 기대수익 궤적입니다.</div>
           </div>
           <div class="card-content">
             <div class="earn-controls">
-              <div class="earn-field">
-                <label for="comp-start">분석 시작일</label>
-                <input type="date" id="comp-start" value="2024-01-02" />
-              </div>
               <div class="earn-field">
                 <label>test 시작일</label>
                 <div class="earn-field-value" id="comp-test-start">—</div>
@@ -4180,7 +4176,6 @@ def render_homepage() -> HTMLResponse:
       var compChart = document.getElementById("comp-chart");
       var compTooltip = document.getElementById("comp-tooltip");
       var compLegend = document.getElementById("comp-legend");
-      var compStartInput = document.getElementById("comp-start");
       var compTestStart = document.getElementById("comp-test-start");
       var lastCompData = null;
 
@@ -4200,7 +4195,6 @@ def render_homepage() -> HTMLResponse:
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             data_source: dataSource || "stock_combination_demo",
-            start_date: compStartInput.value,
           }),
         })
           .then(function(r) { return r.json(); })
@@ -4219,16 +4213,6 @@ def render_homepage() -> HTMLResponse:
             if (compTestStart) compTestStart.textContent = "—";
           });
       };
-
-      function reloadComparisonFromInput() {
-        if (typeof lastData !== "undefined" && lastData) {
-          window.loadComparisonBacktest(lastData.data_source);
-        } else {
-          window.loadComparisonBacktest("stock_combination_demo");
-        }
-      }
-
-      compStartInput.addEventListener("change", reloadComparisonFromInput);
 
       function renderCompChart(data) {
         var lines = data.lines;

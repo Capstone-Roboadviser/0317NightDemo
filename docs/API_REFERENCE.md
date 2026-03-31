@@ -171,7 +171,7 @@
 
 ### `POST /portfolio/comparison-backtest`
 
-선택한 시작일 이후 구간을 `90% train / 10% test`로 나눈 뒤,
+최신 갱신 데이터 전체 구간을 `90% train / 10% test`로 자동 분할한 뒤,
 train 종료 시점에 추천된 `안정형 / 균형형 / 성장형` 포트폴리오를
 test 구간부터 현재까지 비교합니다.
 

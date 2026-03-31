@@ -58,6 +58,7 @@ class ExpectedReturnModelInput:
     asset_codes: list[str]
     returns: pd.DataFrame | None = None
     annual_returns: dict[str, float] | None = None
+    prior_weights: pd.Series | None = None
 
 
 @dataclass(frozen=True)

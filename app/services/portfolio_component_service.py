@@ -20,6 +20,7 @@ class PortfolioComponentService:
 
     def __init__(self) -> None:
         self._reference_adjustment_cache: dict[str, float] = {}
+        self._market_cap_cache: dict[str, float | None] = {}
 
     def build_candidate_map(
         self,
@@ -128,6 +129,38 @@ class PortfolioComponentService:
             dtype=float,
         )
 
+    def component_prior_weight_series(
+        self,
+        selected_candidates: dict[str, PortfolioComponentCandidate],
+    ) -> pd.Series:
+        market_caps: dict[str, float] = {}
+        positive_count = 0
+
+        for asset_code, candidate in selected_candidates.items():
+            market_cap = self._resolve_component_market_cap(candidate)
+            if market_cap is not None and market_cap > 0:
+                market_caps[asset_code] = float(market_cap)
+                positive_count += 1
+            else:
+                market_caps[asset_code] = 0.0
+
+        if positive_count == 0 and selected_candidates:
+            equal_weight = 1.0 / len(selected_candidates)
+            return pd.Series(
+                {asset_code: equal_weight for asset_code in selected_candidates.keys()},
+                dtype=float,
+            )
+
+        weights = pd.Series(market_caps, dtype=float)
+        total = float(weights.sum())
+        if total <= 0 and selected_candidates:
+            equal_weight = 1.0 / len(selected_candidates)
+            return pd.Series(
+                {asset_code: equal_weight for asset_code in selected_candidates.keys()},
+                dtype=float,
+            )
+        return (weights / total).astype(float)
+
     def _build_candidates_for_asset(
         self,
         asset: AssetClass,
@@ -187,6 +220,19 @@ class PortfolioComponentService:
         self._reference_adjustment_cache[reference_ticker] = adjustment
         return adjustment
 
+    def _resolve_component_market_cap(
+        self,
+        candidate: PortfolioComponentCandidate,
+    ) -> float | None:
+        resolved_caps = [
+            self._fetch_single_market_cap(ticker)
+            for ticker in candidate.member_tickers
+        ]
+        positive_caps = [cap for cap in resolved_caps if cap is not None and cap > 0]
+        if not positive_caps:
+            return None
+        return float(sum(positive_caps))
+
     def _fetch_reference_dividend_yield(
         self,
         ticker: str,
@@ -230,3 +276,63 @@ class PortfolioComponentService:
             return dividend_yield
         except Exception:  # pragma: no cover - network/data-source dependent
             return fallback
+
+    def _fetch_single_market_cap(
+        self,
+        ticker: str,
+    ) -> float | None:
+        cached = self._market_cap_cache.get(ticker)
+        if ticker in self._market_cap_cache:
+            return cached
+
+        market_cap: float | None = None
+        try:
+            instrument = yf.Ticker(ticker)
+
+            try:
+                fast_info = instrument.fast_info
+                if fast_info is not None:
+                    value = (
+                        fast_info.get("market_cap")
+                        if isinstance(fast_info, dict)
+                        else getattr(fast_info, "market_cap", None)
+                    )
+                    if value is not None and pd.notna(value):
+                        market_cap = float(value)
+            except Exception:
+                market_cap = None
+
+            if market_cap is None:
+                try:
+                    info = instrument.info
+                    value = info.get("marketCap")
+                    if value is not None and pd.notna(value):
+                        market_cap = float(value)
+                except Exception:
+                    market_cap = None
+
+            if market_cap is None:
+                shares = None
+                latest_price = None
+                try:
+                    shares_df = instrument.get_shares_full(start="1900-01-01")
+                    if shares_df is not None and len(shares_df) > 0:
+                        shares = float(shares_df.dropna().iloc[-1])
+                except Exception:
+                    shares = None
+
+                try:
+                    history = instrument.history(period="7d", auto_adjust=False, actions=False)
+                    if history is not None and not history.empty:
+                        close_col = "Adj Close" if "Adj Close" in history.columns else "Close"
+                        latest_price = float(pd.to_numeric(history[close_col], errors="coerce").dropna().iloc[-1])
+                except Exception:
+                    latest_price = None
+
+                if shares is not None and latest_price is not None:
+                    market_cap = float(shares * latest_price)
+        except Exception:  # pragma: no cover - network/data-source dependent
+            market_cap = None
+
+        self._market_cap_cache[ticker] = market_cap
+        return market_cap

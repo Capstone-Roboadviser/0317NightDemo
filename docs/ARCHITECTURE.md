@@ -141,7 +141,7 @@
 ### `dividend_representative`
 
 - 후보 종목 중 대표 종목 1개를 선택
-- 기대수익률 계산 시 `expected_return_adjustment`를 가산
+- 기대수익률 계산 시 Black-Litterman prior 위에 `expected_return_adjustment`를 가산
 - 배당 성격을 반영하고 싶은 자산군을 위한 역할
 
 ### `equal_weight_basket`
@@ -167,10 +167,12 @@
 1. 자산군별 후보 종목군 확보
 2. 각 자산군의 역할을 읽음
 3. 역할에 따라 포트폴리오 컴포넌트 후보 생성
-4. 컴포넌트 조합마다 최대 Sharpe 포인트 계산
-5. 가장 좋은 조합 선택
-6. 선택된 조합으로 Efficient Frontier 전체 계산
-7. 화면에서는 결과를 자산군 비중으로 다시 묶어 표시
+4. 각 조합의 컴포넌트 수익률로 공분산과 시가총액 prior weight 생성
+5. Black-Litterman prior `Pi = delta * Sigma * w_prior`로 기대수익률 계산
+6. 컴포넌트 조합마다 최대 Sharpe 포인트 계산
+7. 가장 좋은 조합 선택
+8. 선택된 조합으로 Efficient Frontier 전체 계산
+9. 화면에서는 결과를 자산군 비중으로 다시 묶어 표시
 
 즉 계산 단위와 화면 표시 단위는 다릅니다.
 
@@ -190,6 +192,20 @@
 5. 최종 선택 결과를 다시 실제 종목 weight로 explode
 
 즉 optimizer는 역할을 직접 모르고, 이미 만들어진 컴포넌트 수익률/weight만 받습니다.
+
+## 현재 기대수익률 모델
+
+현재 서비스는 기대수익률 계산을 두 경로로 분리합니다.
+
+- 가정값 모드(`asset_assumptions`)
+  - `sample_market_assumptions.json`의 기대수익률을 그대로 사용합니다.
+- 관리자/데모 유니버스 모드(`managed_universe`, `stock_combination_demo`)
+  - 역할 기반 컴포넌트 수익률을 입력으로 받아 Black-Litterman market-implied prior를 계산합니다.
+  - prior weight는 컴포넌트의 시가총액 비중입니다.
+  - `equal_weight_basket`은 구성 종목 시가총액 합으로 prior weight를 만듭니다.
+  - 시가총액을 구하지 못하면 equal-weight prior로 fallback 합니다.
+  - 현재는 subjective views(`P`, `Q`)를 쓰지 않으므로 posterior는 prior와 같습니다.
+  - `dividend_representative`는 이 BL prior 위에 배당 보정치를 더합니다.
 
 ## 관리자 유니버스 흐름
 
@@ -283,5 +299,5 @@ Sharpe Ratio를 기본 목표로 유지하되, 지나치게 비슷하게 움직�
 1. 자산군 카탈로그 CRUD
 2. 역할 템플릿 관리 UI
 3. 역할별 고급 전략 분리
-4. 기대수익률 모델 고도화
+4. Black-Litterman subjective views(P/Q) 도입
 5. 장시간 배치 탐색/사전 계산 도입

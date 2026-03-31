@@ -48,7 +48,7 @@
 - `single_representative`
   - 후보 종목 중 대표 종목 1개를 선택합니다.
 - `dividend_representative`
-  - 후보 종목 중 대표 종목 1개를 선택하고, 설정된 기대수익률 보정치를 더합니다.
+  - 후보 종목 중 대표 종목 1개를 선택하고, Black-Litterman prior 기대수익률 위에 배당 보정치를 더합니다.
 - `equal_weight_basket`
   - 후보 종목 전체를 동일비중 바스켓으로 묶어 하나의 컴포넌트로 사용합니다.
 
@@ -75,11 +75,28 @@
 5. 각 자산군의 `role_key`에 따라 포트폴리오 컴포넌트 후보를 만듭니다.
 6. `single_representative`면 후보 종목별 후보를 만들고, `equal_weight_basket`이면 전체 종목을 하나의 바스켓으로 묶습니다.
    `dividend_representative`는 대표 종목 1개를 선택하되, 설정된 배당 보정치를 기대수익률에 더합니다.
-7. 조합 수가 작으면 전수 탐색하고, 크면 고정 seed 기반 샘플링을 수행합니다.
-8. 각 조합에 대해 최대 Sharpe 포트폴리오를 계산합니다.
-9. 가장 좋은 Sharpe를 만든 컴포넌트 조합을 선택합니다.
-10. 선택된 조합으로 Efficient Frontier 전체를 계산합니다.
-11. 최종 결과를 자산군 비중과 자산군 리스크 기여도로 다시 합산해 화면에 보여줍니다.
+7. 선택된 컴포넌트 수익률로 연환산 공분산을 계산하고, 시가총액 기반 prior weight를 구합니다.
+8. 기대수익률은 Black-Litterman prior `Pi = delta * Sigma * w_prior`로 계산합니다.
+   - 현재 `delta`는 `2.5` 고정값을 사용합니다.
+   - subjective views(`P`, `Q`)는 아직 적용하지 않으므로 posterior는 prior와 같습니다.
+   - 시가총액을 구하지 못하면 equal-weight prior로 fallback 합니다.
+9. 조합 수가 작으면 전수 탐색하고, 크면 고정 seed 기반 샘플링을 수행합니다.
+10. 각 조합에 대해 최대 Sharpe 포트폴리오를 계산합니다.
+11. 가장 좋은 Sharpe를 만든 컴포넌트 조합을 선택합니다.
+12. 선택된 조합으로 Efficient Frontier 전체를 계산합니다.
+13. 최종 결과를 자산군 비중과 자산군 리스크 기여도로 다시 합산해 화면에 보여줍니다.
+
+## 현재 기대수익률 모델
+
+현재 서비스는 경로에 따라 기대수익률 모델이 다릅니다.
+
+- `asset_assumptions` 모드
+  - `sample_market_assumptions.json`의 기대수익률을 그대로 사용합니다.
+- `managed_universe` / `stock_combination_demo` 모드
+  - 역할 기반 컴포넌트 수익률을 입력으로 받아 **Black-Litterman market-implied prior**를 계산합니다.
+  - prior weight는 각 컴포넌트의 시가총액 비중입니다.
+  - `equal_weight_basket`은 바스켓 구성 종목들의 시가총액을 합산해 prior weight를 만듭니다.
+  - `dividend_representative`는 BL prior 기대수익률에 배당 보정치를 추가로 더합니다.
 
 ## 현재 제약조건
 
@@ -286,7 +303,7 @@ export DATABASE_URL="postgresql://..."
 2. 역할 템플릿 편집 UI
 3. 가격 갱신 배치 자동화
 4. 역할별 계산 전략 고도화
-5. 기대수익률 모델 고도화
+5. Black-Litterman subjective views(P/Q) 도입
 
 ## 관련 문서
 

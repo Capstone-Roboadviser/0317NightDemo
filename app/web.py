@@ -4683,13 +4683,30 @@ def render_homepage() -> HTMLResponse:
 
         svg += '</g>';
 
-        // Right-side labels for each line (at last point)
+        // Right-side labels for each line (at last point) with collision avoidance
+        var labelItems = [];
         lines.forEach(function(line) {
           if (!line.points.length) return;
           var lastPt = line.points[line.points.length - 1];
-          var ly = yScale(lastPt.return_pct);
-          var lx = margin.left + innerW + 8;
-          svg += '<text x="' + lx + '" y="' + (ly + 4) + '" fill="' + line.color + '" font-size="10" font-weight="600" font-family="Inter, Noto Sans KR, sans-serif">' + line.label + '</text>';
+          labelItems.push({ y: yScale(lastPt.return_pct), color: line.color, label: line.label });
+        });
+        // Sort by Y position (top to bottom)
+        labelItems.sort(function(a, b) { return a.y - b.y; });
+        // Push apart overlapping labels (min 14px gap)
+        var minGap = 14;
+        for (var pass = 0; pass < 5; pass++) {
+          for (var li = 1; li < labelItems.length; li++) {
+            var gap = labelItems[li].y - labelItems[li - 1].y;
+            if (gap < minGap) {
+              var shift = (minGap - gap) / 2;
+              labelItems[li - 1].y -= shift;
+              labelItems[li].y += shift;
+            }
+          }
+        }
+        var lx = margin.left + innerW + 8;
+        labelItems.forEach(function(item) {
+          svg += '<text x="' + lx + '" y="' + (item.y + 4) + '" fill="' + item.color + '" font-size="10" font-weight="600" font-family="Inter, Noto Sans KR, sans-serif">' + item.label + '</text>';
         });
 
         // Invisible hover hit areas

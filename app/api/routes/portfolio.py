@@ -30,7 +30,7 @@ from app.api.schemas.response import (
     VolatilityHistoryResponse,
     VolatilityPointResponse,
 )
-from app.core.config import DEMO_STOCK_PRICES_PATH, DEMO_STOCK_UNIVERSE_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
+from app.core.config import DEMO_STOCK_PRICES_PATH, DEMO_STOCK_UNIVERSE_PATH, MINIMUM_HISTORY_ROWS, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
 from app.engine.comparison import build_comparison
 from app.engine.rebalance import simulate_quarterly_rebalance
 from app.data.stock_repository import StockDataRepository
@@ -563,10 +563,76 @@ def _fetch_benchmark_prices(start_date: str) -> dict[str, pd.Series]:
     return benchmarks
 
 
+def _load_comparison_universe(
+    data_source: SimulationDataSource,
+) -> tuple[list, pd.DataFrame, str]:
+    if data_source == SimulationDataSource.MANAGED_UNIVERSE:
+        active_version = portfolio_service.managed_universe_service.get_active_version()
+        if active_version is None:
+            raise HTTPException(status_code=422, detail="활성화된 관리자 유니버스 버전이 없습니다.")
+        instruments = portfolio_service.managed_universe_service.get_active_instruments()
+        if not instruments:
+            raise HTTPException(status_code=422, detail="활성 관리자 유니버스에 등록된 종목이 없습니다.")
+        prices = portfolio_service.managed_universe_service.load_prices_for_instruments(
+            instruments,
+            version_id=active_version.version_id,
+        )
+        return instruments, prices, active_version.version_name
+
+    if data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
+        instruments = portfolio_service.list_stocks(SimulationDataSource.STOCK_COMBINATION_DEMO)
+        prices = StockDataRepository().load_stock_prices(str(DEMO_STOCK_PRICES_PATH))
+        return instruments, prices, "demo-stock-universe"
+
+    raise HTTPException(
+        status_code=400,
+        detail="포트폴리오 비교 백테스트는 관리자 유니버스 또는 데모 종목 유니버스에서만 지원합니다.",
+    )
+
+
+def _split_prices_train_test(prices: pd.DataFrame, *, split_ratio: float = 0.9) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp, pd.Timestamp]:
+    if prices.empty:
+        raise HTTPException(status_code=400, detail="비교 백테스트에 사용할 가격 데이터가 없습니다.")
+
+    unique_dates = pd.Index(sorted(pd.to_datetime(prices["date"]).dt.normalize().unique()))
+    if len(unique_dates) < max(MINIMUM_HISTORY_ROWS + 1, 30):
+        raise HTTPException(
+            status_code=422,
+            detail=f"비교 백테스트를 위해서는 최소 {max(MINIMUM_HISTORY_ROWS + 1, 30)}영업일 이상의 가격 이력이 필요합니다.",
+        )
+
+    split_index = int(len(unique_dates) * split_ratio)
+    split_index = min(max(split_index, MINIMUM_HISTORY_ROWS), len(unique_dates) - 1)
+    train_end_date = pd.Timestamp(unique_dates[split_index - 1]).normalize()
+    test_start_date = pd.Timestamp(unique_dates[split_index]).normalize()
+
+    train_prices = prices[pd.to_datetime(prices["date"]).dt.normalize() <= train_end_date].copy()
+    test_prices = prices[pd.to_datetime(prices["date"]).dt.normalize() >= test_start_date].copy()
+    if train_prices.empty or test_prices.empty:
+        raise HTTPException(status_code=422, detail="train/test 분할 후 사용할 가격 데이터가 부족합니다.")
+    return train_prices, test_prices, train_end_date, test_start_date
+
+
 @router.post("/comparison-backtest", response_model=ComparisonBacktestResponse)
 def comparison_backtest(payload: ComparisonBacktestRequest) -> ComparisonBacktestResponse:
+    instruments, prices, combination_prefix = _load_comparison_universe(payload.data_source)
+    prices = prices.copy()
+    prices["date"] = pd.to_datetime(prices["date"]).dt.normalize()
+
+    start = pd.Timestamp(payload.start_date).normalize()
+    prices = prices[prices["date"] >= start].copy()
+    if prices.empty:
+        raise HTTPException(status_code=400, detail="시작일 이후 가격 데이터가 없습니다.")
+
+    train_prices, test_prices, train_end_date, test_start_date = _split_prices_train_test(prices, split_ratio=0.9)
+
     try:
-        profile_data = portfolio_service.get_all_profile_weights(payload.data_source)
+        profile_data = portfolio_service.get_all_profile_weights_for_price_window(
+            data_source=payload.data_source,
+            instruments=instruments,
+            prices=train_prices,
+            combination_prefix=f"{combination_prefix}-train-{train_end_date.strftime('%Y%m%d')}",
+        )
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -574,28 +640,41 @@ def comparison_backtest(payload: ComparisonBacktestRequest) -> ComparisonBacktes
     for weights, _ in profile_data.values():
         all_tickers.update(weights.keys())
 
-    prices = _load_history_prices(tickers=list(all_tickers), data_source=payload.data_source)
-    pivoted = prices.pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last")
-    pivoted = pivoted.sort_index().ffill().dropna(how="any")
-
-    start = pd.Timestamp(payload.start_date)
-    pivoted = pivoted[pivoted.index >= start]
+    pivoted = (
+        test_prices[test_prices["ticker"].astype(str).str.upper().isin(all_tickers)]
+        .pivot_table(index="date", columns="ticker", values="adjusted_close", aggfunc="last")
+        .sort_index()
+        .ffill()
+        .dropna(how="any")
+    )
     if pivoted.empty:
-        raise HTTPException(status_code=400, detail="시작일 이후 가격 데이터가 없습니다.")
+        raise HTTPException(status_code=422, detail="test 구간에서 공통 가격 데이터를 만들지 못했습니다.")
 
     portfolios = {name: weights for name, (weights, _) in profile_data.items()}
     expected_returns = {name: er for name, (_, er) in profile_data.items()}
 
-    benchmark_series = _fetch_benchmark_prices(payload.start_date)
+    benchmark_series = _fetch_benchmark_prices(test_start_date.strftime("%Y-%m-%d"))
 
     try:
-        result = build_comparison(pivoted, portfolios, expected_returns, benchmark_series)
+        result = build_comparison(
+            pivoted,
+            portfolios,
+            expected_returns,
+            benchmark_series,
+            train_start_date=start.strftime("%Y-%m-%d"),
+            train_end_date=train_end_date.strftime("%Y-%m-%d"),
+            split_ratio=0.9,
+        )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"비교 백테스트 계산 중 오류: {exc}") from exc
 
     return ComparisonBacktestResponse(
+        train_start_date=result.train_start_date,
+        train_end_date=result.train_end_date,
+        test_start_date=result.test_start_date,
         start_date=result.start_date,
         end_date=result.end_date,
+        split_ratio=result.split_ratio,
         rebalance_dates=result.rebalance_dates,
         lines=[
             ComparisonLineResponse(

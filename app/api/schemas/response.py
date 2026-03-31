@@ -78,8 +78,12 @@ class ComparisonLineResponse(BaseModel):
 
 
 class ComparisonBacktestResponse(BaseModel):
+    train_start_date: str
+    train_end_date: str
+    test_start_date: str
     start_date: str
     end_date: str
+    split_ratio: float
     rebalance_dates: list[str]
     lines: list[ComparisonLineResponse]
 

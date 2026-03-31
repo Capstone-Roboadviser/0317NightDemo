@@ -2071,12 +2071,12 @@ def render_homepage() -> HTMLResponse:
           <div class="card-header">
             <div class="step-badge"><span class="step-num">8</span> 포트폴리오 비교</div>
             <div class="card-title">포트폴리오 유형별 성과 비교</div>
-            <div class="card-description">안정형·균형형·성장형 포트폴리오의 리밸런싱 수익률을 S&P 500, 10년 국채와 비교합니다. 점선은 기대수익 궤적입니다.</div>
+            <div class="card-description">선택한 시작일 이후 구간을 9:1로 나눠 앞 90% train 종료 시점에 추천된 안정형·균형형·성장형 포트폴리오를 뒤 10% test 구간부터 현재까지 S&P 500, 10년 국채와 비교합니다. 점선은 train 시점 기대수익 궤적입니다.</div>
           </div>
           <div class="card-content">
             <div class="earn-controls">
               <div class="earn-field">
-                <label for="comp-start">투자 시작일</label>
+                <label for="comp-start">분석 시작일</label>
                 <input type="date" id="comp-start" value="2024-01-02" />
               </div>
               <button class="earn-btn" id="comp-btn">비교 백테스트</button>

@@ -368,25 +368,63 @@ class PortfolioSimulationService:
             data_source=data_source,
         )
         context = self._prepare_context(base_profile)
+        return self._build_profile_weight_map(
+            frontier_points=context.frontier_points,
+            expected_returns=context.expected_returns,
+            covariance=context.covariance,
+            instruments=context.instruments,
+        )
+
+    def get_all_profile_weights_for_price_window(
+        self,
+        *,
+        data_source: SimulationDataSource,
+        instruments: list[StockInstrument],
+        prices: pd.DataFrame,
+        combination_prefix: str,
+    ) -> dict[str, tuple[dict[str, float], float]]:
+        """Return profile weights using only the provided training price window."""
+        if data_source == SimulationDataSource.ASSET_ASSUMPTIONS:
+            raise RuntimeError("시점 기준 비교 백테스트는 종목 유니버스 데이터 소스에서만 지원합니다.")
+
+        representative_context = self._select_sector_representatives(
+            instruments=instruments,
+            prices=prices,
+            combination_prefix=combination_prefix,
+        )
+        return self._build_profile_weight_map(
+            frontier_points=representative_context.frontier_points,
+            expected_returns=representative_context.expected_returns,
+            covariance=representative_context.covariance,
+            instruments=representative_context.selected_instruments,
+        )
+
+    def _build_profile_weight_map(
+        self,
+        *,
+        frontier_points: list[FrontierPoint],
+        expected_returns: pd.Series,
+        covariance: pd.DataFrame,
+        instruments: list[StockInstrument],
+    ) -> dict[str, tuple[dict[str, float], float]]:
         results: dict[str, tuple[dict[str, float], float]] = {}
         for risk_profile in RiskProfile:
             target_vol = self.mapping_service.resolve_target_volatility(
                 UserProfile(
                     risk_profile=risk_profile,
                     investment_horizon=InvestmentHorizon.MEDIUM,
-                    data_source=data_source,
+                    data_source=SimulationDataSource.MANAGED_UNIVERSE,
                 )
             )
-            idx = select_frontier_point_index(context.frontier_points, target_vol)
-            point = context.frontier_points[idx]
-            opt_weights = self._weights_for_optimization(point.weights, context.instruments)
+            idx = select_frontier_point_index(frontier_points, target_vol)
+            point = frontier_points[idx]
+            opt_weights = self._weights_for_optimization(point.weights, instruments)
             metrics = portfolio_metrics_from_weights(
                 opt_weights,
-                context.expected_returns,
-                context.covariance,
+                expected_returns,
+                covariance,
                 RISK_FREE_RATE,
             )
-            # Use raw ticker weights for backtesting with price data
             results[risk_profile.value] = (point.weights, metrics.expected_return)
         return results
 

@@ -167,6 +167,30 @@
 - 두 엔드포인트는 공통 포트폴리오 수익률 생성 경로를 사용합니다.
 - managed universe일 때는 active 유니버스의 **공통 가격 구간**만 사용합니다.
 
+## 6-1. 포트폴리오 비교 백테스트
+
+### `POST /portfolio/comparison-backtest`
+
+선택한 시작일 이후 구간을 `90% train / 10% test`로 나눈 뒤,
+train 종료 시점에 추천된 `안정형 / 균형형 / 성장형` 포트폴리오를
+test 구간부터 현재까지 비교합니다.
+
+중요:
+
+- 현재 시점에서 계산한 포트폴리오를 과거 전체 구간에 그대로 적용하지 않습니다.
+- 기대수익률과 공분산, 대표 종목 조합 선택은 모두 train 구간 기준입니다.
+- 실제 성과 비교 곡선은 test 구간에서만 그립니다.
+
+응답 주요 필드:
+
+- `train_start_date`
+- `train_end_date`
+- `test_start_date`
+- `start_date`
+- `end_date`
+- `split_ratio`
+- `lines`
+
 ## 7. 관리자 유니버스 관리
 
 ### `GET /admin/universe/status`

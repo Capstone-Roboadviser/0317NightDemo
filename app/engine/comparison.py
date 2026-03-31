@@ -19,8 +19,12 @@ class ComparisonLine:
 
 @dataclass(frozen=True)
 class ComparisonResult:
+    train_start_date: str
+    train_end_date: str
+    test_start_date: str
     start_date: str
     end_date: str
+    split_ratio: float
     rebalance_dates: list[str]
     lines: list[ComparisonLine]
 
@@ -43,6 +47,10 @@ def build_comparison(
     portfolios: dict[str, dict[str, float]],
     expected_returns: dict[str, float],
     benchmark_series: dict[str, pd.Series] | None = None,
+    *,
+    train_start_date: str,
+    train_end_date: str,
+    split_ratio: float = 0.9,
 ) -> ComparisonResult:
     """Build comparison backtest data.
 
@@ -163,8 +171,12 @@ def build_comparison(
         ))
 
     return ComparisonResult(
+        train_start_date=train_start_date,
+        train_end_date=train_end_date,
+        test_start_date=dates[0].strftime("%Y-%m-%d"),
         start_date=dates[0].strftime("%Y-%m-%d"),
         end_date=dates[-1].strftime("%Y-%m-%d"),
+        split_ratio=split_ratio,
         rebalance_dates=rebalance_dates,
         lines=sampled_lines,
     )

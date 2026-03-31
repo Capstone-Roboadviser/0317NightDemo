@@ -407,25 +407,16 @@ class PortfolioSimulationService:
         covariance: pd.DataFrame,
         instruments: list[StockInstrument],
     ) -> dict[str, tuple[dict[str, float], float]]:
+        profile_keys = (
+            RiskProfile.CONSERVATIVE.value,
+            RiskProfile.BALANCED.value,
+            RiskProfile.GROWTH.value,
+        )
+        option_points = build_frontier_options(frontier_points)
+
         results: dict[str, tuple[dict[str, float], float]] = {}
-        for risk_profile in RiskProfile:
-            target_vol = self.mapping_service.resolve_target_volatility(
-                UserProfile(
-                    risk_profile=risk_profile,
-                    investment_horizon=InvestmentHorizon.MEDIUM,
-                    data_source=SimulationDataSource.MANAGED_UNIVERSE,
-                )
-            )
-            idx = select_frontier_point_index(frontier_points, target_vol)
-            point = frontier_points[idx]
-            opt_weights = self._weights_for_optimization(point.weights, instruments)
-            metrics = portfolio_metrics_from_weights(
-                opt_weights,
-                expected_returns,
-                covariance,
-                RISK_FREE_RATE,
-            )
-            results[risk_profile.value] = (point.weights, metrics.expected_return)
+        for profile_key, (_, point) in zip(profile_keys, option_points):
+            results[profile_key] = (point.weights, point.expected_return)
         return results
 
     def simulate(self, user_profile: UserProfile) -> PortfolioSimulationResult:

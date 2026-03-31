@@ -1334,6 +1334,20 @@ def render_homepage() -> HTMLResponse:
       font-size: 13px;
       font-family: Inter, sans-serif;
     }
+    .earn-field-value {
+      min-width: 138px;
+      height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--muted);
+      color: var(--foreground);
+      font-size: 13px;
+      font-family: Inter, sans-serif;
+      display: flex;
+      align-items: center;
+      font-variant-numeric: tabular-nums;
+    }
     .earn-btn {
       height: 36px;
       padding: 0 16px;
@@ -2079,7 +2093,10 @@ def render_homepage() -> HTMLResponse:
                 <label for="comp-start">분석 시작일</label>
                 <input type="date" id="comp-start" value="2024-01-02" />
               </div>
-              <button class="earn-btn" id="comp-btn">비교 백테스트</button>
+              <div class="earn-field">
+                <label>test 시작일</label>
+                <div class="earn-field-value" id="comp-test-start">—</div>
+              </div>
             </div>
             <div class="comp-chart-wrap">
               <svg id="comp-chart" viewBox="0 0 900 420" style="display:none"></svg>
@@ -4531,8 +4548,8 @@ def render_homepage() -> HTMLResponse:
       var compChart = document.getElementById("comp-chart");
       var compTooltip = document.getElementById("comp-tooltip");
       var compLegend = document.getElementById("comp-legend");
-      var compBtn = document.getElementById("comp-btn");
       var compStartInput = document.getElementById("comp-start");
+      var compTestStart = document.getElementById("comp-test-start");
       var lastCompData = null;
 
       function getCompTheme() {
@@ -4556,20 +4573,30 @@ def render_homepage() -> HTMLResponse:
         })
           .then(function(r) { return r.json(); })
           .then(function(data) {
-            if (data.detail) return;
+            if (data.detail) {
+              if (compTestStart) compTestStart.textContent = "—";
+              return;
+            }
             lastCompData = data;
+            if (compTestStart) {
+              compTestStart.textContent = data.test_start_date || "—";
+            }
             renderCompChart(data);
           })
-          .catch(function() {});
+          .catch(function() {
+            if (compTestStart) compTestStart.textContent = "—";
+          });
       };
 
-      compBtn.addEventListener("click", function() {
+      function reloadComparisonFromInput() {
         if (typeof lastData !== "undefined" && lastData) {
           window.loadComparisonBacktest(lastData.data_source);
         } else {
           window.loadComparisonBacktest("stock_combination_demo");
         }
-      });
+      }
+
+      compStartInput.addEventListener("change", reloadComparisonFromInput);
 
       function renderCompChart(data) {
         var lines = data.lines;

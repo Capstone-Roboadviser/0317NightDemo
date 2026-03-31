@@ -1401,115 +1401,6 @@ def render_homepage() -> HTMLResponse:
       white-space: nowrap;
     }
     .earn-btn:hover { opacity: 0.9; }
-    .earn-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .earn-metric {
-      padding: 14px 16px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--background);
-    }
-    .earn-metric-label {
-      font-size: 11px;
-      color: var(--muted-foreground);
-      margin-bottom: 4px;
-    }
-    .earn-metric-value {
-      font-size: 20px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-    }
-    .earn-metric-value.positive { color: #22c55e; }
-    .earn-metric-value.negative { color: #ef4444; }
-    .earn-chart-wrap {
-      position: relative;
-      margin-bottom: 12px;
-    }
-    .earn-chart-wrap svg {
-      width: 100%;
-      display: block;
-    }
-    .earn-tooltip {
-      position: fixed;
-      pointer-events: none;
-      z-index: 50;
-      padding: 14px 16px;
-      border-radius: var(--radius);
-      background: var(--foreground);
-      color: var(--primary-foreground);
-      font-size: 13px;
-      font-weight: 500;
-      line-height: 1.5;
-      opacity: 0;
-      transition: opacity 0.12s ease;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      min-width: 200px;
-      max-width: 280px;
-    }
-    .earn-tooltip.visible { opacity: 0.92; }
-    .earn-tooltip-date {
-      font-size: 11px;
-      opacity: 0.7;
-      margin-bottom: 6px;
-    }
-    .earn-tooltip-total {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.15);
-    }
-    .earn-tooltip-total.positive { color: #4ade80; }
-    .earn-tooltip-total.negative { color: #f87171; }
-    .earn-tooltip-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 2px 0;
-    }
-    .earn-tooltip-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .earn-tooltip-name {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-size: 12px;
-    }
-    .earn-tooltip-val {
-      font-weight: 700;
-      white-space: nowrap;
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-    .earn-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 16px;
-      justify-content: center;
-    }
-    .earn-legend-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      color: var(--muted-foreground);
-    }
-    .earn-legend-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
 
     .rebal-metrics {
       display: grid;
@@ -2070,45 +1961,7 @@ def render_homepage() -> HTMLResponse:
         </div>
         <div class="card">
           <div class="card-header">
-            <div class="step-badge"><span class="step-num">6</span> 수익 시뮬레이션</div>
-            <div class="card-title">투자 수익 시뮬레이션</div>
-            <div class="card-description">선택된 포트폴리오에 가상 투자했을 때의 자산별 수익 기여도를 확인합니다.</div>
-          </div>
-          <div class="card-content">
-            <div class="earn-controls">
-              <div class="earn-field">
-                <label for="earn-start">투자 시작일</label>
-                <input type="date" id="earn-start" value="2024-01-02" />
-              </div>
-              <div class="earn-field">
-                <label for="earn-amount">투자 금액 (원)</label>
-                <input type="text" id="earn-amount" value="10,000,000" />
-              </div>
-              <button class="earn-btn" id="earn-simulate">시뮬레이션</button>
-            </div>
-            <div class="earn-metrics" id="earn-metrics" style="display:none">
-              <div class="earn-metric">
-                <div class="earn-metric-label">총 수익률</div>
-                <div class="earn-metric-value" id="earn-return-pct">—</div>
-              </div>
-              <div class="earn-metric">
-                <div class="earn-metric-label">총 수익금</div>
-                <div class="earn-metric-value" id="earn-total">—</div>
-              </div>
-              <div class="earn-metric">
-                <div class="earn-metric-label">현재 평가금</div>
-                <div class="earn-metric-value" id="earn-value">—</div>
-              </div>
-            </div>
-            <div class="earn-chart-wrap">
-              <svg id="earn-chart" viewBox="0 0 900 340" style="display:none"></svg>
-            </div>
-            <div class="earn-legend" id="earn-legend"></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <div class="step-badge"><span class="step-num">7</span> 분기별 리밸런싱</div>
+            <div class="step-badge"><span class="step-num">6</span> 분기별 리밸런싱</div>
             <div class="card-title">분기별 리밸런싱 시뮬레이션</div>
             <div class="card-description">매 분기 말 목표 비중으로 되돌리는 리밸런싱 전략과 바이앤홀드 전략의 성과를 비교합니다.</div>
           </div>
@@ -2133,7 +1986,7 @@ def render_homepage() -> HTMLResponse:
         </div>
         <div class="card">
           <div class="card-header">
-            <div class="step-badge"><span class="step-num">8</span> 포트폴리오 비교</div>
+            <div class="step-badge"><span class="step-num">7</span> 포트폴리오 비교</div>
             <div class="card-title">포트폴리오 유형별 성과 비교</div>
             <div class="card-description">선택한 시작일 이후 구간을 9:1로 나눠 앞 90% train 종료 시점에 추천된 안정형·균형형·성장형 포트폴리오를 뒤 10% test 구간부터 현재까지 S&P 500, 10년 국채와 비교합니다. 점선은 train 시점 기대수익 궤적입니다.</div>
           </div>
@@ -2170,7 +2023,6 @@ def render_homepage() -> HTMLResponse:
   <div class="donut-tooltip" id="donut-tooltip"></div>
 
   <div class="chart-tooltip" id="chart-tooltip"></div>
-  <div class="earn-tooltip" id="earn-tooltip"></div>
   <div class="rebal-tooltip" id="rebal-tooltip"></div>
   <div class="rebal-tooltip" id="comp-tooltip"></div>
 
@@ -2988,9 +2840,6 @@ def render_homepage() -> HTMLResponse:
         if (typeof window.loadReturnHistory === "function") {
           window.loadReturnHistory(point.weights, lastData.data_source);
         }
-        if (typeof window.loadEarningsHistory === "function") {
-          window.loadEarningsHistory(point.weights, lastData.data_source);
-        }
         if (typeof window.loadRebalanceSimulation === "function") {
           window.loadRebalanceSimulation(point.weights, lastData.data_source);
         }
@@ -3088,9 +2937,6 @@ def render_homepage() -> HTMLResponse:
           }
           if (typeof window.loadReturnHistory === "function") {
             window.loadReturnHistory(lastData.selected_point.weights, lastData.data_source);
-          }
-          if (typeof window.loadEarningsHistory === "function") {
-            window.loadEarningsHistory(lastData.selected_point.weights, lastData.data_source);
           }
           if (typeof window.loadRebalanceSimulation === "function") {
             window.loadRebalanceSimulation(lastData.selected_point.weights, lastData.data_source);
@@ -3842,9 +3688,6 @@ def render_homepage() -> HTMLResponse:
         if (typeof window.rerenderRetChart === "function") {
           setTimeout(window.rerenderRetChart, 70);
         }
-        if (typeof window.rerenderEarningsChart === "function") {
-          setTimeout(window.rerenderEarningsChart, 80);
-        }
       }
 
       const saved = localStorage.getItem("theme");
@@ -3997,301 +3840,6 @@ def render_homepage() -> HTMLResponse:
 
     syncSliderDisplay(null);
     loadPortfolio();
-
-    // ── Earnings Simulation Chart ──
-    (function() {
-      var earnChart = document.getElementById("earn-chart");
-      var earnTooltip = document.getElementById("earn-tooltip");
-      var earnMetrics = document.getElementById("earn-metrics");
-      var earnLegend = document.getElementById("earn-legend");
-      var earnStartInput = document.getElementById("earn-start");
-      var earnAmountInput = document.getElementById("earn-amount");
-      var earnBtn = document.getElementById("earn-simulate");
-      var earnRetPct = document.getElementById("earn-return-pct");
-      var earnTotal = document.getElementById("earn-total");
-      var earnValue = document.getElementById("earn-value");
-      var lastEarnData = null;
-
-      function formatKRW(v) {
-        var sign = v >= 0 ? "+" : "";
-        return sign + Math.round(v).toLocaleString("ko-KR") + "원";
-      }
-
-      function parseAmount(s) {
-        return Number(String(s).replace(/[^0-9]/g, "")) || 10000000;
-      }
-
-      function getEarnThemeColors() {
-        var s = getComputedStyle(document.documentElement);
-        return {
-          bg: s.getPropertyValue("--chart-bg").trim(),
-          grid: s.getPropertyValue("--chart-grid").trim(),
-          label: s.getPropertyValue("--chart-label").trim(),
-          text: s.getPropertyValue("--chart-text").trim(),
-        };
-      }
-
-      window.loadEarningsHistory = function(weights, dataSource) {
-        if (!weights || !Object.keys(weights).length) return;
-        var amount = parseAmount(earnAmountInput.value);
-        fetch("/portfolio/earnings-history", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            weights: weights,
-            data_source: dataSource || "stock_combination_demo",
-            start_date: earnStartInput.value,
-            investment_amount: amount,
-          }),
-        })
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            lastEarnData = data;
-            earnMetrics.style.display = "grid";
-            var pct = data.total_return_pct;
-            var cls = pct >= 0 ? "positive" : "negative";
-            earnRetPct.className = "earn-metric-value " + cls;
-            earnRetPct.textContent = (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%";
-            earnTotal.className = "earn-metric-value " + cls;
-            earnTotal.textContent = formatKRW(data.total_earnings);
-            earnValue.className = "earn-metric-value";
-            earnValue.textContent = Math.round(data.investment_amount + data.total_earnings).toLocaleString("ko-KR") + "원";
-            renderEarningsChart(data);
-          })
-          .catch(function() {});
-      };
-
-      window.rerenderEarningsChart = function() {
-        if (lastEarnData) setTimeout(function() { renderEarningsChart(lastEarnData); }, 50);
-      };
-
-      function renderEarningsChart(data) {
-        var points = data.points;
-        if (!points || !points.length) { earnChart.style.display = "none"; return; }
-
-        var c = getEarnThemeColors();
-        var width = 900, height = 340;
-        var margin = { top: 28, right: 24, bottom: 36, left: 72 };
-        var innerW = width - margin.left - margin.right;
-        var innerH = height - margin.top - margin.bottom;
-        earnChart.setAttribute("viewBox", "0 0 " + width + " " + height);
-        earnChart.style.display = "block";
-
-        var dates = points.map(function(p) { return new Date(p.date); });
-        var sectorCodes = Object.keys(points[0].asset_earnings);
-
-        // Sort sectors by final earnings (largest positive first)
-        sectorCodes.sort(function(a, b) {
-          return (points[points.length - 1].asset_earnings[b] || 0) - (points[points.length - 1].asset_earnings[a] || 0);
-        });
-
-        // Build stacked values
-        var stacked = [];
-        for (var a = 0; a < sectorCodes.length; a++) stacked[a] = [];
-        for (var t = 0; t < points.length; t++) {
-          var cum = 0;
-          for (var a = 0; a < sectorCodes.length; a++) {
-            cum += points[t].asset_earnings[sectorCodes[a]] || 0;
-            stacked[a][t] = cum;
-          }
-        }
-
-        // Y domain from stacked min/max + total
-        var allVals = [0];
-        for (var a = 0; a < stacked.length; a++) {
-          for (var t = 0; t < stacked[a].length; t++) allVals.push(stacked[a][t]);
-        }
-        points.forEach(function(p) { allVals.push(p.total_earnings); });
-        var yMin = Math.min.apply(null, allVals) * 1.1;
-        var yMax = Math.max.apply(null, allVals) * 1.1;
-        if (yMin > 0) yMin = 0;
-        if (yMax < 0) yMax = 0;
-        var ySpan = yMax - yMin || 1;
-
-        var minDate = dates[0].getTime();
-        var dateSpan = dates[dates.length - 1].getTime() - minDate || 1;
-
-        function xScale(d) { return margin.left + ((d.getTime() - minDate) / dateSpan) * innerW; }
-        function yScale(v) { return margin.top + innerH - ((v - yMin) / ySpan) * innerH; }
-
-        // Format Y-axis values as abbreviated Korean
-        function fmtY(v) {
-          var abs = Math.abs(v);
-          var sign = v < 0 ? "-" : "";
-          if (abs >= 100000000) return sign + (abs / 100000000).toFixed(1) + "억";
-          if (abs >= 10000) return sign + Math.round(abs / 10000).toLocaleString("ko-KR") + "만";
-          return sign + Math.round(abs).toLocaleString("ko-KR");
-        }
-
-        var svg = "";
-
-        // Y gridlines + labels
-        var yTicks = 5;
-        for (var j = 0; j <= yTicks; j++) {
-          var val = yMin + (ySpan * j) / yTicks;
-          var y = yScale(val);
-          svg += '<line x1="' + margin.left + '" y1="' + y + '" x2="' + (margin.left + innerW) + '" y2="' + y + '" stroke="' + c.grid + '" stroke-dasharray="4,4" stroke-opacity="0.5" />';
-          svg += '<text x="' + (margin.left - 8) + '" y="' + (y + 4) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="end">' + fmtY(val) + '</text>';
-        }
-
-        // X labels
-        var xCount = Math.min(6, dates.length);
-        for (var i = 0; i < xCount; i++) {
-          var idx = Math.round((i / (xCount - 1)) * (dates.length - 1));
-          var dx = xScale(dates[idx]);
-          var dlabel = dates[idx].toISOString().slice(0, 7);
-          svg += '<text x="' + dx + '" y="' + (height - 8) + '" fill="' + c.label + '" font-size="10" font-family="Inter, sans-serif" text-anchor="middle">' + dlabel + '</text>';
-        }
-
-        // Zero line
-        var zeroY = yScale(0);
-        svg += '<line x1="' + margin.left + '" y1="' + zeroY + '" x2="' + (margin.left + innerW) + '" y2="' + zeroY + '" stroke="' + c.label + '" stroke-width="0.75" stroke-opacity="0.35" stroke-dasharray="6,4" />';
-
-        // Defs: clip + gradients
-        svg += '<defs><clipPath id="earn-clip"><rect x="' + margin.left + '" y="' + margin.top + '" width="' + innerW + '" height="' + innerH + '" /></clipPath>';
-        sectorCodes.forEach(function(sc, i) {
-          var color = ASSET_COLORS[sc] || "#64748B";
-          svg += '<linearGradient id="earn-grad-' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + color + '" stop-opacity="0.85"/><stop offset="100%" stop-color="' + color + '" stop-opacity="0.6"/></linearGradient>';
-        });
-        svg += '</defs>';
-
-        // Stacked areas
-        svg += '<g clip-path="url(#earn-clip)">';
-
-        for (var a = sectorCodes.length - 1; a >= 0; a--) {
-          var path = "M" + xScale(dates[0]) + "," + yScale(stacked[a][0]);
-          for (var t = 1; t < dates.length; t++) {
-            path += " L" + xScale(dates[t]) + "," + yScale(stacked[a][t]);
-          }
-          for (var t = dates.length - 1; t >= 0; t--) {
-            var lower = a > 0 ? stacked[a - 1][t] : 0;
-            path += " L" + xScale(dates[t]) + "," + yScale(lower);
-          }
-          path += " Z";
-          svg += '<path d="' + path + '" fill="url(#earn-grad-' + a + ')" />';
-        }
-
-        // Total earnings line — thin, subtle
-        var totalPath = "M" + xScale(dates[0]) + "," + yScale(points[0].total_earnings);
-        for (var t = 1; t < points.length; t++) {
-          totalPath += " L" + xScale(dates[t]) + "," + yScale(points[t].total_earnings);
-        }
-        svg += '<path d="' + totalPath + '" fill="none" stroke="' + c.text + '" stroke-width="1.5" stroke-opacity="0.7" stroke-linecap="round" stroke-linejoin="round" />';
-
-        svg += '</g>';
-
-        // Invisible hover hit areas
-        for (var t = 0; t < dates.length; t++) {
-          var hx = xScale(dates[t]);
-          svg += '<line class="earn-hit" x1="' + hx + '" y1="' + margin.top + '" x2="' + hx + '" y2="' + (margin.top + innerH) + '" stroke="transparent" stroke-width="' + Math.max(2, innerW / dates.length) + '" data-idx="' + t + '" />';
-        }
-
-        earnChart.innerHTML = svg;
-
-        // Build legend
-        var sectorNameMap = {};
-        (data.asset_summary || []).forEach(function(s) { sectorNameMap[s.asset_code] = s.asset_name; });
-        var legendHtml = sectorCodes.map(function(sc) {
-          var col = ASSET_COLORS[sc] || "#64748B";
-          var nm = sectorNameMap[sc] || sc;
-          return '<span class="earn-legend-item"><span class="earn-legend-dot" style="background:' + col + '"></span>' + nm + '</span>';
-        }).join("");
-        legendHtml += '<span class="earn-legend-item"><span class="earn-legend-dot" style="background:' + c.text + ';border-radius:0;height:2px;width:12px;margin-top:3px"></span>총 수익</span>';
-        earnLegend.innerHTML = legendHtml;
-
-        // Store chart state for hover handler
-        earnChart._chartState = { points: points, dates: dates, sectorCodes: sectorCodes, sectorNameMap: sectorNameMap, xScale: xScale, yScale: yScale, margin: margin, innerH: innerH, c: c };
-      }
-
-      earnBtn.addEventListener("click", function() {
-        if (typeof lastData !== "undefined" && lastData && lastData.selected_point && lastData.selected_point.weights) {
-          window.loadEarningsHistory(lastData.selected_point.weights, lastData.data_source);
-          if (typeof window.loadRebalanceSimulation === "function") {
-            window.loadRebalanceSimulation(lastData.selected_point.weights, lastData.data_source);
-          }
-        }
-      });
-
-      // Format amount input with commas
-      earnAmountInput.addEventListener("blur", function() {
-        var v = parseAmount(this.value);
-        this.value = v.toLocaleString("ko-KR");
-      });
-
-      // Hover handlers (attached once, read chart state from _chartState)
-      var earnCrosshair = null;
-      var earnHoverDot = null;
-
-      function clearEarnHover() {
-        earnTooltip.classList.remove("visible");
-        if (earnCrosshair && earnCrosshair.parentNode) earnCrosshair.parentNode.removeChild(earnCrosshair);
-        if (earnHoverDot && earnHoverDot.parentNode) earnHoverDot.parentNode.removeChild(earnHoverDot);
-        earnCrosshair = null;
-        earnHoverDot = null;
-      }
-
-      earnChart.addEventListener("mousemove", function(e) {
-        var st = earnChart._chartState;
-        if (!st || !st.dates.length) { clearEarnHover(); return; }
-
-        // Find closest point by mouse X position
-        var rect = earnChart.getBoundingClientRect();
-        var svgWidth = 900;
-        var mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
-        if (mouseX < st.margin.left || mouseX > svgWidth - 24) { clearEarnHover(); return; }
-
-        var bestIdx = 0, bestDist = Infinity;
-        for (var i = 0; i < st.dates.length; i++) {
-          var dx = Math.abs(st.xScale(st.dates[i]) - mouseX);
-          if (dx < bestDist) { bestDist = dx; bestIdx = i; }
-        }
-        var idx = bestIdx;
-        var pt = st.points[idx];
-        if (!pt) return;
-
-        // Build tooltip HTML
-        var pctCls = pt.total_return_pct >= 0 ? "positive" : "negative";
-        var html = '<div class="earn-tooltip-date">' + pt.date + '</div>';
-        html += '<div class="earn-tooltip-total ' + pctCls + '">' + formatKRW(pt.total_earnings) + ' (' + (pt.total_return_pct >= 0 ? "+" : "") + pt.total_return_pct.toFixed(1) + '%)</div>';
-        st.sectorCodes.forEach(function(sc) {
-          var col = ASSET_COLORS[sc] || "#64748B";
-          var nm = st.sectorNameMap[sc] || sc;
-          var val = pt.asset_earnings[sc] || 0;
-          html += '<div class="earn-tooltip-row"><span class="earn-tooltip-dot" style="background:' + col + '"></span><span class="earn-tooltip-name">' + nm + '</span><span class="earn-tooltip-val">' + formatKRW(val) + '</span></div>';
-        });
-        earnTooltip.innerHTML = html;
-
-        // Position near cursor
-        var tx = e.clientX + 16;
-        var ty = e.clientY - 20;
-        if (tx + 290 > window.innerWidth) tx = e.clientX - 290;
-        if (ty + earnTooltip.offsetHeight > window.innerHeight) ty = window.innerHeight - earnTooltip.offsetHeight - 8;
-        if (ty < 8) ty = 8;
-        earnTooltip.style.left = tx + "px";
-        earnTooltip.style.top = ty + "px";
-        earnTooltip.classList.add("visible");
-
-        // Crosshair + dot
-        if (earnCrosshair && earnCrosshair.parentNode) earnCrosshair.parentNode.removeChild(earnCrosshair);
-        if (earnHoverDot && earnHoverDot.parentNode) earnHoverDot.parentNode.removeChild(earnHoverDot);
-        var hx = st.xScale(st.dates[idx]);
-        earnCrosshair = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        earnCrosshair.setAttribute("x1", hx); earnCrosshair.setAttribute("y1", st.margin.top);
-        earnCrosshair.setAttribute("x2", hx); earnCrosshair.setAttribute("y2", st.margin.top + st.innerH);
-        earnCrosshair.setAttribute("stroke", st.c.label); earnCrosshair.setAttribute("stroke-width", "1");
-        earnCrosshair.setAttribute("stroke-dasharray", "3,3"); earnCrosshair.style.pointerEvents = "none";
-        earnChart.appendChild(earnCrosshair);
-
-        earnHoverDot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        earnHoverDot.setAttribute("cx", hx); earnHoverDot.setAttribute("cy", st.yScale(pt.total_earnings));
-        earnHoverDot.setAttribute("r", "5"); earnHoverDot.setAttribute("fill", st.c.text);
-        earnHoverDot.setAttribute("stroke", st.c.bg); earnHoverDot.setAttribute("stroke-width", "2");
-        earnHoverDot.style.pointerEvents = "none";
-        earnChart.appendChild(earnHoverDot);
-      });
-
-      earnChart.addEventListener("mouseleave", clearEarnHover);
-    })();
 
     // ── Rebalancing Simulation Chart ──
     (function() {

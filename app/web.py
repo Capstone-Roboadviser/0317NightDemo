@@ -531,9 +531,9 @@ def render_homepage() -> HTMLResponse:
 
     .combination-panel {
       margin-top: 16px;
-      padding: 14px 16px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
+      overflow: hidden;
       background: var(--muted);
     }
 
@@ -541,37 +541,77 @@ def render_homepage() -> HTMLResponse:
       display: none;
     }
 
+    .combination-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .combination-panel-header:hover {
+      background: var(--muted);
+    }
     .combination-panel-title {
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 600;
       color: var(--foreground);
       margin-bottom: 6px;
     }
 
-    .combination-panel-meta {
-      font-size: 13px;
-      line-height: 1.6;
+    .combination-panel-summary {
+      font-size: 12px;
       color: var(--muted-foreground);
+    }
+    .combination-panel-chevron {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      transition: transform 0.2s;
+    }
+    .combination-panel.open .combination-panel-chevron {
+      transform: rotate(180deg);
+    }
+    .combination-panel-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.25s ease;
+    }
+    .combination-panel.open .combination-panel-body {
+      max-height: 600px;
+    }
+    .combination-panel-inner {
+      padding: 0 16px 14px;
+    }
+    .combination-panel-meta {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted-foreground);
+      margin-bottom: 10px;
     }
 
     .combination-members {
-      margin-top: 10px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .combination-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      background: var(--background);
-      border: 1px solid var(--border);
-      color: var(--foreground);
+    .combination-sector-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
       font-size: 12px;
-      line-height: 1.4;
+      line-height: 1.5;
+    }
+    .combination-sector-label {
+      flex-shrink: 0;
+      font-weight: 600;
+      color: var(--foreground);
+      min-width: 110px;
+    }
+    .combination-sector-tickers {
+      color: var(--muted-foreground);
+      word-break: break-word;
     }
 
     .combination-chip strong {
@@ -1979,9 +2019,19 @@ def render_homepage() -> HTMLResponse:
             <div class="explanation-body fade-content" id="explanation-body">첫 계산이 완료되면 이 위치에 설명이 표시됩니다.</div>
             <div class="summary-text fade-content" id="summary"></div>
             <div class="combination-panel fade-content" id="combination-panel" hidden>
-              <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
-              <div class="combination-panel-meta" id="combination-meta"></div>
-              <div class="combination-members" id="combination-members"></div>
+              <div class="combination-panel-header" onclick="this.parentElement.classList.toggle('open')">
+                <div>
+                  <div class="combination-panel-title">현재 적용된 종목 유니버스</div>
+                  <div class="combination-panel-summary" id="combination-summary"></div>
+                </div>
+                <span class="combination-panel-chevron">&#9660;</span>
+              </div>
+              <div class="combination-panel-body">
+                <div class="combination-panel-inner">
+                  <div class="combination-panel-meta" id="combination-meta"></div>
+                  <div class="combination-members" id="combination-members"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2335,9 +2385,18 @@ def render_homepage() -> HTMLResponse:
       }
 
       combinationPanelEl.hidden = false;
-      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 자산군별 역할 정의에 따라 현재 포트폴리오 컴포넌트를 구성했습니다. 현재 적용된 유니버스 ID는 ${selection.combination_id} 입니다.`;
-      combinationMembersEl.innerHTML = Object.entries(selection.members_by_sector || {})
-        .map(([sectorCode, tickers]) => `<span class="combination-chip"><strong>${sectorCode}</strong>${(tickers || []).join(", ")}</span>`)
+      combinationPanelEl.classList.remove("open");
+
+      const sectors = Object.entries(selection.members_by_sector || {});
+      const totalTickers = sectors.reduce((sum, [, t]) => sum + (t || []).length, 0);
+      document.getElementById("combination-summary").textContent = `${sectors.length}개 자산군 · ${totalTickers}개 종목`;
+
+      combinationMetaEl.textContent = `${sourceLabel || "관리자 유니버스"} 기준으로 자산군별 역할 정의에 따라 포트폴리오 컴포넌트를 구성했습니다.`;
+      combinationMembersEl.innerHTML = sectors
+        .map(([sectorCode, tickers]) => {
+          const tickerList = (tickers || []).join(", ");
+          return `<div class="combination-sector-row"><span class="combination-sector-label">${sectorCode}</span><span class="combination-sector-tickers">${tickerList}</span></div>`;
+        })
         .join("");
     }
 

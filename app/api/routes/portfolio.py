@@ -30,7 +30,7 @@ from app.api.schemas.response import (
     VolatilityHistoryResponse,
     VolatilityPointResponse,
 )
-from app.core.config import DEMO_STOCK_PRICES_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
+from app.core.config import DEMO_STOCK_PRICES_PATH, DEMO_STOCK_UNIVERSE_PATH, TARGET_VOLATILITY_MAX, TARGET_VOLATILITY_MIN, TARGET_VOLATILITY_STEP
 from app.engine.comparison import build_comparison
 from app.engine.rebalance import simulate_quarterly_rebalance
 from app.data.stock_repository import StockDataRepository
@@ -439,6 +439,37 @@ def earnings_history(payload: EarningsHistoryRequest) -> EarningsHistoryResponse
     )
 
 
+def _build_sector_map(data_source: SimulationDataSource) -> tuple[dict[str, str], dict[str, str]]:
+    """Return (ticker_to_sector, sector_to_name) mappings."""
+    if data_source == SimulationDataSource.MANAGED_UNIVERSE:
+        instruments = portfolio_service.managed_universe_service.get_active_instruments()
+    elif data_source == SimulationDataSource.STOCK_COMBINATION_DEMO:
+        instruments = StockDataRepository().load_stock_universe(str(DEMO_STOCK_UNIVERSE_PATH))
+    else:
+        instruments = []
+
+    ticker_to_sector: dict[str, str] = {}
+    for inst in instruments:
+        ticker_to_sector[inst.ticker.upper()] = inst.sector_code
+
+    assets = portfolio_service.list_assets()
+    sector_to_name: dict[str, str] = {a.code: a.name for a in assets}
+
+    return ticker_to_sector, sector_to_name
+
+
+def _aggregate_by_sector(
+    ticker_values: dict[str, float],
+    ticker_to_sector: dict[str, str],
+) -> dict[str, float]:
+    """Sum ticker-level values into sector-level totals."""
+    aggregated: dict[str, float] = {}
+    for ticker, value in ticker_values.items():
+        sector = ticker_to_sector.get(ticker, ticker)
+        aggregated[sector] = aggregated.get(sector, 0.0) + value
+    return {k: round(v, 6) for k, v in aggregated.items()}
+
+
 @router.post("/rebalance-simulation", response_model=RebalanceSimulationResponse)
 def rebalance_simulation(payload: RebalanceSimulationRequest) -> RebalanceSimulationResponse:
     tickers = [t for t, w in payload.weights.items() if w > 0]
@@ -464,25 +495,44 @@ def rebalance_simulation(payload: RebalanceSimulationRequest) -> RebalanceSimula
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"리밸런싱 시뮬레이션 중 오류가 발생했습니다: {exc}") from exc
 
+    # Build sector aggregation mapping
+    ticker_to_sector, sector_to_name = _build_sector_map(payload.data_source)
+
+    # Aggregate time series asset_values by sector
+    aggregated_time_series = []
+    for p in result.time_series:
+        sector_values = _aggregate_by_sector(p.asset_values, ticker_to_sector)
+        aggregated_time_series.append(
+            RebalanceTimePointResponse(date=p.date, total_value=p.total_value, asset_values=sector_values)
+        )
+
+    # Aggregate rebalance events by sector
+    aggregated_events = []
+    for e in result.rebalance_events:
+        sector_trades = _aggregate_by_sector(e.trades, ticker_to_sector)
+        sector_pre = _aggregate_by_sector(e.pre_weights, ticker_to_sector)
+        sector_post = _aggregate_by_sector(e.post_weights, ticker_to_sector)
+        aggregated_events.append(
+            RebalanceEventResponse(
+                date=e.date,
+                total_value=e.total_value,
+                pre_weights=sector_pre,
+                post_weights=sector_post,
+                trades=sector_trades,
+            )
+        )
+
+    # Aggregate target weights by sector
+    sector_target_weights = _aggregate_by_sector(result.target_weights, ticker_to_sector)
+
     return RebalanceSimulationResponse(
         start_date=result.start_date,
         end_date=result.end_date,
         investment_amount=result.investment_amount,
-        target_weights=result.target_weights,
-        time_series=[
-            RebalanceTimePointResponse(date=p.date, total_value=p.total_value, asset_values=p.asset_values)
-            for p in result.time_series
-        ],
-        rebalance_events=[
-            RebalanceEventResponse(
-                date=e.date,
-                total_value=e.total_value,
-                pre_weights=e.pre_weights,
-                post_weights=e.post_weights,
-                trades=e.trades,
-            )
-            for e in result.rebalance_events
-        ],
+        target_weights=sector_target_weights,
+        sector_names=sector_to_name,
+        time_series=aggregated_time_series,
+        rebalance_events=aggregated_events,
         final_value=result.final_value,
         total_return_pct=result.total_return_pct,
         no_rebalance_final_value=result.no_rebalance_final_value,
@@ -491,11 +541,11 @@ def rebalance_simulation(payload: RebalanceSimulationRequest) -> RebalanceSimula
 
 
 def _fetch_benchmark_prices(start_date: str) -> dict[str, pd.Series]:
-    """Fetch S&P 500, Nasdaq 100, and 10-year Treasury ETF prices via yfinance."""
+    """Fetch S&P 500 and 10-year Treasury ETF prices via yfinance."""
     benchmarks: dict[str, pd.Series] = {}
     try:
         import yfinance as yf
-        tickers = {"sp500": "SPY", "nasdaq100": "QQQ", "treasury": "IEF"}
+        tickers = {"sp500": "SPY", "treasury": "IEF"}
         for key, ticker in tickers.items():
             try:
                 data = yf.download(ticker, start=start_date, progress=False, auto_adjust=True)

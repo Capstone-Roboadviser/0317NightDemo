@@ -121,7 +121,6 @@ def build_comparison(
     # --- Benchmark lines ---
     benchmark_configs = {
         "sp500": {"label": "S&P 500", "color": "#ef4444"},
-        "nasdaq100": {"label": "Nasdaq 100", "color": "#f59e0b"},
         "treasury": {"label": "10년 국채", "color": "#78716c"},
     }
     if benchmark_series:

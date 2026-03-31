@@ -84,6 +84,8 @@ class RepresentativeCombinationContext:
 
 
 class PortfolioSimulationService:
+    SHORT_HISTORY_DISPLAY_ROWS = MINIMUM_HISTORY_ROWS * 5
+
     def __init__(self, return_model: ExpectedReturnModel | None = None) -> None:
         self.mapping_service = ProfileMappingService()
         self.explanation_service = ExplanationService()
@@ -306,20 +308,27 @@ class PortfolioSimulationService:
     ) -> list[ManagedUniverseShortHistoryInstrument]:
         aligned_counts = aligned_returns.count() if not aligned_returns.empty else pd.Series(dtype=int)
         raw_counts = raw_returns.count() if not raw_returns.empty else pd.Series(dtype=int)
-        first_dates = (
-            raw_prices.groupby(raw_prices["ticker"].astype(str).str.upper())["date"].min()
-            if not raw_prices.empty
-            else pd.Series(dtype="datetime64[ns]")
-        )
+        if not raw_prices.empty:
+            raw_price_index = raw_prices.copy()
+            raw_price_index["ticker_upper"] = raw_price_index["ticker"].astype(str).str.upper()
+            first_dates = raw_price_index.groupby("ticker_upper")["date"].min()
+            last_dates = raw_price_index.groupby("ticker_upper")["date"].max()
+        else:
+            first_dates = pd.Series(dtype="datetime64[ns]")
+            last_dates = pd.Series(dtype="datetime64[ns]")
         instruments_by_ticker = {instrument.ticker.upper(): instrument for instrument in instruments}
 
         short_items: list[ManagedUniverseShortHistoryInstrument] = []
         for ticker, instrument in instruments_by_ticker.items():
             aligned_rows = int(aligned_counts.get(ticker, 0))
-            if aligned_rows >= MINIMUM_HISTORY_ROWS:
-                continue
             raw_rows = int(raw_counts.get(ticker, 0))
             first_date = first_dates.get(ticker)
+            last_date = last_dates.get(ticker)
+            history_years = 0.0
+            if not pd.isna(first_date) and not pd.isna(last_date):
+                history_years = max(0.0, (pd.Timestamp(last_date) - pd.Timestamp(first_date)).days / 365.25)
+            if history_years >= 5.0:
+                continue
             short_items.append(
                 ManagedUniverseShortHistoryInstrument(
                     ticker=ticker,
@@ -328,6 +337,8 @@ class PortfolioSimulationService:
                     aligned_return_rows=aligned_rows,
                     raw_return_rows=raw_rows,
                     first_price_date=None if pd.isna(first_date) else pd.Timestamp(first_date).strftime("%Y-%m-%d"),
+                    last_price_date=None if pd.isna(last_date) else pd.Timestamp(last_date).strftime("%Y-%m-%d"),
+                    history_years=round(history_years, 2),
                     is_youngest=(
                         price_window is not None
                         and ticker == str(price_window.youngest_ticker or "").upper()
@@ -337,7 +348,7 @@ class PortfolioSimulationService:
 
         return sorted(
             short_items,
-            key=lambda item: (item.aligned_return_rows, 0 if item.is_youngest else 1, item.ticker),
+            key=lambda item: (0 if item.is_youngest else 1, item.history_years, item.ticker),
         )
 
     def _component_upper_bounds(self, asset_codes: list[str]) -> np.ndarray:

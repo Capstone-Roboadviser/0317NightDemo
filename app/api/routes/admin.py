@@ -209,6 +209,8 @@ def get_managed_universe_readiness() -> ManagedUniverseReadinessResponse:
                 aligned_return_rows=item.aligned_return_rows,
                 raw_return_rows=item.raw_return_rows,
                 first_price_date=item.first_price_date,
+                last_price_date=item.last_price_date,
+                history_years=item.history_years,
                 is_youngest=item.is_youngest,
             )
             for item in readiness.short_history_instruments

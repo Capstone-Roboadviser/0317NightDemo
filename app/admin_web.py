@@ -1111,9 +1111,9 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
           <div class="readiness-section">
-            <div class="readiness-title">짧은 이력 종목</div>
+            <div class="readiness-title">짧은 이력 종목 (5년 미만)</div>
             <div id="readiness-short-history" class="history-warning-list">
-              <div class="empty">아직 부족 이력 종목 진단 결과가 없습니다.</div>
+              <div class="empty">5년 미만 이력 종목이 없습니다.</div>
             </div>
           </div>
           <div class="readiness-section">
@@ -1616,18 +1616,19 @@ def render_admin_page() -> HTMLResponse:
             <div class="history-warning-head">
               <div class="history-warning-ticker">${item.ticker}</div>
               <span class="pill ${item.is_youngest ? "danger" : "warn"}">
-                ${item.is_youngest ? "youngest · 공통 구간 제한" : "이력 부족"}
+                ${item.is_youngest ? "youngest · 5년 미만" : "5년 미만"}
               </span>
             </div>
             <div class="history-warning-copy">
               <div>${item.sector_name} (${item.sector_code})</div>
-              <div>공통 구간 수익률 ${item.aligned_return_rows}행 / 전체 수익률 ${item.raw_return_rows}행</div>
-              <div>최초 가격일 ${item.first_price_date || "-"}</div>
+              <div>개별 이력 약 ${item.history_years.toFixed(2)}년 · 전체 수익률 ${item.raw_return_rows}행</div>
+              <div>이력 구간 ${item.first_price_date || "-"} ~ ${item.last_price_date || "-"}</div>
+              <div>공통 구간 수익률 ${item.aligned_return_rows}행</div>
             </div>
           </div>
         `).join("");
       } else {
-        readinessShortHistoryEl.innerHTML = '<div class="empty">최소 이력 기준에 걸리는 종목이 없습니다.</div>';
+        readinessShortHistoryEl.innerHTML = '<div class="empty">5년 미만 이력 종목이 없습니다.</div>';
       }
 
       if (data.sector_checks?.length) {

@@ -182,6 +182,8 @@ class ManagedUniverseShortHistoryInstrument:
     aligned_return_rows: int
     raw_return_rows: int
     first_price_date: str | None
+    last_price_date: str | None
+    history_years: float
     is_youngest: bool
 
 

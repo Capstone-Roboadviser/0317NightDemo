@@ -1111,9 +1111,9 @@ def render_admin_page() -> HTMLResponse:
             </div>
           </div>
           <div class="readiness-section">
-            <div class="readiness-title">짧은 이력 종목 (5년 미만)</div>
+            <div class="readiness-title">짧은 이력 종목 (3년 미만)</div>
             <div id="readiness-short-history" class="history-warning-list">
-              <div class="empty">5년 미만 이력 종목이 없습니다.</div>
+              <div class="empty">3년 미만 이력 종목이 없습니다.</div>
             </div>
           </div>
           <div class="readiness-section">
@@ -1616,7 +1616,7 @@ def render_admin_page() -> HTMLResponse:
             <div class="history-warning-head">
               <div class="history-warning-ticker">${item.ticker}</div>
               <span class="pill ${item.is_youngest ? "danger" : "warn"}">
-                ${item.is_youngest ? "youngest · 5년 미만" : "5년 미만"}
+                ${item.is_youngest ? "youngest · 3년 미만" : "3년 미만"}
               </span>
             </div>
             <div class="history-warning-copy">
@@ -1628,7 +1628,7 @@ def render_admin_page() -> HTMLResponse:
           </div>
         `).join("");
       } else {
-        readinessShortHistoryEl.innerHTML = '<div class="empty">5년 미만 이력 종목이 없습니다.</div>';
+        readinessShortHistoryEl.innerHTML = '<div class="empty">3년 미만 이력 종목이 없습니다.</div>';
       }
 
       if (data.sector_checks?.length) {

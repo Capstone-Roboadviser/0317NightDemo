@@ -84,7 +84,7 @@ class RepresentativeCombinationContext:
 
 
 class PortfolioSimulationService:
-    SHORT_HISTORY_DISPLAY_ROWS = MINIMUM_HISTORY_ROWS * 5
+    SHORT_HISTORY_DISPLAY_ROWS = MINIMUM_HISTORY_ROWS * 3
 
     def __init__(self, return_model: ExpectedReturnModel | None = None) -> None:
         self.mapping_service = ProfileMappingService()
@@ -327,7 +327,7 @@ class PortfolioSimulationService:
             history_years = 0.0
             if not pd.isna(first_date) and not pd.isna(last_date):
                 history_years = max(0.0, (pd.Timestamp(last_date) - pd.Timestamp(first_date)).days / 365.25)
-            if history_years >= 5.0:
+            if history_years >= 3.0:
                 continue
             short_items.append(
                 ManagedUniverseShortHistoryInstrument(

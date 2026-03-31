@@ -1966,6 +1966,17 @@ def render_homepage() -> HTMLResponse:
             <div class="card-description">매 분기 말 목표 비중으로 되돌리는 리밸런싱 전략과 바이앤홀드 전략의 성과를 비교합니다.</div>
           </div>
           <div class="card-content">
+            <div class="earn-controls">
+              <div class="earn-field">
+                <label for="rebal-start">투자 시작일</label>
+                <input type="date" id="rebal-start" value="2024-01-02" />
+              </div>
+              <div class="earn-field">
+                <label for="rebal-amount">투자 금액 (원)</label>
+                <input type="text" id="rebal-amount" value="10,000,000" />
+              </div>
+              <button class="earn-btn" id="rebal-btn">시뮬레이션</button>
+            </div>
             <div class="rebal-metrics" id="rebal-metrics" style="display:none">
               <div class="rebal-metric">
                 <div class="rebal-metric-label">리밸런싱 최종 가치</div>
@@ -3867,18 +3878,32 @@ def render_homepage() -> HTMLResponse:
         };
       }
 
+      var rebalStartInput = document.getElementById("rebal-start");
+      var rebalAmountInput = document.getElementById("rebal-amount");
+      var rebalBtn = document.getElementById("rebal-btn");
+
+      // Format amount input with commas
+      rebalAmountInput.addEventListener("blur", function() {
+        var v = Number(String(this.value).replace(/[^0-9]/g, "")) || 10000000;
+        this.value = v.toLocaleString("ko-KR");
+      });
+
+      rebalBtn.addEventListener("click", function() {
+        if (typeof lastData !== "undefined" && lastData && lastData.selected_point && lastData.selected_point.weights) {
+          window.loadRebalanceSimulation(lastData.selected_point.weights, lastData.data_source);
+        }
+      });
+
       window.loadRebalanceSimulation = function(weights, dataSource) {
         if (!weights || !Object.keys(weights).length) return;
-        var earnStartInput = document.getElementById("earn-start");
-        var earnAmountInput = document.getElementById("earn-amount");
-        var amount = Number(String(earnAmountInput.value).replace(/[^0-9]/g, "")) || 10000000;
+        var amount = Number(String(rebalAmountInput.value).replace(/[^0-9]/g, "")) || 10000000;
         fetch("/portfolio/rebalance-simulation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             weights: weights,
             data_source: dataSource || "stock_combination_demo",
-            start_date: earnStartInput.value,
+            start_date: rebalStartInput.value,
             investment_amount: amount,
           }),
         })

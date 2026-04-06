@@ -363,6 +363,26 @@ class PortfolioSimulationService:
             dtype=float,
         )
 
+    def _component_lower_bounds(
+        self,
+        asset_codes: list[str],
+        *,
+        use_asset_min_weights: bool,
+    ) -> np.ndarray:
+        if not use_asset_min_weights:
+            return pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values
+
+        asset_by_code = {asset.code: asset for asset in self.list_assets()}
+        return np.array(
+            [
+                float(asset_by_code[asset_code].min_weight)
+                if asset_code in asset_by_code
+                else float(STOCK_MIN_WEIGHT)
+                for asset_code in asset_codes
+            ],
+            dtype=float,
+        )
+
     def get_all_profile_weights(
         self,
         data_source: SimulationDataSource,
@@ -402,6 +422,7 @@ class PortfolioSimulationService:
             instruments=instruments,
             prices=prices,
             combination_prefix=combination_prefix,
+            use_asset_min_weights=True,
         )
         return self._build_profile_weight_map(
             frontier_points=representative_context.frontier_points,
@@ -596,6 +617,7 @@ class PortfolioSimulationService:
             instruments=instruments,
             prices=prices,
             combination_prefix=active_version.version_name,
+            use_asset_min_weights=True,
         )
         return EngineContext(
             assets=self.list_assets(),
@@ -622,6 +644,7 @@ class PortfolioSimulationService:
             instruments=instruments,
             prices=prices,
             combination_prefix="demo-stock-universe",
+            use_asset_min_weights=True,
         )
         return EngineContext(
             assets=self.list_assets(),
@@ -643,6 +666,8 @@ class PortfolioSimulationService:
         self,
         selected_candidates: dict[str, PortfolioComponentCandidate],
         component_returns: pd.DataFrame,
+        *,
+        use_asset_min_weights: bool = False,
     ) -> tuple[pd.Series, pd.DataFrame, list[FrontierPoint], list[tuple[float, float, dict[str, float]]]]:
         asset_codes = list(component_returns.columns)
         correlation = component_returns.corr().reindex(index=asset_codes, columns=asset_codes)
@@ -652,7 +677,10 @@ class PortfolioSimulationService:
 
         constraints = self.constraint_engine.build_for_codes(
             asset_codes,
-            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values,
+            lower_bounds=self._component_lower_bounds(
+                asset_codes,
+                use_asset_min_weights=use_asset_min_weights,
+            ),
             upper_bounds=self._component_upper_bounds(asset_codes),
             extra_constraints=(
                 build_average_correlation_constraint(
@@ -706,6 +734,7 @@ class PortfolioSimulationService:
         instruments: list[StockInstrument],
         prices: pd.DataFrame,
         combination_prefix: str,
+        use_asset_min_weights: bool = False,
     ) -> RepresentativeCombinationContext:
         stock_returns = StockDataRepository().build_stock_returns(prices)
         if stock_returns.empty:
@@ -737,6 +766,7 @@ class PortfolioSimulationService:
                 expected_returns, covariance, best_point = self._evaluate_component_combination(
                     combo_returns,
                     selected_candidates,
+                    use_asset_min_weights=use_asset_min_weights,
                 )
             except RuntimeError as exc:
                 reason = str(exc)
@@ -794,6 +824,7 @@ class PortfolioSimulationService:
                 stock_returns,
                 selected_candidates,
             ),
+            use_asset_min_weights=use_asset_min_weights,
         )
         selection_view = CombinationSelectionView(
             combination_id=self._build_combination_id(combination_prefix, members_by_sector),
@@ -885,6 +916,8 @@ class PortfolioSimulationService:
         self,
         component_returns: pd.DataFrame,
         selected_candidates: dict[str, PortfolioComponentCandidate],
+        *,
+        use_asset_min_weights: bool = False,
     ) -> tuple[pd.Series, pd.DataFrame, FrontierPoint]:
         asset_codes = list(component_returns.columns)
         correlation = component_returns.corr().reindex(index=asset_codes, columns=asset_codes)
@@ -894,7 +927,10 @@ class PortfolioSimulationService:
 
         constraints = self.constraint_engine.build_for_codes(
             asset_codes,
-            lower_bounds=pd.Series(STOCK_MIN_WEIGHT, index=asset_codes, dtype=float).values,
+            lower_bounds=self._component_lower_bounds(
+                asset_codes,
+                use_asset_min_weights=use_asset_min_weights,
+            ),
             upper_bounds=self._component_upper_bounds(asset_codes),
             extra_constraints=(
                 build_average_correlation_constraint(

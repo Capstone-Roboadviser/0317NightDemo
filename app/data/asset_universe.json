@@ -23,23 +23,21 @@
     "code": "new_growth",
     "name": "신성장주",
     "category": "thematic_growth",
-    "description": "신성장 테마 후보 종목을 동일비중 바스켓으로 묶어 성장 모멘텀을 넓게 반영하는 자산군입니다.",
+    "description": "신성장 테마 후보 종목 중 대표 종목을 선택해 성장 모멘텀을 반영하는 자산군입니다.",
     "color": "#2D6A8E",
     "min_weight": 0.05,
     "max_weight": 0.05,
-    "role_key": "equal_weight_basket"
+    "role_key": "single_representative"
   },
   {
     "code": "short_term_bond",
     "name": "단기 채권",
     "category": "short_duration_bond",
-    "description": "만기가 짧은 채권 중심으로 방어적 성격을 가지며, 배당 성격의 수익 보정을 함께 반영하는 자산군입니다.",
+    "description": "만기가 짧은 채권 중심으로 방어적 성격을 가지며, 배당이 반영된 총수익 가격을 기준으로 평가하는 자산군입니다.",
     "color": "#5B7C99",
     "min_weight": 0.05,
     "max_weight": 0.30,
-    "role_key": "dividend_representative",
-    "expected_return_adjustment": 0.02,
-    "expected_return_adjustment_reference_ticker": "BND"
+    "role_key": "single_representative"
   },
   {
     "code": "cash_equivalents",
@@ -49,9 +47,7 @@
     "color": "#6C757D",
     "min_weight": 0.00,
     "max_weight": 0.30,
-    "role_key": "dividend_representative",
-    "expected_return_adjustment": 0.01,
-    "expected_return_adjustment_reference_ticker": "BIL"
+    "role_key": "single_representative"
   },
   {
     "code": "gold",

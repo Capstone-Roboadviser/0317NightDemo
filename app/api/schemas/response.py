@@ -19,7 +19,6 @@ class AssetClassResponse(BaseModel):
     selection_mode: str
     weighting_mode: str
     return_mode: str
-    expected_return_adjustment: float
 
 
 class AssetUniverseResponse(BaseModel):

@@ -50,12 +50,6 @@ class StaticDataRepository:
                         selection_mode=role.selection_mode,
                         weighting_mode=role.weighting_mode,
                         return_mode=role.return_mode,
-                        expected_return_adjustment=float(item.get("expected_return_adjustment", 0.0) or 0.0),
-                        expected_return_adjustment_reference_ticker=(
-                            str(item["expected_return_adjustment_reference_ticker"]).upper()
-                            if item.get("expected_return_adjustment_reference_ticker")
-                            else None
-                        ),
                     )
                 )
             self._asset_universe = assets

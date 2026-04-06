@@ -978,9 +978,6 @@ class PortfolioSimulationService:
                 prior_weights=prior_weights,
             )
         )
-        adjustments = self.component_service.component_adjustment_series(selected_candidates)
-        if not adjustments.empty:
-            expected_returns = expected_returns.add(adjustments.reindex(asset_codes).fillna(0.0), fill_value=0.0)
         return expected_returns.astype(float)
 
     def _build_universe_selection(

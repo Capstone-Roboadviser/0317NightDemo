@@ -19,7 +19,6 @@ class PortfolioComponentService:
     """Builds optimizer input components from asset-class role metadata."""
 
     def __init__(self) -> None:
-        self._reference_adjustment_cache: dict[str, float] = {}
         self._market_cap_cache: dict[str, float | None] = {}
 
     def build_candidate_map(
@@ -117,18 +116,6 @@ class PortfolioComponentService:
             for asset_code, candidate in selected_candidates.items()
         }
 
-    def component_adjustment_series(
-        self,
-        selected_candidates: dict[str, PortfolioComponentCandidate],
-    ) -> pd.Series:
-        return pd.Series(
-            {
-                asset_code: float(self._resolve_expected_return_adjustment(candidate))
-                for asset_code, candidate in selected_candidates.items()
-            },
-            dtype=float,
-        )
-
     def component_prior_weight_series(
         self,
         selected_candidates: dict[str, PortfolioComponentCandidate],
@@ -166,7 +153,6 @@ class PortfolioComponentService:
         asset: AssetClass,
         available_tickers: list[str],
     ) -> list[PortfolioComponentCandidate]:
-        adjustment = asset.expected_return_adjustment if asset.return_mode == "historical_mean_plus_adjustment" else 0.0
         if asset.selection_mode == "single_representative":
             return [
                 PortfolioComponentCandidate(
@@ -177,8 +163,6 @@ class PortfolioComponentService:
                     weighting_mode=asset.weighting_mode,
                     return_mode=asset.return_mode,
                     member_tickers=(ticker,),
-                    expected_return_adjustment=adjustment,
-                    expected_return_adjustment_reference_ticker=asset.expected_return_adjustment_reference_ticker,
                 )
                 for ticker in available_tickers
             ]
@@ -193,32 +177,10 @@ class PortfolioComponentService:
                     weighting_mode=asset.weighting_mode,
                     return_mode=asset.return_mode,
                     member_tickers=tuple(available_tickers),
-                    expected_return_adjustment=adjustment,
-                    expected_return_adjustment_reference_ticker=asset.expected_return_adjustment_reference_ticker,
                 )
             ]
 
         raise RuntimeError(f"지원하지 않는 selection_mode 입니다: {asset.selection_mode}")
-
-    def _resolve_expected_return_adjustment(
-        self,
-        candidate: PortfolioComponentCandidate,
-    ) -> float:
-        fallback = float(candidate.expected_return_adjustment)
-        if candidate.return_mode != "historical_mean_plus_adjustment":
-            return 0.0
-
-        reference_ticker = candidate.expected_return_adjustment_reference_ticker
-        if not reference_ticker:
-            return fallback
-
-        cached = self._reference_adjustment_cache.get(reference_ticker)
-        if cached is not None:
-            return cached
-
-        adjustment = self._fetch_reference_dividend_yield(reference_ticker, fallback=fallback)
-        self._reference_adjustment_cache[reference_ticker] = adjustment
-        return adjustment
 
     def _resolve_component_market_cap(
         self,
@@ -232,50 +194,6 @@ class PortfolioComponentService:
         if not positive_caps:
             return None
         return float(sum(positive_caps))
-
-    def _fetch_reference_dividend_yield(
-        self,
-        ticker: str,
-        *,
-        fallback: float,
-    ) -> float:
-        try:
-            reference = yf.Ticker(ticker)
-            dividends = reference.dividends
-            if dividends is None or len(dividends) == 0:
-                return fallback
-
-            dividends = dividends.dropna()
-            if dividends.empty:
-                return fallback
-
-            trailing_start = pd.Timestamp.utcnow().tz_localize(None) - pd.Timedelta(days=365)
-            trailing_dividends = dividends[dividends.index >= trailing_start]
-            if trailing_dividends.empty:
-                return fallback
-
-            price_history = reference.history(period="5d", auto_adjust=False, actions=False)
-            if price_history is None or price_history.empty:
-                return fallback
-
-            close_series = price_history.get("Close")
-            if close_series is None:
-                return fallback
-
-            close_series = pd.to_numeric(close_series, errors="coerce").dropna()
-            if close_series.empty:
-                return fallback
-
-            latest_close = float(close_series.iloc[-1])
-            if latest_close <= 0:
-                return fallback
-
-            dividend_yield = float(trailing_dividends.sum()) / latest_close
-            if dividend_yield <= 0:
-                return fallback
-            return dividend_yield
-        except Exception:  # pragma: no cover - network/data-source dependent
-            return fallback
 
     def _fetch_single_market_cap(
         self,

@@ -18,7 +18,6 @@ def render_admin_page() -> HTMLResponse:
                 "selection_mode": asset.selection_mode,
                 "weighting_mode": asset.weighting_mode,
                 "return_mode": asset.return_mode,
-                "expected_return_adjustment": asset.expected_return_adjustment,
             }
             for asset in assets
         ],

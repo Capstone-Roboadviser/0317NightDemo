@@ -2850,8 +2850,8 @@ def render_homepage() -> HTMLResponse:
         if (typeof window.loadRebalanceSimulation === "function") {
           window.loadRebalanceSimulation(point.weights, lastData.data_source);
         }
-        if (typeof window.loadComparisonBacktest === "function") {
-          window.loadComparisonBacktest(lastData.data_source);
+        if (typeof window.rerenderCompChart === "function") {
+          window.rerenderCompChart();
         }
       }
     }
@@ -4179,6 +4179,10 @@ def render_homepage() -> HTMLResponse:
       var compTestStart = document.getElementById("comp-test-start");
       var lastCompData = null;
 
+      window.rerenderCompChart = function() {
+        if (lastCompData) renderCompChart(lastCompData);
+      };
+
       function getCompTheme() {
         var s = getComputedStyle(document.documentElement);
         return {
@@ -4215,8 +4219,20 @@ def render_homepage() -> HTMLResponse:
       };
 
       function renderCompChart(data) {
-        var lines = data.lines;
-        if (!lines || !lines.length) { compChart.style.display = "none"; return; }
+        var allLines = data.lines;
+        if (!allLines || !allLines.length) { compChart.style.display = "none"; return; }
+
+        // Filter to only selected portfolio type + benchmarks
+        var profile = sliderProfile(currentSliderPosition());
+        var selectedKey = profile.risk_profile;
+        var lines = allLines.filter(function(line) {
+          // Keep the selected profile's actual and expected lines
+          if (line.key === selectedKey || line.key === selectedKey + "_expected") return true;
+          // Keep benchmark lines (not a portfolio profile key)
+          if (["conservative", "balanced", "growth"].indexOf(line.key) === -1 &&
+              line.key.indexOf("_expected") === -1) return true;
+          return false;
+        });
 
         var c = getCompTheme();
         var width = 900, height = 420;

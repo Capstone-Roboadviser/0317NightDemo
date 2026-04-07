@@ -127,7 +127,7 @@
 이 구조의 장점:
 
 - 자산군 수가 늘어나도 카탈로그 row 추가로 대응 가능
-- 역할 수가 3개에서 4개 이상으로 늘어나도 템플릿/전략 추가로 대응 가능
+- 역할 수가 현재 2개보다 늘어나도 템플릿/전략 추가로 대응 가능
 - 관리자 콘솔과 메인 화면이 같은 카탈로그를 읽으므로 하드코딩 의존이 줄어듭니다
 
 ## 현재 지원하는 역할
@@ -138,12 +138,6 @@
 - `selection_mode = single_representative`
 - `weighting_mode = single`
 
-### `dividend_representative`
-
-- 후보 종목 중 대표 종목 1개를 선택
-- 기대수익률 계산 시 Black-Litterman prior 위에 `expected_return_adjustment`를 가산
-- 배당 성격을 반영하고 싶은 자산군을 위한 역할
-
 ### `equal_weight_basket`
 
 - 후보 종목 전체를 하나의 동일비중 바스켓으로 사용
@@ -152,13 +146,10 @@
 
 중요:
 
-- 현재 기본 자산군 카탈로그는 역할을 혼합해서 사용합니다.
-- `short_term_bond`는 `dividend_representative`로 설정돼 `BND`의 최근 1년 배당수익률을 우선 참조하고, 실패 시 `2%p` fallback 보정치를 사용합니다.
-- `cash_equivalents`는 `dividend_representative`로 설정돼 `BIL`의 최근 1년 배당수익률을 우선 참조하고, 실패 시 `1%p` fallback 보정치를 사용합니다.
-- `new_growth`는 표시명 `신성장주`로 노출되며 `equal_weight_basket`으로 동작합니다.
 - 현재 기본 자산군 카탈로그는 `미국 가치주 / 미국 성장주 / 신성장주 / 단기 채권 / 현금성자산 / 금 / 인프라 채권` 7개입니다.
-- 나머지 자산군은 `single_representative`를 기본으로 사용합니다.
-- 런타임은 이미 세 역할을 모두 이해하도록 구현돼 있습니다.
+- 현재 저장소 기준 기본 카탈로그는 위 7개 자산군 모두 `single_representative`를 사용합니다.
+- 런타임은 `equal_weight_basket`도 이해하므로, 특정 자산군의 `role_key`를 바꾸면 동일비중 바스켓 구조를 적용할 수 있습니다.
+- `return_mode`는 현재 메타데이터로는 전달되지만, 실제 컴포넌트 수익률 생성 분기의 직접 조건으로는 아직 사용되지 않습니다.
 
 ## 현재 핵심 계산 구조
 
@@ -202,10 +193,9 @@
 - 관리자/데모 유니버스 모드(`managed_universe`, `stock_combination_demo`)
   - 역할 기반 컴포넌트 수익률을 입력으로 받아 Black-Litterman market-implied prior를 계산합니다.
   - prior weight는 컴포넌트의 시가총액 비중입니다.
-  - `equal_weight_basket`은 구성 종목 시가총액 합으로 prior weight를 만듭니다.
+  - `equal_weight_basket`이 사용되는 경우 구성 종목 시가총액 합으로 prior weight를 만듭니다.
   - 시가총액을 구하지 못하면 equal-weight prior로 fallback 합니다.
   - 현재는 subjective views(`P`, `Q`)를 쓰지 않으므로 posterior는 prior와 같습니다.
-  - `dividend_representative`는 이 BL prior 위에 배당 보정치를 더합니다.
 
 ## 관리자 유니버스 흐름
 
@@ -217,6 +207,10 @@
 4. `yfinance`에서 가격 적재
 5. readiness 점검
 6. 메인 시뮬레이터에서 active 버전 사용
+
+## 역할 설계 참고
+
+자산군별 `role_key`, 역할 템플릿 필드 책임, 런타임 해석 방식, 역할 추가 시 수정 포인트는 `docs/ASSET_ROLE_DESIGN.md`를 참고하세요.
 
 이때 유니버스는 Postgres에 버전 단위로 저장되므로, 입력값 변경과 계산 기준을 분리할 수 있습니다.
 

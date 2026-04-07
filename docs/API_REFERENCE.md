@@ -38,7 +38,6 @@
 - `selection_mode`
 - `weighting_mode`
 - `return_mode`
-- `expected_return_adjustment`
 
 ## 3. 종목 목록
 

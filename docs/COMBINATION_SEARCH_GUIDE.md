@@ -28,17 +28,17 @@
 - 후보 종목 중 1개가 선택 후보가 됩니다.
 - 후보가 3개면 조합 후보도 3개입니다.
 
-### `dividend_representative`
-
-- 선택 방식은 `single_representative`와 같지만
-- 평가 시 Black-Litterman prior 기대수익률 위에 배당 보정치가 더해집니다.
-- 현재 기본 카탈로그에서는 `short_term_bond`, `cash_equivalents` 자산군이 이 역할을 사용하며, 각각 `BND`, `BIL`의 최근 1년 배당수익률을 우선 참조합니다.
-
 ### `equal_weight_basket`
 
 - 후보 종목 전체를 하나의 동일비중 바스켓으로 묶습니다.
 - 따라서 이 자산군은 조합 수를 늘리지 않고, 하나의 고정 컴포넌트를 제공합니다.
-- 현재 기본 카탈로그에서는 `new_growth` 자산군이 표시명 `신성장주`로 노출되며 이 역할을 사용합니다.
+- 현재 저장소 기준 기본 카탈로그는 이 역할을 아직 사용하지 않지만, 런타임은 해당 역할을 지원합니다.
+
+중요:
+
+- 현재 저장소 기준 기본 카탈로그의 7개 자산군은 모두 `single_representative`를 사용합니다.
+- 따라서 현재 조합 탐색은 실질적으로 "자산군별 대표 종목 1개 선택" 문제로 동작합니다.
+- `equal_weight_basket`은 향후 특정 자산군의 `role_key`를 바꾸면 즉시 사용할 수 있는 확장 포인트입니다.
 
 ## 현재 규칙
 
@@ -69,6 +69,8 @@
 - 런타임 orchestration: `app/services/portfolio_service.py`
 - 역할 해석/컴포넌트 생성: `app/services/portfolio_component_service.py`
 - 과거 조합 탐색 스캐폴드: `app/services/combination_search_service.py`
+
+역할 필드 책임과 확장 방식은 `docs/ASSET_ROLE_DESIGN.md`를 참고하세요.
 
 ## 이후 확장 방향
 

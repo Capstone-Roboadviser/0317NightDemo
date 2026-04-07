@@ -48,21 +48,17 @@
 
 - `single_representative`
   - 후보 종목 중 대표 종목 1개를 선택합니다.
-- `dividend_representative`
-  - 후보 종목 중 대표 종목 1개를 선택하고, Black-Litterman prior 기대수익률 위에 배당 보정치를 더합니다.
 - `equal_weight_basket`
   - 후보 종목 전체를 동일비중 바스켓으로 묶어 하나의 컴포넌트로 사용합니다.
 
 중요한 점:
 
-- 현재 기본 카탈로그는 역할을 혼합해서 사용합니다.
-- `short_term_bond`는 `dividend_representative`로 두고 `BND`의 최근 1년 배당수익률을 우선 참조합니다. 조회가 실패하면 기본 보정치 `2%p`를 fallback으로 사용합니다.
-- `cash_equivalents`도 `dividend_representative`로 두고 `BIL`의 최근 1년 배당수익률을 우선 참조합니다. 조회가 실패하면 기본 보정치 `1%p`를 fallback으로 사용합니다.
-- `new_growth`는 표시명 `신성장주`로 노출되며 `equal_weight_basket`으로 동작합니다.
 - 현재 기본 자산군 카탈로그는 `미국 가치주 / 미국 성장주 / 신성장주 / 단기 채권 / 현금성자산 / 금 / 인프라 채권` 7개입니다.
-- 나머지 자산군은 기본적으로 `single_representative`를 사용합니다.
+- 현재 저장소 기준 기본 카탈로그는 위 7개 자산군 모두 `single_representative`를 사용합니다.
+- 런타임은 `equal_weight_basket`도 지원하므로, 특정 자산군의 `role_key`를 바꾸면 동일비중 바스켓 구조를 적용할 수 있습니다.
 - 구조상 역할 수와 자산군 수는 늘릴 수 있습니다.
 - 관리자 콘솔의 자산군 목록도 이 카탈로그를 읽어 동적으로 렌더링됩니다.
+- 역할 필드 책임과 런타임 해석 방식은 `docs/ASSET_ROLE_DESIGN.md`를 참고하세요.
 
 ## 현재 계산 로직
 
@@ -75,7 +71,6 @@
    이때 실제 최적화와 히스토리 차트는 유니버스 내에서 가장 늦게 시작한 종목 기준의 **공통 가격 구간**만 사용합니다.
 5. 각 자산군의 `role_key`에 따라 포트폴리오 컴포넌트 후보를 만듭니다.
 6. `single_representative`면 후보 종목별 후보를 만들고, `equal_weight_basket`이면 전체 종목을 하나의 바스켓으로 묶습니다.
-   `dividend_representative`는 대표 종목 1개를 선택하되, 설정된 배당 보정치를 기대수익률에 더합니다.
 7. 선택된 컴포넌트 수익률로 연환산 공분산을 계산하고, 시가총액 기반 prior weight를 구합니다.
 8. 기대수익률은 Black-Litterman prior `Pi = delta * Sigma * w_prior`로 계산합니다.
    - 현재 `delta`는 `2.5` 고정값을 사용합니다.
@@ -96,8 +91,8 @@
 - `managed_universe` / `stock_combination_demo` 모드
   - 역할 기반 컴포넌트 수익률을 입력으로 받아 **Black-Litterman market-implied prior**를 계산합니다.
   - prior weight는 각 컴포넌트의 시가총액 비중입니다.
-  - `equal_weight_basket`은 바스켓 구성 종목들의 시가총액을 합산해 prior weight를 만듭니다.
-  - `dividend_representative`는 BL prior 기대수익률에 배당 보정치를 추가로 더합니다.
+  - `equal_weight_basket`이 사용되는 경우 바스켓 구성 종목들의 시가총액을 합산해 prior weight를 만듭니다.
+  - 현재 `return_mode`는 역할 메타데이터로 노출되지만, 컴포넌트 수익률 생성 로직의 별도 분기에는 아직 직접 연결되어 있지 않습니다.
 
 ## 현재 제약조건
 
@@ -229,6 +224,7 @@
 - `GET /admin/tickers/lookup`
 
 세부 응답 형식은 `docs/API_REFERENCE.md`를 참고하세요.
+웹 화면 기능/플로우 기준 명세는 `docs/WEB_FEATURE_SPEC.md`를 참고하세요.
 
 ## 관리자 콘솔에서 가능한 작업
 
@@ -309,7 +305,9 @@ export DATABASE_URL="postgresql://..."
 ## 관련 문서
 
 - 아키텍처: `docs/ARCHITECTURE.md`
+- 자산군 역할 설계: `docs/ASSET_ROLE_DESIGN.md`
 - API 명세: `docs/API_REFERENCE.md`
+- 웹 기능 명세: `docs/WEB_FEATURE_SPEC.md`
 - 데모 가이드: `docs/DEMO_GUIDE.md`
 - 종목 데이터 가이드: `docs/STOCK_DATA_GUIDE.md`
 - 조합 탐색 가이드: `docs/COMBINATION_SEARCH_GUIDE.md`

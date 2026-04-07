@@ -47,20 +47,23 @@
 현재 지원하는 역할:
 
 - `single_representative`
-- `dividend_representative`
 - `equal_weight_basket`
 
 즉 같은 자산군 후보군이라도, 역할에 따라:
 
 - 대표 종목 1개가 포트폴리오에 들어가거나
-- 대표 종목 1개 + 기대수익률 보정이 적용되거나
 - 여러 종목이 동일비중 바스켓으로 함께 들어갈 수 있습니다
 
 현재 기본 카탈로그 기준:
 
-- `short_term_bond`, `cash_equivalents`는 `dividend_representative`
-- `new_growth`는 `equal_weight_basket`
-- 나머지 자산군은 `single_representative`
+- 현재 저장소 기준 7개 자산군 모두 `single_representative`
+- `equal_weight_basket`은 런타임이 지원하지만 현재 기본 카탈로그에는 할당되어 있지 않음
+
+중요:
+
+- `return_mode`는 현재 API/UI에 노출되는 역할 메타데이터입니다.
+- 하지만 현재 컴포넌트 수익률 생성 로직은 주로 `selection_mode`, `weighting_mode`를 기준으로 동작합니다.
+- 역할 설계 상세는 `docs/ASSET_ROLE_DESIGN.md`를 참고하세요.
 
 ## 가격 데이터 요구사항
 
